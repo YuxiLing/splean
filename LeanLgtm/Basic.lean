@@ -533,7 +533,7 @@ infixr:51 " ==> " => himpl
 
 /- Entailment between postconditions, written [Q1 ===> Q2]. -/
 
-def qimpl A (Q1 Q2:A->hprop) : Prop :=
+def qimpl {A} (Q1 Q2 : A → hprop) : Prop :=
   forall (v:A), Q1 v ==> Q2 v
 
 infixr:51 " ===> " => qimpl
@@ -862,3 +862,85 @@ by
   { move=> h hF
     srw (hstar_hpure_l)
     apply hpure_inv_hempty in hF=>// }
+
+/- ----------------- Properties of [hexists] ----------------- -/
+
+lemma hexists_intro : forall A (x : A) (J : A → hprop) h,
+  J x h → (hexists J) h :=
+by
+  move=> A x J h =>//
+
+lemma hexists_inv : forall A (J : A → hprop) h,
+  (hexists J) h → exists x, J x h :=
+by
+  move=> A J h
+  srw (hexists) ; sapply
+
+lemma himpl_hexists_l : forall A H (J : A → hprop),
+  (forall x, J x ==> H) → (hexists J) ==> H :=
+by
+  move=> A H J
+  srw [0](himpl)=> hJx h [a]
+  move: hJx ; sapply
+
+lemma himpl_hexists_r : forall A (x : A) H (J : A → hprop),
+  (H ==> J x) →
+  H ==> (hexists J) :=
+by
+  move=> A x H J
+  srw (himpl)=> hHimpJ h hH
+  exists x=>//
+
+lemma himpl_hexists : forall A (J1 J2 : A → hprop),
+  J1 ===> J2 →
+  hexists J1 ==> hexists J2 :=
+by
+  move=> A J1 J2
+  srw (qimpl)=> hJs
+  apply (himpl_hexists_l)=> x h hJ1
+  apply hJs in hJ1=>//
+
+
+/- ------------------- Properties of [hforall] ------------------- -/
+
+lemma hforall_intro : forall A (J : A → hprop) h,
+  (forall x, J x h) → (hforall J) h :=
+by
+  move=> A J h hJ=>//
+
+lemma hforall_inv : forall A (J : A → hprop) h,
+  (hforall J) h → forall x, J x h :=
+by
+  move=> A J h
+  srw (hforall) ; sapply
+
+lemma himpl_hforall_r : forall A (J : A → hprop) H,
+  (forall x, H ==> J x) →
+  H ==> (hforall J) :=
+by
+  move=> A J H
+  srw [0](himpl)=> hJ h hH x =>//
+
+lemma himpl_hforall_l : forall A (x : A) (J : A → hprop) H,
+  (J x ==> H) →
+  (hforall J) ==> H :=
+by
+  move=> A x J H
+  srw (himpl)=> hImp h
+  srw (hforall)=>//
+
+lemma hforall_specialize : forall A (x : A) (J : A → hprop),
+  (hforall J) ==> (J x) :=
+by
+  move=> A x J h
+  srw (hforall) ; sapply
+
+lemma himpl_hforall : forall A (J1 J2 : A → hprop),
+  J1 ===> J2 →
+  hforall J1 ==> hforall J2 :=
+by
+  move=> A J1 J2
+  srw (qimpl)=> hQimp
+  apply himpl_hforall_r=> x
+  apply himpl_hforall_l
+  move: hQimp ; sapply
