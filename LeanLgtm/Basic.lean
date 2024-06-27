@@ -710,7 +710,7 @@ by
     aesop=>//
     apply (Finmap.disjoint_empty h) }
 
-lemma hstar_empty_r : forall H,
+lemma hstar_hempty_r : forall H,
   H ∗ /[] = H :=
 by
   move=> H
@@ -777,3 +777,88 @@ by
   srw !(himpl) => hH12 hStar32 h ![h3 h1 hH3 hH1 hDisj hU]
   apply hStar32
   exists h3, h1 =>//
+
+
+/- --------------- Properties of [hpure] --------------- -/
+
+lemma hpure_intro : forall P,
+  P → /[P] ∅ :=
+by
+  move=> P hP
+  exists hP
+
+lemma hpure_inv : forall P h,
+  /[P] h →
+  P ∧ h = ∅ :=
+by
+  move=> P h []=>//
+
+lemma hstar_hpure_l : forall P H h,
+  (/[P] ∗ H) h = (P ∧ H h) :=
+by
+  move=> P H h
+  apply propext
+  srw (hpure) (hstar_hexists) (hstar_hempty_l)
+  apply Iff.intro
+  { move=> [hP]=> // }
+  { move=> []=> // }
+
+lemma hstar_hpure_r : forall P H h,
+  (H ∗ /[P]) h = (H h ∧ P) :=
+by
+  move=> P H h
+  srw (hstar_comm) (hstar_hpure_l)=>//
+
+lemma himpl_hstar_hpure_r : forall P H H',
+   P →
+   (H ==> H') →
+   H ==> (/[P]) ∗ H' :=
+by
+  move=> P H H' hP
+  srw !(himpl) => hH1 h
+  srw (hstar_hpure_l) =>//
+
+lemma hpure_inv_hempty : forall P h,
+  /[P] h →
+  P ∧ /[] h :=
+by
+  move=> P H
+  srw -(hstar_hpure_l) (hstar_hempty_r) =>//
+
+lemma hpure_intro_hempty : forall P h,
+  /[] h → P → /[P] h :=
+by
+  move=> P h=>//
+
+lemma himpl_hempty_hpure : forall P,
+  P → /[] ==> /[P] :=
+by
+  move=> P hP h
+  move: hP=>//
+
+lemma himpl_hstar_hpure_l : forall P H H',
+  (P → H ==> H') →
+  (/[P] ∗ H) ==> H' :=
+by
+  move=> P H H'
+  srw (himpl)=> hPimp h
+  srw (hstar_hpure_l)=>//
+
+lemma hempty_eq_hpure_true :
+  /[] = /[True] :=
+by
+  apply himpl_antisym
+  { move=>h hEmp
+    apply hpure_intro_hempty=>// }
+  { move=> h hT
+    apply hpure_inv_hempty in hT=>// }
+
+lemma hfalse_hstar_any : forall H,
+  /[False] ∗ H = /[False] :=
+by
+  move=> H ; apply himpl_antisym
+  { move=> h
+    srw (hstar_hpure_l)=>// }
+  { move=> h hF
+    srw (hstar_hpure_l)
+    apply hpure_inv_hempty in hF=>// }
