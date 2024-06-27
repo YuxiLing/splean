@@ -1,29 +1,8 @@
 import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
-/- -------- Language Syntax -------------------------- -/
-/-
-Inductive prim : Type :=
-  | val_ref : prim
-  | val_get : prim
-  | val_set : prim
-  | val_free : prim
-  | val_neg : prim
-  | val_opp : prim
-  | val_eq : prim
-  | val_add : prim
-  | val_neq : prim
-  | val_sub : prim
-  | val_mul : prim
-  | val_div : prim
-  | val_mod : prim
-  | val_rand : prim
-  | val_le : prim
-  | val_lt : prim
-  | val_ge : prim
-  | val_gt : prim
-  | val_ptr_add : prim.
--/
+/- =========================== Language Syntax =========================== -/
+
 inductive prim where
   | val_ref : prim
   | val_get : prim
@@ -78,7 +57,7 @@ abbrev state := Finmap (λ _ : loc ↦ val)
 abbrev heap := state
 
 
-/- ---------------- Notations ----------------- -/
+/- ============================= Notations ============================= -/
 /- Declaring implicit types for meta-variables -/
 variable (f : var)
 variable (b : Bool)
@@ -116,7 +95,7 @@ instance : Coe var trm where
   coe x := trm.trm_var x
 
 
-/- ------------- Terms, Values and Substitutions -------------- -/
+/- ================== Terms, Values and Substitutions ================== -/
 open trm
 
 def trm_is_val : trm → Prop
@@ -138,7 +117,7 @@ def subst (y : var) (v' : val) (t : trm) : trm :=
   | trm_if t0 t1 t2 => trm_if (subst y v' t0) (subst y v' t1) (subst y v' t2)
 
 
-/- ------------ Small-Step Semantics ----------------- -/
+/- ======================= Small-Step Semantics ======================= -/
 open val
 open prim
 
@@ -296,7 +275,7 @@ def notstuck (s : state) (t : trm) : Prop :=
   trm_is_val t \/ reducible s t
 
 
-/- ------- Big-step Semantics for Primitive Operations ------- -/
+/- ========== Big-step Semantics for Primitive Operations ========== -/
 
 /- Big-step relation for unary operators -/
 inductive evalunop : prim → val → (val → Prop) → Prop where
@@ -371,7 +350,7 @@ inductive evalbinop : val → val → val → (val->Prop) → Prop where
         (fun v => v = val_loc (Int.toNat p2))
 
 
-/- ---------------- Big-step Semantics -------------------- -/
+/- ========================= Big-step Semantics ========================= -/
 
 section eval
 
@@ -527,3 +506,274 @@ def eval_like (t1 t2:trm) : Prop :=
   forall s Q, eval s t1 Q -> eval s t2 Q
 
 end eval
+
+
+/- ====================== Heap Predicates ====================== -/
+
+namespace hprop_scope
+open hprop_scope
+
+/- The type of heap predicates is named [hprop]. -/
+
+abbrev hprop := heap -> Prop
+
+/- Implicit types for meta-variables. -/
+
+variable (P : Prop)
+variable (H : hprop)
+variable (Q : val → hprop)
+
+/- Entailment for heap predicates, written [H1 ==> H2]. This entailment
+    is linear. -/
+
+def himpl (H1 H2 : hprop) : Prop :=
+  forall h, H1 h -> H2 h
+
+infixr:51 " ==> " => himpl
+
+/- Entailment between postconditions, written [Q1 ===> Q2]. -/
+
+def qimpl A (Q1 Q2:A->hprop) : Prop :=
+  forall (v:A), Q1 v ==> Q2 v
+
+infixr:51 " ===> " => qimpl
+
+/- --------- Definitions of Heap predicates --------- -/
+
+def hempty : hprop :=
+  fun h => (h = ∅)
+
+def hsingle (p : loc) (v : val) : hprop :=
+  fun h => (h = Finmap.singleton p v)
+
+def hstar (H1 H2 : hprop) : hprop :=
+  fun h => exists h1 h2,
+    H1 h1 ∧ H2 h2 ∧ Finmap.Disjoint h1 h2 ∧ h = h1 ∪ h2
+
+def hexists {A} (J : A → hprop) : hprop :=
+  fun h => exists x, J x h
+
+def hforall {A} (J : A → hprop) : hprop :=
+  fun h => forall x, J x h
+
+notation:max "/[]" => hempty
+
+infixr:42 " ~~> " => hsingle
+
+infixr:53 " ∗ " => hstar
+
+/- not quite sure about these two notations:
+
+ notation3 "exists' " (...) ", " J r:(scoped J => hexists J) => r
+
+ notation3 "forall' " (...) ", " J r:(scoped J => hexists J) => r -/
+
+/- TODO: Translate notations for hexists and hforall:
+
+Notation "'\exists' x1 .. xn , H" :=
+  (hexists (fun x1 => .. (hexists (fun xn => H)) ..))
+  (at level 39, x1 binder, H at level 50, right associativity,
+   format "'[' '\exists' '/ '  x1  ..  xn , '/ '  H ']'") : hprop_scope.
+
+Notation "'\forall' x1 .. xn , H" :=
+  (hforall (fun x1 => .. (hforall (fun xn => H)) ..))
+  (at level 39, x1 binder, H at level 50, right associativity,
+   format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : hprop_scope.-/
+
+
+/- Derived operators -/
+
+def hpure (P : Prop) : hprop :=
+  hexists (fun (_ : P) => /[])
+
+def htop : hprop :=
+  hexists (fun (H : hprop) => H)
+
+def hwand (H1 H2 : hprop) : hprop :=
+  hexists (fun (H0 : hprop) => H0 ∗ hpure ((H1 ∗ H0) ==> H2))
+
+def qwand {A} (Q1 Q2 : A → hprop) : hprop :=
+  hforall (fun (x : A) => hwand (Q1 x) (Q2 x))
+
+notation:max "/[" P "]" => hpure P
+
+notation "h⊤" => htop
+
+notation:52 Q " ∗+ " H => (fun x => hstar (Q x) H)
+
+infixr:54 " -∗ " => hwand
+
+infix:54 " --∗ " => qwand
+
+
+/- ============ Properties of Separation Logic Operators ============ -/
+
+/- ------------ Properties of [himpl] and [qimpl] ------------ -/
+
+lemma himpl_refl : forall H, H ==> H :=
+by
+  move=> H h ; sapply
+
+lemma himpl_trans : forall H2 H1 H3,
+  (H1 ==> H2) → (H2 ==> H3) → (H1 ==> H3) :=
+by
+  move=> H2 H1 H3 h1imp2 h2imp3
+  srw (himpl)
+  srw (himpl) at h1imp2 h2imp3=> //
+
+lemma himpl_trans_r : forall H2 H1 H3,
+  H2 ==> H3 → H1 ==> H2 → H1 ==> H3 :=
+by
+  move=> H2 H1 H3 /[swap]
+  apply himpl_trans
+
+lemma himpl_antisym : forall H1 H2,
+  (H1 ==> H2) → (H2 ==> H1) → (H1 = H2) :=
+by
+  move=> H1 H2 h1imp2 h2imp1
+  apply funext ; move=> h ; apply propext
+  apply Iff.intro
+  { srw (himpl) at h1imp2=>// }
+  { srw (himpl) at h2imp1=>// }
+
+lemma hprop_op_comm : forall (op : hprop → hprop → hprop),
+  (forall H1 H2, op H1 H2 ==> op H2 H1) →
+  (forall H1 H2, op H1 H2 = op H2 H1) :=
+by
+  move=> op hcomm H1 H2
+  apply himpl_antisym=> //
+
+
+/- ---------------- Properties of [hempty] ---------------- -/
+
+lemma hempty_intro : /[] ∅ :=
+  by
+    srw (hempty)
+
+lemma hempty_inv : forall h,
+  /[] h → h = ∅ :=
+by
+  move=> h; sapply
+
+/- ---------------- Properties of [hstar] ---------------- -/
+
+lemma hstar_intro : forall H1 H2 h1 h2,
+  H1 h1 →
+  H2 h2 →
+  Finmap.Disjoint h1 h2 →
+  (H1 ∗ H2) (h1 ∪ h2) :=
+by
+  move=> H1 H2 h1 h2 hH1 hH2 hDisj=> //
+
+lemma hstar_inv : forall H1 H2 h,
+  (H1 ∗ H2) h →
+  exists h1 h2, H1 h1 ∧ H2 h2 ∧ Finmap.Disjoint h1 h2 ∧ h = h1 ∪ h2 :=
+by
+  move=> H1 H2 h ; sapply
+
+lemma hstar_comm : forall H1 H2,
+  H1 ∗ H2 = H2 ∗ H1 :=
+by
+  apply hprop_op_comm
+  move => H1 H2 h hH1H2
+  apply hstar_inv in hH1H2
+  move=> ![h1 h2 hH1 hH2 hDisj hU]
+  have hDisjSymm : Finmap.Disjoint h2 h1 := Finmap.Disjoint.symm h1 h2 hDisj
+  have hUSymm : h = h2 ∪ h1 :=
+    by srw (Finmap.union_comm_of_disjoint hDisj) at hU=>//
+  exists h2, h1
+
+lemma hstar_assoc : forall H1 H2 H3,
+  (H1 ∗ H2) ∗ H3 = H1 ∗ (H2 ∗ H3) :=
+by
+  move=> H1 H2 H3 ; apply himpl_antisym ; move=> h
+  { move=> ![h12 h3 [h1 [h2 ![hH1 hH2 HDisj12 h12eq]]] hH3 hDisj hU]
+    srw (h12eq) at * ; exists h1, (h2 ∪ h3)
+    aesop
+    apply hstar_intro=>//
+    apply (Iff.mp (Finmap.disjoint_union_left h1 h2 h3)) in hDisj =>// }
+  { move=> ![h1 h23 hH1 [h2 [h3 ![hH2 hH3 hDisj23 h23eq]]] hDisj hU]
+    srw (h23eq) at * ; exists (h1 ∪ h2), h3
+    aesop
+    apply hstar_intro=>//
+    apply (Iff.mp (Finmap.disjoint_union_right h1 h2 h3)) in hDisj=>// }
+
+lemma hstar_hempty_l : forall H,
+  /[] ∗ H = H :=
+by
+  move=>H
+  apply himpl_antisym
+  { move=> h ![h1 h2 hEmpty hH hDisj hU]
+    apply hempty_inv in hEmpty =>// }
+  { move=> h hH
+    exists ∅, h
+    aesop=>//
+    apply (Finmap.disjoint_empty h) }
+
+lemma hstar_empty_r : forall H,
+  H ∗ /[] = H :=
+by
+  move=> H
+  srw (hstar_comm)
+  apply hstar_hempty_l
+
+lemma hstar_hexists : forall A (J : A → hprop) H,
+  (hexists J) ∗ H = hexists (fun x => (J x) ∗ H) :=
+by
+  move=> A J H ; apply himpl_antisym
+  { move=> h ![h1 h2 [x] hJ hH hDisj hU]
+    exists x=>// }
+  { move=> h [x ![h1 h2 hJ hH hDisj hU]]
+    exists h1, h2 =>// }
+
+lemma hstar_hforall : forall A (J : A → hprop) H,
+  (hforall J) ∗ H ==> hforall (J ∗+ H) :=
+by
+  move=> A J H h [h1 ![h2 hFAJ] hH hDisj hU x]
+  srw (hforall) at hFAJ
+  exists h1, h2=>//
+
+lemma himpl_frame_l : forall H1 H1' H2,
+  H1 ==> H1' →
+  (H1 ∗ H2) ==> (H1' ∗ H2) :=
+by
+  move=> H1 H1' H2
+  srw (himpl)=> hH1' h ![ h1 h2 hH1 hH2 hDisj hU]
+  exists h1, h2 =>//
+
+lemma himpl_frame_r : forall H1 H2 H2',
+  H2 ==> H2' →
+  (H1 ∗ H2) ==> (H1 ∗ H2') :=
+by
+  move=> H1 H2 H2'
+  srw (himpl)=> hH2' h ![h1 h2 hH1 hH2 hDisj hU]
+  exists h1, h2 =>//
+
+lemma himpl_frame_lr : forall H1 H1' H2 H2',
+  H1 ==> H1' →
+  H2 ==> H2' →
+  (H1 ∗ H2) ==> (H1' ∗ H2') :=
+by
+  move=> H1 H1' H2 H2'
+  srw !(himpl) => hH1' hH2' h ![h1 h2 hH1 hH2 hDisj hU]
+  exists h1, h2 =>//
+
+lemma himpl_hstar_trans_l : forall H1 H2 H3 H4,
+  H1 ==> H2 →
+  H2 ∗ H3 ==> H4 →
+  H1 ∗ H3 ==> H4 :=
+by
+  move=> H1 H2 H3 H4
+  srw !(himpl) => hH12 hStar23 h ![h1 h3 hH1 hH3 hDisj hU]
+  apply hStar23
+  exists h1, h3 =>//
+
+lemma himpl_hstar_trans_r : forall H1 H2 H3 H4,
+  H1 ==> H2 →
+  H3 ∗ H2 ==> H4 →
+  H3 ∗ H1 ==> H4 :=
+by
+  move=> H1 H2 H3 H4
+  srw !(himpl) => hH12 hStar32 h ![h3 h1 hH3 hH1 hDisj hU]
+  apply hStar32
+  exists h3, h1 =>//
