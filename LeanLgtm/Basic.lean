@@ -58,15 +58,6 @@ abbrev heap := state
 
 
 /- ============================= Notations ============================= -/
-/- Declaring implicit types for meta-variables -/
-variable (f : var)
-variable (b : Bool)
-variable (p : loc)
-variable (n : Int)
-variable (v w r vf vx : val)
-variable (t : trm)
-variable (h : heap)
-variable (s : state)
 
 /- val and term are inhabited -/
 instance : Inhabited val where
@@ -517,12 +508,6 @@ open hprop_scope
 
 abbrev hprop := heap -> Prop
 
-/- Implicit types for meta-variables. -/
-
-variable (P : Prop)
-variable (H : hprop)
-variable (Q : val → hprop)
-
 /- Entailment for heap predicates, written [H1 ==> H2]. This entailment
     is linear. -/
 
@@ -599,11 +584,14 @@ notation:max "/[" P "]" => hpure P
 
 notation "h⊤" => htop
 
-notation:52 Q " ∗+ " H => (fun x => hstar (Q x) H)
+def qstar {A} (Q : A → hprop) (H : hprop) : A → hprop :=
+  fun x => hstar (Q x) H
+
+infixr:53 " ∗+ " => qstar
 
 infixr:54 " -∗ " => hwand
 
-infix:54 " --∗ " => qwand
+infix:54 " ⟶∗ " => qwand
 
 
 /- ============ Properties of Separation Logic Operators ============ -/
@@ -703,7 +691,7 @@ lemma hstar_hempty_l : forall H,
 by
   move=>H
   apply himpl_antisym
-  { move=> h ![h1 h2 hEmpty hH hDisj hU]
+  { move=> h ![h1 h2 hEmpty hH ? hU]
     apply hempty_inv in hEmpty =>// }
   { move=> h hH
     exists ∅, h
@@ -944,3 +932,141 @@ by
   apply himpl_hforall_r=> x
   apply himpl_hforall_l
   move: hQimp ; sapply
+
+
+/- -------------------- Properties of [hwand] -------------------- -/
+
+lemma hwand_equiv : forall H0 H1 H2,
+  (H0 ==> H1 -∗ H2) ↔ (H1 ∗ H0 ==> H2) :=
+by
+  move=> H0 H1 H2 ; srw (hwand) ; apply Iff.intro
+  { srw (hstar_comm)=> hEx
+    apply (himpl_hstar_trans_l) ; apply hEx
+    srw (hstar_hexists)
+    apply himpl_hexists_l=> H'
+    srw [2](hstar_comm) (hstar_assoc) [2](hstar_comm)
+    apply himpl_hstar_hpure_l=>//  }
+  { move=> h1star0imp2
+    apply (himpl_hexists_r)
+    rw [<-hstar_hempty_r H0]
+    apply (himpl_frame_r) ; apply himpl_hempty_hpure=>// }
+
+lemma himpl_hwand_r : forall H1 H2 H3,
+  H2 ∗ H1 ==> H3 →
+  H1 ==> (H2 -∗ H3) :=
+by
+  move=> H1 H2 H3
+  srw (hwand_equiv); sapply
+
+lemma himpl_hwand_r_inv : forall H1 H2 H3,
+  H1 ==> (H2 -∗ H3) →
+  H2 ∗ H1 ==> H3 :=
+by
+  move=> H1 H2 H3
+  srw -(hwand_equiv); sapply
+
+lemma hwand_cancel : forall H1 H2,
+  H1 ∗ (H1 -∗ H2) ==> H2 :=
+by
+  move=> H1 H2
+  apply himpl_hwand_r_inv=> h; sapply
+
+lemma himpl_hempty_hwand_same : forall H,
+  /[] ==> (H -∗ H) :=
+by
+  move=> H
+  apply himpl_hwand_r
+  srw (hstar_hempty_r)=> h ; sapply
+
+lemma hwand_hempty_l : forall H,
+  (/[] -∗ H) = H :=
+by
+  move=> H ; apply himpl_antisym
+  { rw [<- hstar_hempty_l (/[] -∗ H)]
+    apply hwand_cancel }
+  { apply himpl_hwand_r
+    srw (hstar_hempty_l)=> h ; sapply }
+
+lemma hwand_hpure_l : forall P H,
+  P → (/[P] -∗ H) = H :=
+by
+  move=> P H hP ; apply himpl_antisym
+  { apply himpl_trans
+    apply (himpl_hstar_hpure_r P (/[P] -∗ H) (/[P] -∗ H))=>//
+    apply himpl_refl
+    apply hwand_cancel }
+  { srw (hwand_equiv)
+    apply himpl_hstar_hpure_l=> ? h ; sapply }
+
+lemma hwand_curry : forall H1 H2 H3,
+  (H1 ∗ H2) -∗ H3 ==> H1 -∗ (H2 -∗ H3) :=
+by
+  move=> H1 H2 H3
+  apply himpl_hwand_r ; apply himpl_hwand_r
+  srw -(hstar_assoc) [0](hstar_comm)
+  apply hwand_cancel
+
+lemma hwand_uncurry : forall H1 H2 H3,
+  H1 -∗ (H2 -∗ H3) ==> (H1 ∗ H2) -∗ H3 :=
+by
+  move=> H1 H2 H3
+  srw (hwand_equiv) [2](hstar_comm) (hstar_assoc)
+  apply himpl_hstar_trans_r
+  apply (hwand_cancel) ; apply (hwand_cancel)
+
+lemma hwand_curry_eq : forall H1 H2 H3,
+  (H1 ∗ H2) -∗ H3 = H1 -∗ (H2 -∗ H3) :=
+by
+  move=> H1 H2 H3 ; apply himpl_antisym
+  { apply hwand_curry }
+  { apply hwand_uncurry }
+
+lemma hwand_inv : forall h1 h2 H1 H2,
+  (H1 -∗ H2) h2 →
+  H1 h1 →
+  Finmap.Disjoint h1 h2 →
+  H2 (h1 ∪ h2) :=
+by
+  move=> h1 h2 H1 H2 [HW hFun] hH1 hDisj
+  apply hstar_inv in hFun=> ![hW1 hW2 hHW hWpure ? hU]
+  apply hpure_inv in hWpure=> [h1W hW2emp]
+  srw (himpl) at h1W ; srw (hW2emp) at hU
+  apply h1W ; exists h1, hW1
+  srw (Finmap.union_empty) at hU : hDisj
+  srw (hU) //
+
+
+/- ----------------- Properties of [qwand] ----------------- -/
+
+lemma qwand_equiv : forall H A (Q1 Q2 : A → hprop),
+  H ==> (Q1 ⟶∗ Q2) ↔ (Q1 ∗+ H) ===> Q2 :=
+by
+  move=> H A Q1 Q2 ; srw (qwand) ; apply Iff.intro
+  { move=> hForall x /=
+    srw (qstar) (hstar_comm)
+    apply (himpl_hstar_trans_l H (hforall fun x' ↦ Q1 x' -∗ Q2 x'))=> //
+    apply (himpl_trans (hforall fun x0 ↦ ((Q1 x0 -∗ Q2 x0) ∗ Q1 x)))
+    apply (hstar_hforall) ; apply (himpl_hforall_l)
+    rw [hstar_comm] ; apply hwand_cancel }
+  { srw (qimpl) (qstar) => hQimp
+    apply (himpl_hforall_r)=> x
+    srw (hwand_equiv) // }
+
+lemma qwand_cancel : forall A (Q1 Q2 : A → hprop),
+  Q1 ∗+ (Q1 ⟶∗ Q2) ===> Q2 :=
+by
+  move=> A Q1 Q2
+  srw -(qwand_equiv)=> v //
+
+lemma himpl_qwand_r : forall A (Q1 Q2 : A → hprop) H,
+  Q1 ∗+ H ===> Q2 →
+  H ==> (Q1 ⟶∗ Q2) :=
+by
+  move=> A Q1 Q2 H
+  srw (qwand_equiv) ; sapply
+
+lemma qwand_specialize : forall A (x : A) (Q1 Q2 : A → hprop),
+  (Q1 ⟶∗ Q2) ==> (Q1 x -∗ Q2 x) :=
+by
+  move=> A x Q1 Q2
+  apply (himpl_hforall_l A x)=> h ; sapply
