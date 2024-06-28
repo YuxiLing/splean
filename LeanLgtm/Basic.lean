@@ -543,7 +543,7 @@ def hforall {A} (J : A → hprop) : hprop :=
 
 notation:max "/[]" => hempty
 
-infixr:42 " ~~> " => hsingle
+infixr:52 " ~~> " => hsingle
 
 infixr:53 " ∗ " => hstar
 
@@ -1070,3 +1070,88 @@ lemma qwand_specialize : forall A (x : A) (Q1 Q2 : A → hprop),
 by
   move=> A x Q1 Q2
   apply (himpl_hforall_l A x)=> h ; sapply
+
+
+/- --------------------- Properties of [htop] --------------------- -/
+
+lemma htop_intro : forall h,
+  h⊤ h :=
+by
+  move=> h //
+
+lemma himpl_htop_r : forall H,
+  H ==> h⊤ :=
+by
+  move=> H h //
+
+lemma htop_eq :
+  h⊤ = hexists (fun H : hprop ↦ H) :=
+by
+  srw (htop)
+
+lemma hstar_htop_htop :
+  h⊤ ∗ h⊤ = h⊤ :=
+by
+  apply himpl_antisym
+  { apply himpl_htop_r }
+  { srw -[1](hstar_hempty_r h⊤)
+    apply himpl_frame_r ; apply himpl_htop_r }
+
+
+/- -------------------- Properties of [hsingle] -------------------- -/
+
+lemma hsingle_intro : forall p v,
+  (p ~~> v) (Finmap.singleton p v) :=
+by
+  move=> p v //
+
+lemma hsingl_inv : forall p v h,
+  (p ~~> v) h →
+  h = Finmap.singleton p v :=
+by
+  move=> p v h ; sapply
+
+lemma disjoint_single_same_inv : forall {α : Type u} {β : α → Type v}
+  (p : α) (v1 v2 : β p),
+  Finmap.Disjoint (Finmap.singleton p v1) (Finmap.singleton p v2) →
+  False :=
+by
+  move=> ? β p v1 v2
+  srw (Finmap.Disjoint) (Not) => hDisj //
+
+
+lemma hstar_hsingle_same_loc : forall p v1 v2,
+  (p ~~> v1) ∗ (p ~~> v2) ==> /[False] :=
+by
+  move=> p v1 v2 h ![h1 h2]
+  srw [0](hsingle) => hh1 hh2 hDisj ?
+  srw (hpure) (hexists) /==
+  srw (hh1) (hh2) at hDisj
+  apply (disjoint_single_same_inv p v1 v2 hDisj)
+
+
+/- -------- Definitions and Properties of [haffine] and [hgc] -------- -/
+
+def haffine (_ : hprop) :=
+  True
+
+lemma haffine_hany : forall H,
+  haffine H :=
+by
+  move=> ? //
+
+lemma haffine_hempty : haffine /[] := haffine_hany /[]
+
+def hgc := htop -- Equivalent to [exists H, /[haffine H] ∗ H]
+
+notation "/GC" => hgc
+
+lemma haffine_hgc : haffine /GC := haffine_hany /GC
+
+lemma himpl_hgc_r : forall H,
+  haffine H →
+  H ==> /GC :=
+by
+  move=> H ? h //
+
+lemma hstar_hgc_hgc : /GC ∗ /GC = /GC := hstar_htop_htop
