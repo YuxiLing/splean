@@ -1,6 +1,9 @@
 import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
+
+open Classical
+
 /- =========================== Language Syntax =========================== -/
 
 inductive prim where
@@ -477,12 +480,13 @@ by
 /- Derived rules for reasoning about applications that don't require checking
    if terms are already values -/
 
-lemma eval_app_arg1' : forall s1 t1 t2 Q1 Q,
+lemma eval_app_arg1' (P :Prop) : forall s1 t1 t2 Q1 Q ,
   eval s1 t1 Q1 ->
   (forall v1 s2, Q1 v1 s2 -> eval s2 (trm_app v1 t2) Q) ->
   eval s1 (trm_app t1 t2) Q :=
 by
   move => s1 t1 t2 Q1 Q hevals1 hevals2
+
   sorry
 
 lemma eval_app_arg2' : forall s1 v1 t2 Q1 Q,
@@ -543,7 +547,8 @@ def hexists {A} (J : A → hprop) : hprop :=
 def hforall {A} (J : A → hprop) : hprop :=
   fun h => forall x, J x h
 
-notation:max "/[]" => hempty
+notation:max "emp" => hempty
+-- notation:max "" => hempty
 
 infixr:52 " ~~> " => hsingle
 
@@ -571,7 +576,7 @@ Notation "'\forall' x1 .. xn , H" :=
 /- Derived operators -/
 
 def hpure (P : Prop) : hprop :=
-  hexists (fun (_ : P) => /[])
+  hexists (fun (_ : P) => emp)
 
 def htop : hprop :=
   hexists (fun (H : hprop) => H)
@@ -582,18 +587,18 @@ def hwand (H1 H2 : hprop) : hprop :=
 def qwand {A} (Q1 Q2 : A → hprop) : hprop :=
   hforall (fun (x : A) => hwand (Q1 x) (Q2 x))
 
-notation:max "/[" P "]" => hpure P
+notation:max "〚" P "〛" => hpure P
 
-notation "h⊤" => htop
+notation "⊤⊤" => htop
 
 def qstar {A} (Q : A → hprop) (H : hprop) : A → hprop :=
   fun x => hstar (Q x) H
 
-infixr:53 " ∗+ " => qstar
+infixr:53 " ∗∗ " => qstar
 
 infixr:54 " -∗ " => hwand
 
-infix:54 " ⟶∗ " => qwand
+infix:54 " -∗∗ " => qwand
 
 
 /- ============ Properties of Separation Logic Operators ============ -/
@@ -636,12 +641,12 @@ by
 
 /- ---------------- Properties of [hempty] ---------------- -/
 
-lemma hempty_intro : /[] ∅ :=
+lemma hempty_intro : emp ∅ :=
   by
     srw (hempty)
 
 lemma hempty_inv : forall h,
-  /[] h → h = ∅ :=
+  emp h → h = ∅ :=
 by
   move=> h; sapply
 
@@ -678,10 +683,14 @@ lemma hstar_assoc : forall H1 H2 H3,
 by
   move=> H1 H2 H3 ; apply himpl_antisym ; move=> h
   { move=> ![h12 h3 [h1 [h2 ![hH1 hH2 HDisj12 h12eq]]] hH3 hDisj hU]
-    srw (h12eq) at * ; exists h1, (h2 ∪ h3)
-    aesop
-    apply hstar_intro=>//
-    apply (Iff.mp (Finmap.disjoint_union_left h1 h2 h3)) in hDisj =>// }
+    srw (h12eq) at *; exists h1, (h2 ∪ h3)
+    constructor=>//
+    constructor=>//
+    { apply hstar_intro=>//
+      apply (Iff.mp (Finmap.disjoint_union_left h1 h2 h3)) in hDisj =>// }
+    constructor=>//
+    apply (Iff.mp (Finmap.disjoint_union_left h1 h2 h3)) in hDisj =>//
+     }
   { move=> ![h1 h23 hH1 [h2 [h3 ![hH2 hH3 hDisj23 h23eq]]] hDisj hU]
     srw (h23eq) at * ; exists (h1 ∪ h2), h3
     aesop
