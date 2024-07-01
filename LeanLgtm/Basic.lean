@@ -85,6 +85,8 @@ instance : Coe val trm where
 instance : Coe var trm where
   coe x := trm.trm_var x
 
+instance : CoeFun trm (fun _ => trm -> trm) where
+  coe x := trm.trm_app x
 
 /- ================== Terms, Values and Substitutions ================== -/
 open trm
