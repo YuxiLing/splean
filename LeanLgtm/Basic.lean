@@ -94,7 +94,7 @@ instance : CoeFun trm (fun _ => trm -> trm) where
 /- ================== Terms, Values and Substitutions ================== -/
 open trm
 
-def trm_is_val : trm → Prop
+abbrev trm_is_val : trm → Prop
   | trm_val _ => true
   | _         => false
 
@@ -475,21 +475,29 @@ by
 /- Derived rules for reasoning about applications that don't require checking
    if terms are already values -/
 
-lemma eval_app_arg1' (P :Prop) : forall s1 t1 t2 Q1 Q ,
+lemma eval_app_arg1' : forall s1 t1 t2 Q1 Q ,
   eval s1 t1 Q1 ->
   (forall v1 s2, Q1 v1 s2 -> eval s2 (trm_app v1 t2) Q) ->
   eval s1 (trm_app t1 t2) Q :=
 by
   move => s1 t1 t2 Q1 Q hevals1 hevals2
-
-  sorry
+  scase: [(trm_is_val t1)]=> hVal
+  { apply eval.eval_app_arg1=>// }
+  { cases t1
+    { cases hevals1 ; apply hevals2=>// }
+    srw (trm_is_val) at hVal=>//}
 
 lemma eval_app_arg2' : forall s1 v1 t2 Q1 Q,
   eval s1 t2 Q1 ->
   (forall v2 s2, eval s2 (trm_app v1 v2) Q) ->
   eval s1 (trm_app v1 t2) Q :=
 by
-  sorry
+  move=> s1 v1 t2 Q1 Q hevals1 hevals2
+  scase: [(trm_is_val t2)]=> hVal
+  { apply eval.eval_app_arg2=>// }
+  { cases t2
+    { cases hevals1 ; apply hevals2=>// }
+    srw (trm_is_val) at hVal=>// }
 
 
 /- [eval_like t1 t2] asserts that [t2] evaluates like [t1], i.e.,
