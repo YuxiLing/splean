@@ -112,6 +112,9 @@ def subst (y : var) (v' : val) (t : trm) : trm :=
   | trm_let x t1 t2 => trm_let x (subst y v' t1) (if_y_eq x t2 (subst y v' t2))
   | trm_if t0 t1 t2 => trm_if (subst y v' t0) (subst y v' t1) (subst y v' t2)
 
+noncomputable def is_true (P : Prop) : Bool :=
+  if P then true else false
+
 
 /- ======================= Small-Step Semantics ======================= -/
 open val
@@ -170,18 +173,10 @@ inductive step : state → trm → state → trm → Prop where
       step s (trm_app val_rand (val_int n)) s (val_int n1)
 
   -- Binary Operations
-  | step_eq_true : forall s v1 v2,
-      v1 = v2 →
-      step s (trm_app (trm_app val_eq v1) v2) s (val_bool true)
-  | step_eq_false : forall s v1 v2,
-      v1 ≠ v2 →
-      step s (trm_app (trm_app val_eq v1) v2) s (val_bool false)
-  | step_neq_true : forall s v1 v2,
-      v1 ≠ v2 →
-      step s (trm_app (trm_app val_neq v1) v2) s (val_bool true)
-  | step_neq_false : forall s v1 v2,
-      v1 ≠ v2 →
-      step s (trm_app (trm_app val_neq v1) v2) s (val_bool false)
+  | step_eq : forall s v1 v2,
+      step s (trm_app (trm_app val_eq v1) v2) s (val_bool (is_true (v1 = v2)))
+  | step_neq : forall s v1 v2,
+      step s (trm_app (trm_app val_neq v1) v2) s (val_bool (is_true (v1 ≠ v2)))
   | step_add : forall s n1 n2,
       step s (trm_app (trm_app val_add (val_int n1)) (val_int n2)) s
         (val_int (n1 + n2))
@@ -284,23 +279,10 @@ inductive evalunop : prim → val → (val → Prop) → Prop where
 
 /- Big-step relation for binary operators -/
 inductive evalbinop : val → val → val → (val->Prop) → Prop where
-
-  /- Since equality of val is not decidable/we don't have a proof of
-     decidability (yet), I will break the rules for equality into their
-     two cases as a temporary solution -/
-  | evalbinop_eq_true : forall v1 v2,
-      v1 = v2 →
-      evalbinop val_eq v1 v2 (fun v => v = val_bool true)
-  | eval_binop_eq_false : forall v1 v2,
-      v1 ≠ v2 →
-      evalbinop val_eq v1 v2 (fun v => v = val_bool false)
-  | evalbinop_neq_true : forall v1 v2,
-      v1 ≠ v2 →
-      evalbinop val_neq v1 v2 (fun v => v = val_bool true)
-  | evalbinop_neq_false : forall v1 v2,
-      v1 = v2 →
-      evalbinop val_neq v1 v2 (fun v => v = val_bool false)
-
+  | evalbinop_eq : forall v1 v2,
+      evalbinop val_eq v1 v2 (fun v => v = val_bool (is_true (v1 = v2)))
+  | evalbinop_neq : forall v1 v2,
+      evalbinop val_neq v1 v2 (fun v => v = val_bool (is_true (v1 ≠ v2)))
   | evalbinop_add : forall n1 n2,
       evalbinop val_add (val_int n1) (val_int n2)
         (fun v => v = val_int (n1 + n2))
