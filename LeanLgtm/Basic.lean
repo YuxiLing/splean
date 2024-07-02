@@ -76,6 +76,10 @@ instance : Coe Bool val where
 instance : Coe Int val where
   coe z := val.val_int z
 
+/- Help Lean to treat Nat as val -/
+instance : OfNat val n where
+  ofNat := val.val_int n
+
 instance : Coe loc val where
   coe l := val.val_loc l
 
@@ -237,19 +241,15 @@ inductive steps : state → trm → state → trm → Prop :=
       steps s2 t2 s3 t3 →
       steps s1 t1 s3 t3
 
-lemma steps_of_step : forall s1 s2 t1 t2,
+lemma steps_of_step s1 s2 t1 t2 :
   step s1 t1 s2 t2 → steps s1 t1 s2 t2 :=
 by
-  move=> s1 s2 t1 t2 hstep
-  apply steps.steps_step=>//
+  sby move=> ?; apply steps.steps_step
 
-lemma steps_trans : forall s1 s2 s3 t1 t2 t3,
+lemma steps_trans s1 s2 s3 t1 t2 t3 :
   steps s1 t1 s2 t2 →
   steps s2 t2 s3 t3 →
-  steps s1 t1 s3 t3 :=
-by
-  move=> s1 s2 s3 t1 t2 t3
-  elim=> [s1' s2'| s1' s2' s3' t1' t2' t3' IH1 _ IH3 hstep3]=>//
+  steps s1 t1 s3 t3 := by sby elim
 
 /- Predicate [reducible s t] for asserting that [(s, t)] can step -/
 def reducible (s : state) (t : trm) : Prop :=
@@ -415,60 +415,57 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
 
 /- Rule for values to instantiate postconditions -/
 
-lemma eval_val_minimal : forall s v,
+lemma eval_val_minimal s v :
   eval s (trm_val v) (fun v' s' => (v' = v) /\ (s' = s)) :=
-by
-  move=> s v
-  apply eval.eval_val=>//
+  by sby apply eval.eval_val
 
 
 /- Special rules to avoid unecessary use of [evalbinop] and [evalunop] -/
 
-lemma eval_add : forall s n1 n2 Q,
+lemma eval_add  s n1 n2 Q :
   Q (val_int (n1 + n2)) s →
   eval s (trm_app (trm_app val_add (val_int n1)) (val_int n2)) Q :=
 by
-  move=> s n1 n2 Q hQ
+  move=> ?
   apply eval.eval_binop
   { apply evalbinop.evalbinop_add }
-  { move=> v hV =>// }
+  move=>//
 
-lemma eval_div : forall s n1 n2 Q,
+lemma eval_div s n1 n2 Q :
   n2 ≠ 0 ->
   Q (val_int (n1 / n2)) s ->
   eval s (trm_app (trm_app val_div (val_int n1)) (val_int n2)) Q :=
 by
-  move=> s n1 n2 Q hn2 hQ
+  move=> *
   apply eval.eval_binop
   { apply evalbinop.evalbinop_div=>// }
-  { move=> v hV =>// }
+  sdone
 
-lemma eval_rand : forall s (n : ℤ) Q,
+lemma eval_rand s (n : ℤ) Q :
   n > 0 ->
   (forall n1, 0 <= n1 ∧ n1 < n -> Q n1 s) ->
   eval s (trm_app val_rand (val_int n)) Q :=
 by
-  move=> s n Q hn hn1
+  move=> *
   apply eval.eval_unop
   { apply evalunop.evalunop_rand=>// }
-  { move=> v hV; cases hV =>// }
+  sby move=> ? []
 
 
 /- Derived rules for reasoning about applications that don't require checking
    if terms are already values -/
 
-lemma eval_app_arg1' : forall s1 t1 t2 Q1 Q ,
+lemma eval_app_arg1' s1 t1 t2 Q1 Q :
   eval s1 t1 Q1 ->
   (forall v1 s2, Q1 v1 s2 -> eval s2 (trm_app v1 t2) Q) ->
   eval s1 (trm_app t1 t2) Q :=
 by
-  move => s1 t1 t2 Q1 Q hevals1 hevals2
+  move=> hevals1 hevals2
   scase: [(trm_is_val t1)]=> hVal
-  { apply eval.eval_app_arg1=>// }
-  { cases t1
-    { cases hevals1 ; apply hevals2=>// }
-    srw (trm_is_val) at hVal=>//}
+  { sby apply eval.eval_app_arg1 }
+  sby scase: t1 hevals1=> // ? _ []
 
+/- TODO: optimise (similar to ↑) -/
 lemma eval_app_arg2' : forall s1 v1 t2 Q1 Q,
   eval s1 t2 Q1 ->
   (forall v2 s2, eval s2 (trm_app v1 v2) Q) ->
@@ -502,7 +499,7 @@ abbrev hprop := heap -> Prop
 /- Entailment for heap predicates, written [H1 ==> H2]. This entailment
     is linear. -/
 
-def himpl (H1 H2 : hprop) : Prop :=
+abbrev himpl (H1 H2 : hprop) : Prop :=
   forall h, H1 h -> H2 h
 
 infixr:51 " ==> " => himpl
@@ -539,9 +536,20 @@ infixr:52 " ~~> " => hsingle
 
 infixr:53 " ∗ " => hstar
 
+/- This notation sucks (`h` prefix is not uniform across other notations)
+   But I dunno know what would be a better one -/
+section
+open Lean.TSyntax.Compat
+macro "h∃" xs:Lean.explicitBinders ", " b:term : term => Lean.expandExplicitBinders ``hexists xs b
+macro "h∀" xs:Lean.explicitBinders ", " b:term : term => Lean.expandExplicitBinders ``hforall xs b
+end
+
+
+-- notation3 "exists' " (...) ", " J r:(scoped J => hexists J) => r
+
 /- not quite sure about these two notations:
 
- notation3 "exists' " (...) ", " J r:(scoped J => hexists J) => r
+
 
  notation3 "forall' " (...) ", " J r:(scoped J => hexists J) => r -/
 
@@ -572,9 +580,11 @@ def hwand (H1 H2 : hprop) : hprop :=
 def qwand {A} (Q1 Q2 : A → hprop) : hprop :=
   hforall (fun (x : A) => hwand (Q1 x) (Q2 x))
 
-notation:max "〚" P "〛" => hpure P
+/- this a better notation as for me -/
+notation:max "⌜" P "⌝" => hpure P
 
-notation "⊤⊤" => htop
+/- ⊤⊤ is very annoynig, let's just overwrite lean's ⊤ -/
+notation (priority := high) "⊤" => htop
 
 def qstar {A} (Q : A → hprop) (H : hprop) : A → hprop :=
   fun x => hstar (Q x) H
@@ -590,16 +600,14 @@ infix:54 " -∗∗ " => qwand
 
 /- ------------ Properties of [himpl] and [qimpl] ------------ -/
 
-lemma himpl_refl : forall H, H ==> H :=
-by
-  move=> H h ; sapply
+lemma himpl_refl H : H ==> H :=
+by sdone
 
-lemma himpl_trans : forall H2 H1 H3,
+lemma himpl_trans H2 H1 H3 :
   (H1 ==> H2) → (H2 ==> H3) → (H1 ==> H3) :=
 by
-  move=> H2 H1 H3 h1imp2 h2imp3
-  srw (himpl)
-  srw (himpl) at h1imp2 h2imp3=> //
+  sby move=> h1h2 h2h3 ? /h1h2
+
 
 lemma himpl_trans_r : forall H2 H1 H3,
   H2 ==> H3 → H1 ==> H2 → H1 ==> H3 :=
@@ -616,34 +624,32 @@ by
   { srw (himpl) at h1imp2=>// }
   { srw (himpl) at h2imp1=>// }
 
-lemma hprop_op_comm : forall (op : hprop → hprop → hprop),
+lemma hprop_op_comm (op : hprop → hprop → hprop) :
   (forall H1 H2, op H1 H2 ==> op H2 H1) →
   (forall H1 H2, op H1 H2 = op H2 H1) :=
 by
-  move=> op hcomm H1 H2
-  apply himpl_antisym=> //
+  move=> *
+  apply himpl_antisym <;> aesop
 
 
 /- ---------------- Properties of [hempty] ---------------- -/
 
 lemma hempty_intro : emp ∅ :=
-  by
-    srw (hempty)
+  by srw hempty
 
-lemma hempty_inv : forall h,
+lemma hempty_inv h :
   emp h → h = ∅ :=
-by
-  move=> h; sapply
+by sapply
 
 /- ---------------- Properties of [hstar] ---------------- -/
 
-lemma hstar_intro : forall H1 H2 h1 h2,
+lemma hstar_intro H1 H2 h1 h2 :
   H1 h1 →
   H2 h2 →
   Finmap.Disjoint h1 h2 →
   (H1 ∗ H2) (h1 ∪ h2) :=
 by
-  move=> H1 H2 h1 h2 hH1 hH2 hDisj=> //
+  move=> hH1 hH2 hDisj=> //
 
 lemma hstar_inv : forall H1 H2 h,
   (H1 ∗ H2) h →
@@ -651,17 +657,13 @@ lemma hstar_inv : forall H1 H2 h,
 by
   move=> H1 H2 h ; sapply
 
-lemma hstar_comm : forall H1 H2,
+lemma hstar_comm H1 H2 :
   H1 ∗ H2 = H2 ∗ H1 :=
 by
   apply hprop_op_comm
-  move => H1 H2 h hH1H2
-  apply hstar_inv in hH1H2
-  move=> ![h1 h2 hH1 hH2 hDisj hU]
-  have hDisjSymm : Finmap.Disjoint h2 h1 := Finmap.Disjoint.symm h1 h2 hDisj
-  have hUSymm : h = h2 ∪ h1 :=
-    by srw (Finmap.union_comm_of_disjoint hDisj) at hU=>//
-  exists h2, h1
+  move=> > ? /hstar_inv
+  scase!=> > ?? /[dup] /Finmap.Disjoint.symm ??
+  sby srw Finmap.union_comm_of_disjoint
 
 lemma hstar_assoc : forall H1 H2 H3,
   (H1 ∗ H2) ∗ H3 = H1 ∗ (H2 ∗ H3) :=
@@ -772,19 +774,19 @@ by
 /- --------------- Properties of [hpure] --------------- -/
 
 lemma hpure_intro : forall P,
-  P → 〚P〛 ∅ :=
+  P → ⌜P⌝  ∅ :=
 by
   move=> P hP
   exists hP
 
 lemma hpure_inv : forall P h,
-  〚P〛 h →
+  ⌜P⌝ h →
   P ∧ h = ∅ :=
 by
   move=> P h []=>//
 
 lemma hstar_hpure_l : forall P H h,
-  (〚P〛 ∗ H) h = (P ∧ H h) :=
+  (⌜P⌝ ∗ H) h = (P ∧ H h) :=
 by
   move=> P H h
   apply propext
@@ -794,7 +796,7 @@ by
   { move=> []=> // }
 
 lemma hstar_hpure_r : forall P H h,
-  (H ∗ 〚P〛) h = (H h ∧ P) :=
+  (H ∗ ⌜P⌝) h = (H h ∧ P) :=
 by
   move=> P H h
   srw (hstar_comm) (hstar_hpure_l)=>//
@@ -802,40 +804,40 @@ by
 lemma himpl_hstar_hpure_r : forall P H H',
    P →
    (H ==> H') →
-   H ==> (〚P〛) ∗ H' :=
+   H ==> ⌜P⌝ ∗ H' :=
 by
   move=> P H H' hP
   srw !(himpl) => hH1 h
   srw (hstar_hpure_l) =>//
 
 lemma hpure_inv_hempty : forall P h,
-  〚P〛 h →
+  ⌜P⌝ h →
   P ∧ emp h :=
 by
   move=> P H
   srw -(hstar_hpure_l) (hstar_hempty_r) =>//
 
 lemma hpure_intro_hempty : forall P h,
-  emp h → P → 〚P〛 h :=
+  emp h → P → ⌜P⌝ h :=
 by
   move=> P h=>//
 
 lemma himpl_hempty_hpure : forall P,
-  P → emp ==> 〚P〛 :=
+  P → emp ==> ⌜P⌝ :=
 by
   move=> P hP h
   move: hP=>//
 
 lemma himpl_hstar_hpure_l : forall P H H',
   (P → H ==> H') →
-  (〚P〛 ∗ H) ==> H' :=
+  (⌜P⌝ ∗ H) ==> H' :=
 by
   move=> P H H'
   srw (himpl)=> hPimp h
   srw (hstar_hpure_l)=>//
 
 lemma hempty_eq_hpure_true :
-  emp = 〚True〛 :=
+  emp = ⌜True⌝ :=
 by
   apply himpl_antisym
   { move=>h hEmp
@@ -844,7 +846,7 @@ by
     apply hpure_inv_hempty in hT=>// }
 
 lemma hfalse_hstar_any : forall H,
-  〚False〛 ∗ H = 〚False〛 :=
+  ⌜False⌝ ∗ H = ⌜False⌝ :=
 by
   move=> H ; apply himpl_antisym
   { move=> h
@@ -990,11 +992,11 @@ by
     srw (hstar_hempty_l)=> h ; sapply }
 
 lemma hwand_hpure_l : forall P H,
-  P → (〚P〛 -∗ H) = H :=
+  P → (⌜P⌝ -∗ H) = H :=
 by
   move=> P H hP ; apply himpl_antisym
   { apply himpl_trans
-    apply (himpl_hstar_hpure_r P (〚P〛 -∗ H) (〚P〛 -∗ H))=>//
+    apply (himpl_hstar_hpure_r P (⌜P⌝ -∗ H) (⌜P⌝ -∗ H))=>//
     apply himpl_refl
     apply hwand_cancel }
   { srw (hwand_equiv)
@@ -1077,26 +1079,26 @@ by
 /- --------------------- Properties of [htop] --------------------- -/
 
 lemma htop_intro : forall h,
-  ⊤⊤ h :=
+  ⊤ h :=
 by
   move=> h //
 
 lemma himpl_htop_r : forall H,
-  H ==> ⊤⊤ :=
+  H ==> ⊤ :=
 by
   move=> H h //
 
 lemma htop_eq :
-  ⊤⊤ = hexists (fun H : hprop ↦ H) :=
+  ⊤ = hexists (fun H : hprop ↦ H) :=
 by
   srw (htop)
 
 lemma hstar_htop_htop :
-  ⊤⊤ ∗ ⊤⊤ = ⊤⊤ :=
+  ⊤ ∗ ⊤ = ⊤ :=
 by
   apply himpl_antisym
   { apply himpl_htop_r }
-  { srw -[1](hstar_hempty_r ⊤⊤)
+  { srw -[1](hstar_hempty_r ⊤)
     apply himpl_frame_r ; apply himpl_htop_r }
 
 
@@ -1123,7 +1125,7 @@ by
 
 
 lemma hstar_hsingle_same_loc : forall p v1 v2,
-  (p ~~> v1) ∗ (p ~~> v2) ==> 〚False〛 :=
+  (p ~~> v1) ∗ (p ~~> v2) ==> ⌜False⌝ :=
 by
   move=> p v1 v2 h ![h1 h2]
   srw [0](hsingle) => hh1 hh2 hDisj ?

@@ -10,9 +10,11 @@ package lean_lgtm where
 
 require batteries from
     git "https://github.com/leanprover-community/batteries" @ "main"
-require mathlib from git "https://github.com/leanprover-community/mathlib4.git" @ "master"
-require loogle from git "https://github.com/nomeata/loogle.git" @ "master"
-require ssreflect from git "https://github.com/verse-lab/lean-ssr.git" @ "master"
+require mathlib from
+    git "https://github.com/leanprover-community/mathlib4.git" @ "master"
+-- require loogle from git "https://github.com/nomeata/loogle.git" @ "master"
+require ssreflect from
+    git "https://github.com/verse-lab/lean-ssr.git" @ "master"
 
 @[default_target]
 lean_lib LeanLgtm where
