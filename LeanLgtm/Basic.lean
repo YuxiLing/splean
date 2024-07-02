@@ -463,7 +463,7 @@ by
   move=> hevals1 hevals2
   scase: [(trm_is_val t1)]=> hVal
   { sby apply eval.eval_app_arg1 }
-  sby scase: t1 hevals1=> // ? _ []
+  sby scase: t1=> // ? []
 
 /- TODO: optimise (similar to ↑) -/
 lemma eval_app_arg2' : forall s1 v1 t2 Q1 Q,
@@ -474,9 +474,7 @@ by
   move=> s1 v1 t2 Q1 Q hevals1 hevals2
   scase: [(trm_is_val t2)]=> hVal
   { apply eval.eval_app_arg2=>// }
-  { cases t2
-    { cases hevals1 ; apply hevals2=>// }
-    srw (trm_is_val) at hVal=>// }
+  sby scase: t2
 
 
 /- [eval_like t1 t2] asserts that [t2] evaluates like [t1], i.e.,
@@ -603,10 +601,16 @@ infix:54 " -∗∗ " => qwand
 lemma himpl_refl H : H ==> H :=
 by sdone
 
+/-
+  H : C -> A -> B
+  ------
+  A -> .....
+ -/
+
 lemma himpl_trans H2 H1 H3 :
   (H1 ==> H2) → (H2 ==> H3) → (H1 ==> H3) :=
 by
-  sby move=> h1h2 h2h3 ? /h1h2
+  sby move=> h1h2 ?? /h1h2
 
 
 lemma himpl_trans_r : forall H2 H1 H3,
@@ -661,24 +665,44 @@ lemma hstar_comm H1 H2 :
   H1 ∗ H2 = H2 ∗ H1 :=
 by
   apply hprop_op_comm
-  move=> > ? /hstar_inv
-  scase!=> > ?? /[dup] /Finmap.Disjoint.symm ??
+  -- move => H1 H2 h /hstar_inv ![h1 h2 ??]
+  -- move=> /[dup] ? /Finmap.Disjoint.symm ? ->
+  -- exists h2, h1
+  -- sby srw Finmap.union_comm_of_disjoint
+  -- -- move=> ![h1 h2 hH1 hH2 hDisj hU]
+  -- have hDisjSymm : Finmap.Disjoint h2 h1 := Finmap.Disjoint.symm h1 h2 hDisj
+  -- have hUSymm : h = h2 ∪ h1 :=
+  --   by srw (Finmap.union_comm_of_disjoint hDisj) at hU=>//
+  -- exists h2, h1
+  move=> > ? /hstar_inv ![>??]
+  move=> /[dup] /Finmap.Disjoint.symm ??
   sby srw Finmap.union_comm_of_disjoint
 
-lemma hstar_assoc : forall H1 H2 H3,
+
+
+syntax "sdo" num tactic : tactic
+
+partial def elabSDo (n : Nat) (tac : Lean.Elab.Tactic.TacticM Unit) : Lean.Elab.Tactic.TacticM Unit :=
+  if n == 0 then do
+    return ()
+  else do
+    tryGoal tac
+    allGoal $ elabSDo (n - 1) tac
+
+elab_rules : tactic
+  | `(tactic| sdo $n $t) => do
+    elabSDo n.getNat (elabTactic t)
+
+lemma hstar_assoc H1 H2 H3 :
   (H1 ∗ H2) ∗ H3 = H1 ∗ (H2 ∗ H3) :=
 by
-  move=> H1 H2 H3 ; apply himpl_antisym ; move=> h
-  { move=> ![h12 h3 [h1 [h2 ![hH1 hH2 HDisj12 h12eq]]] hH3 hDisj hU]
-    srw (h12eq) at *; exists h1, (h2 ∪ h3)
-    apply (Iff.mp (Finmap.disjoint_union_left h1 h2 h3)) in hDisj =>//
-    move=> hDIsj
-    constructor=>//
-    constructor
-    { apply hstar_intro=>//}
-    constructor
-    apply (Iff.mpr (Finmap.disjoint_union_right h1 h2 h3))=>//
-    srw (hU); apply Finmap.union_assoc }
+  apply himpl_antisym=> h
+  { scase! => h12 h3 ![h1 h2] ?? ? -> ?
+    move=> /Finmap.disjoint_union_left[??] ->
+    exists h1, h2 ∪ h3
+    sdo 3 apply And.intro=> //
+    { sby srw Finmap.disjoint_union_right }
+    sby srw Finmap.union_assoc }
   { move=> ![h1 h23 hH1 [h2 [h3 ![hH2 hH3 hDisj23 h23eq]]] hDisj hU]
     srw (h23eq) at * ; exists (h1 ∪ h2), h3
     apply (Iff.mp (Finmap.disjoint_union_right h1 h2 h3)) in hDisj=>//
@@ -756,7 +780,7 @@ lemma himpl_hstar_trans_l : forall H1 H2 H3 H4,
   H1 ∗ H3 ==> H4 :=
 by
   move=> H1 H2 H3 H4
-  srw !(himpl) => hH12 hStar23 h ![h1 h3 hH1 hH3 hDisj hU]
+  srw !himpl => hH12 hStar23 h ![h1 h3 hH1 hH3 hDisj hU]
   apply hStar23
   exists h1, h3 =>//
 
@@ -766,7 +790,7 @@ lemma himpl_hstar_trans_r : forall H1 H2 H3 H4,
   H3 ∗ H1 ==> H4 :=
 by
   move=> H1 H2 H3 H4
-  srw !(himpl) => hH12 hStar32 h ![h3 h1 hH3 hH1 hDisj hU]
+  srw !himpl => hH12 hStar32 h ![h3 h1 hH3 hH1 hDisj hU]
   apply hStar32
   exists h3, h1 =>//
 
@@ -792,8 +816,8 @@ by
   apply propext
   srw (hpure) (hstar_hexists) (hstar_hempty_l)
   apply Iff.intro
-  { move=> [hP]=> // }
-  { move=> []=> // }
+  { move=> [hP] // }
+  { move=> [] // }
 
 lemma hstar_hpure_r : forall P H h,
   (H ∗ ⌜P⌝) h = (H h ∧ P) :=
@@ -1089,7 +1113,7 @@ by
   move=> H h //
 
 lemma htop_eq :
-  ⊤ = hexists (fun H : hprop ↦ H) :=
+  ⊤ = h∃ H, H :=
 by
   srw (htop)
 
