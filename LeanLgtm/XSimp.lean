@@ -97,65 +97,81 @@ def XSimp (hl hr : List hprop × List hprop × List hprop) :=
 
 def protect (x : α) := x
 
-def hstarGetList (hs : Expr) : MetaM $ List Expr :=
-  let_expr hstarList hs := hs | throwError "hstarListToList: {hs} is not a hstar of a list"
-  getList! hs
+partial def hstarGetList! (hs : Syntax) : MetaM $ List Syntax := do
+  match hs with
+  | `(hstar $hs) => return getList! hs
+  | `($hs1 ∗ $hs2) => do
+    let hs1 <- hstarGetList! hs1
+    let hs2 <- hstarGetList! hs2
+    return hs1 ++ hs2
+  | _ => throwError "hstarGetList!: {hs} is not a hstar"
 
 structure XSimpR where
-  hla : List Expr
-  hlw : List Expr
-  hlt : List Expr
-  hra : List Expr
-  hrg : List Expr
-  hrt : List Expr
+  hla : List Syntax
+  hlw : List Syntax
+  hlt : List Syntax
+  hra : List Syntax
+  hrg : List Syntax
+  hrt : List Syntax
 
 
 def XSimpRIni : TacticM XSimpR := do
-  match <- getGoalProp with
-  | ~q(XSimp ($hla, $hlw, $hlt) ($hra, $hrg, $hrt)) =>
-    let hla <- hstarGetList hla
-    let hlw <- hstarGetList hlw
-    let hlt <- hstarGetList hlt
-    let hra <- hstarGetList hra
-    let hrg <- hstarGetList hrg
-    let hrt <- hstarGetList hrt
-    return { hla := hla, hlw := hlw, hlt := hlt, hra := hra, hrg := hrg, hrt := hrt }
-  | _ => throwError "goal is not a XSimp goal"
+  let goal <- getGoalStxAll
+  let `(XSimp  ($hla, $hlw, $hlt) ($hra, $hrg, $hrt)) := goal | throwError "not a XSimp goal"
+  let hla <- hstarGetList! hla
+  let hlw <- hstarGetList! hlw
+  let hlt <- hstarGetList! hlt
+  let hra <- hstarGetList! hra
+  let hrg <- hstarGetList! hrg
+  let hrt <- hstarGetList! hrt
+  return { hla := hla, hlw := hlw, hlt := hlt, hra := hra, hrg := hrg, hrt := hrt }
 
-def put.hlt (hlt : List Expr) : StateRefT XSimpR TacticM Unit := do
+
+  -- match <- getGoalProp with
+  -- | ~q(XSimp ($hla, $hlw, $hlt) ($hra, $hrg, $hrt)) =>
+  --   let hla <- hstarGetList hla
+  --   let hlw <- hstarGetList hlw
+  --   let hlt <- hstarGetList hlt
+  --   let hra <- hstarGetList hra
+  --   let hrg <- hstarGetList hrg
+  --   let hrt <- hstarGetList hrt
+  --   return { hla := hla, hlw := hlw, hlt := hlt, hra := hra, hrg := hrg, hrt := hrt }
+  -- | _ => throwError "goal is not a XSimp goal"
+
+def put.hlt (hlt : List Syntax) : StateRefT XSimpR TacticM Unit := do
   modify λ s => { s with hlt := hlt }
 
-def modify.hlt (f : List Expr -> List Expr) : StateRefT XSimpR TacticM Unit := do
+def modify.hlt (f : List Syntax -> List Syntax) : StateRefT XSimpR TacticM Unit := do
   modify λ s => { s with hlt := f s.hlt }
 
-def put.hla (hla : List Expr) : StateRefT XSimpR TacticM Unit := do
+def put.hla (hla : List Syntax) : StateRefT XSimpR TacticM Unit := do
   modify λ s => { s with hla := hla }
 
-def modify.hla (f : List Expr -> List Expr) : StateRefT XSimpR TacticM Unit := do
+def modify.hla (f : List Syntax -> List Syntax) : StateRefT XSimpR TacticM Unit := do
   modify λ s => { s with hla := f s.hla }
 
-def put.hra (hra : List Expr) : StateRefT XSimpR TacticM Unit := do
+def put.hra (hra : List Syntax) : StateRefT XSimpR TacticM Unit := do
   modify λ s => { s with hra := hra }
 
-def modify.hra (f : List Expr -> List Expr) : StateRefT XSimpR TacticM Unit := do
+def modify.hra (f : List Syntax -> List Syntax) : StateRefT XSimpR TacticM Unit := do
   modify λ s => { s with hra := f s.hra }
 
-def put.hlw (hlw : List Expr) : StateRefT XSimpR TacticM Unit := do
+def put.hlw (hlw : List Syntax) : StateRefT XSimpR TacticM Unit := do
   modify λ s => { s with hlw := hlw }
 
-def modify.hlw (f : List Expr -> List Expr) : StateRefT XSimpR TacticM Unit := do
+def modify.hlw (f : List Syntax -> List Syntax) : StateRefT XSimpR TacticM Unit := do
   modify λ s => { s with hlw := f s.hlw }
 
-def put.hrg (hrg : List Expr) : StateRefT XSimpR TacticM Unit := do
+def put.hrg (hrg : List Syntax) : StateRefT XSimpR TacticM Unit := do
   modify λ s => { s with hrg := hrg }
 
-def modify.hrg (f : List Expr -> List Expr) : StateRefT XSimpR TacticM Unit := do
+def modify.hrg (f : List Syntax -> List Syntax) : StateRefT XSimpR TacticM Unit := do
   modify λ s => { s with hrg := f s.hrg }
 
-def put.hrt (hrt : List Expr) : StateRefT XSimpR TacticM Unit := do
+def put.hrt (hrt : List Syntax) : StateRefT XSimpR TacticM Unit := do
   modify λ s => { s with hrt := hrt }
 
-def modify.hrt (f : List Expr -> List Expr) : StateRefT XSimpR TacticM Unit := do
+def modify.hrt (f : List Syntax -> List Syntax) : StateRefT XSimpR TacticM Unit := do
   modify λ s => { s with hrt := f s.hrt }
 
 
@@ -169,28 +185,51 @@ lemma xsimp_l_hpure :
   (p -> XSimp (hla, hlw, hlt) hr) ->
   XSimp (hla, hlw, hpure p :: hlt) hr := by sorry
 
+lemma xsimp_l_acc_wand :
+  XSimp (hla, h :: hlw, hlt) hr ->
+  XSimp (hla, hlw, h :: hlt) hr := by sorry
+
+lemma xsimp_l_acc_other :
+  XSimp (h :: hla, hlw, hlt) hr ->
+  XSimp (hla, hlw, h:: hlt) hr := by sorry
+
+lemma xsimp_l_hexists :
+  (∀ x, XSimp (hla, hlw, j x :: hlt) hr) ->
+  XSimp (hla, hlw, (hexists j) :: hlt) hr := by sorry
+
+lemma xsimp_l_cancel_hwand_hempty :
+  XSimp (hla, h :: hlw, h :: hlt) hr ->
+  XSimp (hla, (emp -∗ h) :: hlw, hlt) hr := by sorry
 
 end theory
 
 macro "%" t:tactic : term => `(run `(tactic| $t))
-macro (priority := high) "~" t:term : term => `(<- prettyPrinter.delab $t)
--- macro "~" t:term : stx => `($(~t))
 
-set_option linter.unusedTactic false
-set_option linter.unreachableTactic false
+-- def cancel (hs1 hs2 : List Syntax) : TacticM Unit := do
+--   hs1.foldlIdxM (fun i h _ => do
+--     hs2.foldIdxM ) ()
 
+set_option linter.unusedTactic false in
+set_option linter.unreachableTactic false in
 def xsimp_step_l (cancelWand := true) (xsimp : XSimpR) : TacticM Unit := do
   match xsimp.hlt, xsimp.hlw with
   | h :: hlt, _ =>
-    let _ := (<- getMainDecl)
-    match_expr h with
-    | hempty      => % apply xsimp_l_hempty
-    | hpure _     => % (apply xsimp_l_hpure; intro)
-    | hstar h1 h2 => % rw [@hstar_assoc $(<- PrettyPrinter.delab h1) $(<- PrettyPrinter.delab h2)]
-    -- | hwand _ _   =>
-    -- | qwand _ _ _ =>
-    | _           => panic! ""
-  | [], h :: _ => throwError "not implemented"
+    match h with
+    | `(emp)        => % apply xsimp_l_hempty
+    | `(⌜_⌝)        => % (apply xsimp_l_hpure; intro)
+    | `($h1 ∗ $h2)  => % rw [@hstar_assoc $h1 $h2]
+    | `(h∃ $_ , $_) => % (repeat' (apply xsimp_l_hexists; intro))
+    | `($_ -∗ $_)   => % apply xsimp_l_acc_wand
+    | `($_ -∗∗ $_)  => % apply xsimp_l_acc_wand
+    | _             => % apply xsimp_l_acc_other
+  | [], h :: _ =>
+    match h with
+    | `($h1 -∗ $h2)   =>
+      match h1 with
+      | `(emp) => % apply xsimp_l_cancel_hwand_hempty
+      | `(_ ∗ _) => throwError "not implemented"
+      | _ => throwError "not implemented"
+    | _ => throwError "xsimp: @ not reachable"
   | _, _ => throwError "not implemented"
 
 /-
