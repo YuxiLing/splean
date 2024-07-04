@@ -1179,3 +1179,132 @@ notation "funloc" p "↦" H =>
 
 
 /- ---------------- Structural Properties of [eval] ---------------- -/
+
+section evalProp
+
+/- Is there a good way to automate this? The current problem is that
+   [constructor] does not always infer the correct evaluation rule to use.
+   Since many of the rules involve a function application, using [constructor]
+   often incorrectly applys eval_app_arg1, so we must instead manually apply
+   the correct rule -/
+lemma eval_conseq s t Q1 Q2 :
+  eval s t Q1 →
+  Q1 ===> Q2 →
+  eval s t Q2 :=
+by
+  move=> heval
+  srw (qimpl) (himpl)=> ?
+  elim: heval ; move=> * ; constructor=>//
+  { sby constructor }
+  { sby apply eval.eval_app_arg2 }
+  { sby apply eval.eval_app_fun }
+  { sby apply eval.eval_app_fix }
+  { apply eval.eval_seq =>//
+    move=> * ; aesop  }
+  { sby constructor }
+  { apply eval.eval_unop=>//
+    sby srw (purepostin) at * }
+  { apply eval.eval_binop=>//
+    sby srw (purepostin) at * }
+  { sby apply eval.eval_ref }
+  { sby apply eval.eval_get }
+  { sby apply eval.eval_set }
+  sby apply eval.eval_free
+
+lemma disjoint_update_not_r (h1 h2 : state) (x : loc) (v: val) :
+  Finmap.Disjoint h1 h2 →
+  x ∉ h2 →
+  Finmap.Disjoint (Finmap.insert x v h1) h2 :=
+by
+  srw Finmap.Disjoint => ??
+  srw Finmap.Disjoint Finmap.mem_insert => ?
+  sby scase
+
+lemma in_read_union_l (h1 h2 : state) (x : loc) :
+  x ∈ h1 → read_state x (h1 ∪ h2) = read_state x h1 :=
+by
+  move=> ?
+  srw []read_state
+  sby srw (Finmap.lookup_union_left)
+
+lemma disjoint_insert_l (h1 h2 : state) (x : loc) (v : val) :
+  Finmap.Disjoint h1 h2 →
+  x ∈ h1 →
+  Finmap.Disjoint (Finmap.insert x v h1) h2 :=
+by
+  srw Finmap.Disjoint => *
+  srw Finmap.Disjoint Finmap.mem_insert => ?
+  sby scase
+
+lemma remove_disjoint_union_l (h1 h2 : state) (x : loc) :
+  x ∈ h1 → Finmap.Disjoint h1 h2 →
+  Finmap.erase x (h1 ∪ h2) = Finmap.erase x h1 ∪ h2 :=
+by
+  srw Finmap.Disjoint => * ; apply Finmap.ext_lookup => y
+  scase: [x = y]=> hEq
+  { scase: [y ∈ Finmap.erase x h1]=> hErase
+    { srw Finmap.lookup_union_right
+      rw [Finmap.lookup_erase_ne]
+      apply Finmap.lookup_union_right
+      srw Finmap.mem_erase at hErase=>//
+      srw Not at * => * //
+      sby srw Not }
+    srw Finmap.lookup_union_left
+    sby sdo 2 rw [Finmap.lookup_erase_ne] }
+  srw -hEq
+  srw Finmap.lookup_union_right=>//
+  srw Finmap.lookup_erase
+  apply Eq.symm
+  sby srw Finmap.lookup_eq_none
+
+lemma disjoint_remove_l (h1 h2 : state) (x : loc) :
+  Finmap.Disjoint h1 h2 →
+  Finmap.Disjoint (Finmap.erase x h1) h2 :=
+by
+  srw Finmap.Disjoint=> ??
+  sby srw Finmap.mem_erase
+
+
+lemma eval_frame (h1 h2 : state) t Q :
+  eval h1 t Q →
+  Finmap.Disjoint h1 h2 →
+  eval (h1 ∪ h2) t (Q ∗∗ (fun h ↦ h = h2)) :=
+by
+  move=> heval
+  elim: heval h2
+  { sby move=> * }
+  { sby move=> * }
+  { sby move=> * }
+  { move=> ???????? ih1 ?? /ih1 ? ; constructor=>//
+    sby move=> ?? ![] }
+  { move=> ???????? ih1 ?? /ih1 ? ; apply eval.eval_app_arg2=>//
+    sby move=> ?? ![] }
+  { sby move=> * ; apply eval.eval_app_fun }
+  { sby move=> * ; apply eval.eval_app_fix }
+  { move=> ??????? ih1 ih2 ? /ih1 ? ; apply eval.eval_seq=>//
+    move=> ? s2 ![??? hQ2 *] ; subst s2 hQ2
+    sby apply ih2 }
+  { move=> ???????? ih1 ih2 ? /ih1 ? ; apply eval.eval_let=>//
+    move=> ?? ![??? hQ2 ? hU] ; subst hU hQ2
+    sby apply ih2}
+  { sby move=> * }
+  { move=> * ; apply eval.eval_unop=>//
+    srw purepostin at * => ??
+    sby apply hstar_intro }
+  { move=> * ; apply eval.eval_binop=>//
+    srw purepostin at * => ??
+    sby apply hstar_intro }
+  { move=> * ; apply eval.eval_ref=>//
+    move=> ? ; srw (Not) (Finmap.insert_union) => ?
+    apply hstar_intro=>//
+    sby apply disjoint_update_not_r }
+  { move=> * ; apply eval.eval_get=>//
+    srw in_read_union_l ; sby apply hstar_intro }
+  { move=> * ; apply eval.eval_set=>//
+    srw qstar Finmap.insert_union ; apply hstar_intro=>//
+    sby apply disjoint_insert_l }
+  move=> * ; apply eval.eval_free=>//
+  srw remove_disjoint_union_l ; apply hstar_intro=>//
+  sby apply disjoint_remove_l
+
+end evalProp
