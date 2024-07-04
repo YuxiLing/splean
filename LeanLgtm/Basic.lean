@@ -1,5 +1,6 @@
 import Ssreflect.Lang
 import Mathlib.Data.Finmap
+import LeanLgtm.Util
 
 
 open Classical
@@ -965,8 +966,7 @@ lemma hwand_hpure_l P H :
   P → (⌜P⌝ -∗ H) = H :=
 by
   move=> ? ; apply himpl_antisym
-  { apply himpl_trans
-    apply (himpl_hstar_hpure_r P (⌜P⌝ -∗ H) (⌜P⌝ -∗ H))=>//
+  { apply (himpl_hstar_hpure_r P (⌜P⌝ -∗ H) (⌜P⌝ -∗ H))=>//
     apply himpl_refl
     apply hwand_cancel }
   srw hwand_equiv
