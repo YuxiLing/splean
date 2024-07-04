@@ -122,11 +122,83 @@ def XSimpRIni : TacticM XSimpR := do
     return { hla := hla, hlw := hlw, hlt := hlt, hra := hra, hrg := hrg, hrt := hrt }
   | _ => throwError "goal is not a XSimp goal"
 
-def xsimp_step1 (xsr : XSimpR) : XSimpR := sorry
+def put.hlt (hlt : List Expr) : StateRefT XSimpR TacticM Unit := do
+  modify λ s => { s with hlt := hlt }
 
-def xsimp_step2 (xsr : XSimpR) : TacticM XSimpR :=
-  /- apply lemmas -/
-  return xsimp_step1 xsr
+def modify.hlt (f : List Expr -> List Expr) : StateRefT XSimpR TacticM Unit := do
+  modify λ s => { s with hlt := f s.hlt }
+
+def put.hla (hla : List Expr) : StateRefT XSimpR TacticM Unit := do
+  modify λ s => { s with hla := hla }
+
+def modify.hla (f : List Expr -> List Expr) : StateRefT XSimpR TacticM Unit := do
+  modify λ s => { s with hla := f s.hla }
+
+def put.hra (hra : List Expr) : StateRefT XSimpR TacticM Unit := do
+  modify λ s => { s with hra := hra }
+
+def modify.hra (f : List Expr -> List Expr) : StateRefT XSimpR TacticM Unit := do
+  modify λ s => { s with hra := f s.hra }
+
+def put.hlw (hlw : List Expr) : StateRefT XSimpR TacticM Unit := do
+  modify λ s => { s with hlw := hlw }
+
+def modify.hlw (f : List Expr -> List Expr) : StateRefT XSimpR TacticM Unit := do
+  modify λ s => { s with hlw := f s.hlw }
+
+def put.hrg (hrg : List Expr) : StateRefT XSimpR TacticM Unit := do
+  modify λ s => { s with hrg := hrg }
+
+def modify.hrg (f : List Expr -> List Expr) : StateRefT XSimpR TacticM Unit := do
+  modify λ s => { s with hrg := f s.hrg }
+
+def put.hrt (hrt : List Expr) : StateRefT XSimpR TacticM Unit := do
+  modify λ s => { s with hrt := hrt }
+
+def modify.hrt (f : List Expr -> List Expr) : StateRefT XSimpR TacticM Unit := do
+  modify λ s => { s with hrt := f s.hrt }
+
+
+---------------------------------  Theory ---------------------------------
+section theory
+lemma xsimp_l_hempty :
+  XSimp (hla, hlw, hlt) hr ->
+  XSimp (hla, hlw, emp :: hlt) hr := by sorry
+
+lemma xsimp_l_hpure :
+  (p -> XSimp (hla, hlw, hlt) hr) ->
+  XSimp (hla, hlw, hpure p :: hlt) hr := by sorry
+
+
+end theory
+
+macro "%" t:tactic : term => `(run `(tactic| $t))
+macro (priority := high) "~" t:term : term => `(<- prettyPrinter.delab $t)
+-- macro "~" t:term : stx => `($(~t))
+
+set_option linter.unusedTactic false
+set_option linter.unreachableTactic false
+
+def xsimp_step_l (cancelWand := true) (xsimp : XSimpR) : TacticM Unit := do
+  match xsimp.hlt, xsimp.hlw with
+  | h :: hlt, _ =>
+    let _ := (<- getMainDecl)
+    match_expr h with
+    | hempty      => % apply xsimp_l_hempty
+    | hpure _     => % (apply xsimp_l_hpure; intro)
+    | hstar h1 h2 => % rw [@hstar_assoc $(<- PrettyPrinter.delab h1) $(<- PrettyPrinter.delab h2)]
+    -- | hwand _ _   =>
+    -- | qwand _ _ _ =>
+    | _           => panic! ""
+  | [], h :: _ => throwError "not implemented"
+  | _, _ => throwError "not implemented"
+
+/-
+put.hlt (h1 :: h2 :: hlt)
+put.hlt hlt; modify.hlw (List.cons h)
+put.hlt hlt; modify.hlw (List.cons h)
+put.hlt hlt; modify.hla (List.cons h)
+-/
 
 /-
 approx 1: (Fast)

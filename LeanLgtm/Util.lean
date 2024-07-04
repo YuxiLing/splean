@@ -26,6 +26,7 @@ def getGoalProp : Lean.Elab.Tactic.TacticM Q(Prop) := do
   | none => throwError "goal is not a proposition"
 
 
+
 -- #eval show MetaM (List Expr) from do
 --   let x <- `(term| [true,true,true])
 --   let x <- liftCommandElabM $ liftTermElabM $ Term.elabTerm x none

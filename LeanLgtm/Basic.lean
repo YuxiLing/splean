@@ -1018,9 +1018,16 @@ by
     apply (himpl_trans (hforall fun x0 ↦ ((Q1 x0 -∗ Q2 x0) ∗ Q1 x)))
     apply hstar_hforall ; apply himpl_hforall_l
     rw [hstar_comm] ; apply hwand_cancel }
+<<<<<<< HEAD
   srw qimpl qstar => ?
   apply himpl_hforall_r => ?
   sby srw (hwand_equiv)=> ?
+=======
+  { srw (qimpl) (qstar) => hQimp
+    apply (himpl_hforall_r)=> x
+    srw (hwand_equiv) //
+    exact hQimp x }
+>>>>>>> e0708dd (first approach to xsimp)
 
 lemma qwand_cancel A (Q1 Q2 : A → hprop) :
   Q1 ∗∗ (Q1 -∗∗ Q2) ===> Q2 :=
