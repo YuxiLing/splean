@@ -1155,7 +1155,7 @@ by
 /- ------------- Definition and properties of [placeholder] ------------- -/
 
 def hind : hprop :=
-  hexists (fun b => if b then emp else ⊤)
+  hexists (fun b ↦ if b then emp else ⊤)
 
 notation:max "⊤⊤" => hind
 
@@ -1340,3 +1340,235 @@ by
   apply eval_conseq
   { apply (eval_frame _ _ _ _ (hEval _ hs) hDisj) =>// }
   { sorry }
+
+
+/- Extraction Rules -/
+
+lemma triple_hpure t P H Q :
+  (P → triple t H Q) →
+  triple t (⌜P⌝ ∗ H) Q :=
+by
+  move=> ?
+  srw triple=> ? ![?? [? /hempty_inv hEmp] ?? hU]
+  sby srw hU hEmp Finmap.empty_union
+
+lemma triple_hexists t A (J : A → hprop) Q :
+  (forall x, triple t (J x) Q) →
+  triple t (hexists J) Q :=
+by
+  sby srw []triple => hJ ? [] ? /hJ
+
+lemma triple_hforall t A (x : A) (J : A → hprop) Q:
+  triple t (J x) Q →
+  triple t (hforall J) Q :=
+by
+  move=> /triple_conseq ; sapply => ?
+  sapply ; sdone
+
+lemma triple_hwand_hpure_l t (P : Prop) H Q :
+  P →
+  triple t H Q →
+  triple t (⌜P⌝ -∗ H) Q :=
+by
+  move=> ? /triple_conseq ; sapply
+  rw [hwand_hpure_l] <;> sdone
+  sby move=> ??
+
+/- A useful corollary of [triple_hpure] -/
+lemma triple_hpure' t (P : Prop) Q :
+  (P → triple t emp Q) →
+  triple t ⌜P⌝ Q :=
+by
+  move=> /triple_hpure
+  sby srw hstar_hempty_r
+
+/- Heap -naming rule -/
+lemma triple_named_heap t H Q :
+  (forall h, H h → triple t (fun h' ↦ h' = h) Q) →
+  triple t H Q :=
+by
+  sby move=> hH ? /hH
+
+/- Combined and ramified rules -/
+
+lemma triple_conseq_frame H2 H1 Q1 t H Q :
+  triple t H1 Q1 →
+  H ==> H1 ∗ H2 →
+  Q1 ∗∗ H2 ===> Q →
+  triple t H Q :=
+by
+  move=> /triple_frame hFra /triple_conseq hCons /hCons
+  sapply ; apply hFra
+
+lemma triple_ramified_frame H1 Q1 t H Q :
+  triple t H1 Q1 →
+  H ==> H1 ∗ (Q1 -∗∗ Q) →
+  triple t H Q :=
+by
+  move=> ??;
+  apply triple_conseq_frame=>//
+  sby srw -qwand_equiv=> ?
+
+
+/- ---------------------- Rules for Terms ---------------------- -/
+
+lemma triple_eval_like t1 t2 H Q :
+  eval_like t1 t2 →
+  triple t1 H Q →
+  triple t2 H Q :=
+by
+  srw eval_like=> hLike ? ??
+  sby apply hLike
+
+lemma triple_val v H Q :
+  H ==> Q v →
+  triple (trm_val v) H Q :=
+by
+  move=> ? ??
+  sby apply eval.eval_val
+
+lemma triple_val_minimal v :
+  triple (trm_val v) emp (fun r ↦ ⌜r = v⌝) :=
+by
+  apply triple_val
+  sorry
+
+lemma triple_fun x t1 H Q :
+  H ==> Q (val_fun x t1) →
+  triple (trm_fun x t1) H Q :=
+by
+  move=> ? ??
+  sby apply eval.eval_fun
+
+lemma triple_fix f x t1 H Q :
+  H ==> Q (val_fix f x t1) →
+  triple (trm_fix f x t1) H Q :=
+by
+  move=> ? ??
+  sby apply eval.eval_fix
+
+lemma triple_seq t1 t2 H Q H1 :
+  triple t1 H (fun _ ↦ H1) →
+  triple t2 H1 Q →
+  triple (trm_seq t1 t2) H Q :=
+by
+  srw triple=> hH ? ??
+  apply eval.eval_seq
+  { sby apply hH }
+  sdone
+
+lemma triple_let x t1 t2 Q1 H Q :
+  triple t1 H Q1 →
+  (forall v1, triple (subst x v1 t2) (Q1 v1) Q) →
+  triple (trm_let x t1 t2) H Q :=
+by
+  srw triple=> hH ? ??
+  apply eval.eval_let
+  { sby apply hH }
+  sdone
+
+lemma triple_let_val x v1 t2 H Q :
+  triple (subst x v1 t2) H Q →
+  triple (trm_let x v1 t2) H Q :=
+by
+  move=> ?
+  apply triple_let _ _ _ (fun v ↦ ⌜v = v1⌝ ∗ H)
+  { apply triple_val ; sorry }
+  move=> ?
+  sby apply triple_hpure
+
+lemma triple_if (b : Bool) t1 t2 H Q :
+  triple (if b then t1 else t2) H Q →
+  triple (trm_if b t1 t2) H Q :=
+by
+  move=> ? ??
+  sby apply eval.eval_if
+
+lemma triple_app_fun x v1 v2 t1 H Q :
+  v1 = val_fun x t1 →
+  triple (subst x v2 t1) H Q →
+  triple (trm_app v1 v2) H Q :=
+by
+  move=> * ??
+  sby apply eval.eval_app_fun
+
+lemma triple_app_fun_direct x v2 t1 H Q :
+  triple (subst x v2 t1) H Q →
+  triple (trm_app (val_fun x t1) v2) H Q :=
+by
+  move=> ?
+  sby apply triple_app_fun
+
+lemma triple_app_fix v1 v2 f x t1 H Q :
+  v1 = val_fix f x t1 →
+  triple (subst x v2 (subst f v1 t1)) H Q →
+  triple (trm_app v1 v2) H Q :=
+by
+  move=> * ??
+  sby apply eval.eval_app_fix
+
+lemma triple_app_fix_direct v2 f x t1 H Q :
+  f ≠ x →
+  triple (subst x v2 (subst f (val_fix f x t1) t1)) H Q →
+  triple (trm_app (val_fix f x t1) v2) H Q :=
+by
+  move=> * ??
+  sby apply triple_app_fix
+
+
+/- Rules for Heap-Manipulating Primitive Operations -/
+
+lemma read_state_single p v :
+  read_state p (Finmap.singleton p v) = v :=
+by
+  srw read_state Finmap.lookup_singleton_eq
+
+lemma triple_ref (v : val) :
+  triple (trm_app val_ref v)
+    emp
+    (fun r ↦ h∃ p, ⌜r = val_loc p⌝ ∗ (p ~~> v)) :=
+by
+  move=> ? []
+  apply eval.eval_ref=>// p ?
+  apply (hexists_intro _ p)
+  sby srw hstar_hpure_l
+
+lemma triple_get v (p : loc) :
+  triple (trm_app val_get p)
+    (p ~~> v)
+    (fun r ↦ ⌜r = v⌝ ∗ (p ~~> v)) :=
+by
+  move=> ? []
+  apply eval.eval_get=>//
+  srw hstar_hpure_l => ⟨|⟩ //
+  apply read_state_single
+
+lemma triple_set w p (v : val) :
+  triple (trm_app val_set (val_loc p) v)
+    (p ~~> w)
+    (fun r ↦ ⌜r = val_unit⌝ ∗ (p ~~> v)) :=
+by
+  move=> ? []
+  apply eval.eval_set=>//
+  sby srw Finmap.insert_singleton_eq hstar_hpure_l
+
+lemma triple_free' p v :
+  triple (trm_app val_free (val_loc p))
+    (p ~~> v)
+    (fun r ↦ ⌜r = val_unit⌝) :=
+by
+  move=> ? []
+  apply eval.eval_free=>//
+  srw hpure hexists hempty
+  exists rfl
+  apply Finmap.ext_lookup => ?
+  sby srw Finmap.lookup_empty Finmap.lookup_eq_none Finmap.mem_erase
+
+lemma triple_free p v:
+  triple (trm_app val_free (val_loc p))
+    (p ~~> v)
+    (fun r ↦ emp) :=
+by
+  apply (triple_conseq _ _ _ _ _ (triple_free' p v))
+  { sdone }
+  sorry
