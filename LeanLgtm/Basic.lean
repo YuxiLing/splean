@@ -1849,3 +1849,171 @@ by
   apply himpl_trans (wp (if b then t1 else t2) Q)
   { sby scase_if=> ?? }
   apply wp_if
+
+
+/- ======================= WP Generator ======================= -/
+/- Below we define a function [wpgen t] recursively over [t] such that
+   [wpgen t Q] entails [wp t Q].
+
+   We actually define [wpgen E t], where [E] is a list of bindings, to
+   compute a formula that entails [wp (isubst E t)], where [isubst E t]
+   is the iterated substitution of bindings from [E] inside [t].
+-/
+
+open AList
+
+abbrev ctx := AList (fun _ : var ↦ val)
+
+def ctx_equiv (E1 E2 : ctx) : Prop :=
+  forall x, lookup x E1 = lookup x E2
+
+lemma lookup_app (E1 E2 : ctx) x :
+  lookup x (E1 ∪ E2) = match lookup x E1 with
+                        | some v => some v
+                        | none   => lookup x E2 :=
+by
+  cases eqn:(lookup x E1)=> /=
+  { srw lookup_eq_none at eqn
+    sby srw lookup_union_right }
+  srw lookup_union_left=>//
+  sby srw -lookup_isSome
+
+lemma lookup_ins x y v (E : ctx) :
+  lookup y (insert x v E) = if x = y then some v else lookup y E :=
+by
+  scase_if=> ?
+  { srw lookup_insert }
+  srw lookup_insert_ne
+  sdone
+
+lemma lookup_rem x y (E : ctx) :
+  lookup x (erase y E) = if x = y then none else lookup x E :=
+by
+  scase_if=> ?
+  { sby srw lookup_eq_none mem_erase }
+  sby srw lookup_erase_ne
+
+lemma rem_app x (E1 E2 : ctx) :
+  erase x (E1 ∪ E2) = erase x E1 ∪ erase x E2 :=
+by
+  apply union_erase
+
+lemma ctx_equiv_rem x E1 E2 :
+  ctx_equiv E1 E2 →
+  ctx_equiv (erase x E1) (erase x E2) :=
+by
+  sby srw []ctx_equiv lookup_rem
+
+lemma ctx_disjoint_rem x (E1 E2 : ctx) :
+  Disjoint E1 E2 →
+  Disjoint (erase x E1) (erase x E2) :=
+by
+  sby srw []AList.Disjoint -AList.mem_keys=> ?? /mem_erase
+
+lemma ctx_disjoint_equiv_app (E1 E2 : ctx) :
+  Disjoint E1 E2 →
+  ctx_equiv (E1 ∪ E2) (E2 ∪ E1) :=
+by
+  move=> /[swap] x
+  srw []lookup_app
+  cases eqn1:(lookup x E1) <;> cases eqn2:(lookup x E2) =>//=
+  srw AList.Disjoint -AList.mem_keys=> hIn
+  apply False.elim ; apply hIn
+  srw -lookup_isSome
+  sby rw [eqn1]
+
+
+/- Definition of Multi-Substitution -/
+
+def isubst (E : ctx) (t : trm) : trm :=
+  match t with
+  | trm_val v =>
+      v
+  | trm_var x =>
+      match lookup x E with
+      | none   => t
+      | some v => v
+  | trm_fun x t1 =>
+      trm_fun x (isubst (erase x E) t1)
+  | trm_fix f x t1 =>
+      trm_fix f x (isubst (erase x (erase f E)) t1)
+  | trm_if t0 t1 t2 =>
+      trm_if (isubst E t0) (isubst E t1) (isubst E t2)
+  | trm_seq t1 t2 =>
+      trm_seq (isubst E t1) (isubst E t2)
+  | trm_let x t1 t2 =>
+      trm_let x (isubst E t1) (isubst (erase x E) t2)
+  | trm_app t1 t2 =>
+      trm_app (isubst E t1) (isubst E t2)
+
+
+/- Properties of Multi-Substitution -/
+
+/- Not sure if it's possible to prove some of the following lemmas as
+   Lean does not support induction for mutually inductive types. -/
+
+lemma isubst_nil t :
+  isubst ∅ t = t :=
+by
+  -- induction t
+  sorry
+
+lemma subst_eq_isubst_one x v t :
+  subst x v t = isubst (insert x v ∅) t :=
+by
+  -- induction t
+  sorry
+
+lemma isubst_ctx_equiv t E1 E2 :
+  ctx_equiv E1 E2 →
+  isubst E1 t = isubst E2 t :=
+by
+  -- induction t
+  sorry
+
+lemma isubst_app t E1 E2 :
+  isubst (E1 ∪ E2) t = isubst E2 (isubst E1 t) :=
+by
+  --induction t
+  sorry
+
+lemma app_insert_one_r x v (l : ctx) :
+  insert x v l = (insert x v ∅) ∪ l :=
+by
+  move=> !;
+  sby srw union_entries []insert_entries empty_entries
+
+lemma isubst_cons x v E t :
+  isubst (insert x v E) t = isubst E (subst x v t) :=
+by
+  srw app_insert_one_r isubst_app -subst_eq_isubst_one
+
+lemma isubst_app_swap t (E1 E2 : ctx) :
+  Disjoint E1 E2 →
+  isubst (E1 ∪ E2) t = isubst (E2 ∪ E1) t :=
+by
+  move=> ?
+  apply isubst_ctx_equiv
+  sby apply ctx_disjoint_equiv_app
+
+lemma isubst_rem x v (E : ctx) t :
+  isubst (insert x v E) t = subst x v (isubst (erase x E) t) :=
+by
+  srw subst_eq_isubst_one -isubst_app isubst_app_swap
+  { apply isubst_ctx_equiv=> y
+    srw lookup_ins
+    scase_if=> ?
+    { srw lookup_union_left //
+      srw lookup_insert }
+    srw lookup_union_right
+    rw [lookup_rem]
+    scase_if=>//
+    sby move=> /mem_insert }
+  move=> ?
+  sby srw Not -[]mem_keys mem_erase mem_insert => [] ?? []
+
+lemma isubst_rem_2 f x vf vx (E : ctx) t :
+  isubst (insert f vf (insert x vx E)) =
+  subst x vx (isubst (erase x (erase f E)) t) :=
+by
+  sorry
