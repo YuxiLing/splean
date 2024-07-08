@@ -316,7 +316,7 @@ inductive evalbinop : val → val → val → (val->Prop) → Prop where
   -- type int and could be negative), so not sure if this is semantically
   -- equivalent to what was here before.
   | evalbinop_ptr_add : forall p1 p2 n,
-      (p2:ℤ) = n + (p1:loc) ->
+      (p2:ℤ) = (p1:loc) + n ->
       evalbinop val_ptr_add (val_loc p1) (val_int n)
         (fun v => v = val_loc (Int.toNat p2))
 
@@ -1572,3 +1572,280 @@ by
   apply (triple_conseq _ _ _ _ _ (triple_free' p v))
   { sdone }
   sorry
+
+
+/- Rules for Other Primitive Operations -/
+
+lemma triple_unop op v1 (P : val → Prop) :
+  evalunop op v1 P →
+  triple (trm_app op v1) emp (fun r ↦ ⌜P r⌝) :=
+by
+  move=> ? ? []
+  apply (eval_conseq _ _ (fun v s ↦ P v ∧ s = ∅))
+  { apply eval.eval_unop=>//
+    sby srw purepostin }
+  { move=> ?? [] ? hEmp
+    sby srw hEmp }
+
+lemma triple_binop op v1 v2 (P : val → Prop) :
+  evalbinop op v1 v2 P →
+  triple (trm_app op v1 v2) emp (fun r ↦ ⌜P r⌝) :=
+by
+  move=> ? ? []
+  apply (eval_conseq _ _ (fun v s ↦ P v ∧ s = ∅))
+  { apply eval.eval_binop=>//
+    sby srw purepostin }
+  { move=> ?? [] ? hEmp
+    sby srw hEmp }
+
+lemma triple_add n1 n2 :
+  triple (trm_app val_add (val_int n1) (val_int n2))
+    emp
+    (fun r ↦ ⌜r = val_int (n1 + n2)⌝) :=
+by
+  sby apply triple_binop
+
+lemma triple_div n1 n2 :
+  n2 ≠ 0 →
+  triple (trm_app val_div (val_int n1) (val_int n2))
+    emp
+    (fun r ↦ ⌜r = val_int (n1 / n2)⌝) :=
+by
+  move=> ?
+  sby apply triple_binop
+
+lemma triple_rand n :
+  n > 0 →
+  triple (trm_app val_rand (val_int n))
+    emp
+    (fun r ↦ ⌜exists n1, r = val_int n1 ∧ 0 <= n1 ∧ n1 < n⌝) :=
+by
+  move=> ?
+  sby apply triple_unop
+
+lemma triple_neg (b1 : Bool) :
+  triple (trm_app val_neg b1)
+    emp
+    (fun r ↦ ⌜r = val_bool (¬b1)⌝) :=
+by
+  sby apply triple_unop
+
+lemma triple_opp n1 :
+  triple (trm_app val_opp (val_int n1))
+    emp
+    (fun r ↦ ⌜r = val_int (-n1)⌝) :=
+by
+  sby apply triple_unop
+
+lemma triple_eq v1 v2 :
+  triple (trm_app val_eq (trm_val v1) (trm_val v2))
+    emp
+    (fun r ↦ ⌜r = is_true (v1 = v2)⌝) :=
+by
+  sby apply triple_binop
+
+lemma triple_neq v1 v2 :
+  triple (trm_app val_neq (trm_val v1) (trm_val v2))
+    emp
+    (fun r ↦ ⌜r = is_true (v1 ≠ v2)⌝) :=
+by
+  sby apply triple_binop
+
+lemma triple_sub n1 n2 :
+  triple (trm_app val_sub (val_int n1) (val_int n2))
+    emp
+    (fun r ↦ ⌜r = val_int (n1 - n2)⌝):=
+by
+  sby apply triple_binop
+
+lemma triple_mul n1 n2 :
+  triple (trm_app val_mul (val_int n1) (val_int n2))
+    emp
+    (fun r ↦ ⌜r = val_int (n1 * n2)⌝):=
+by
+  sby apply triple_binop
+
+lemma triple_mod n1 n2 :
+  n2 ≠ 0 →
+  triple (trm_app val_mod (val_int n1) (val_int n2))
+    emp
+    (fun r ↦ ⌜r = val_int (n1 % n2)⌝) :=
+by
+  move=> ?
+  sby apply triple_binop
+
+lemma triple_le n1 n2 :
+  triple (trm_app val_le (val_int n1) (val_int n2))
+    emp
+    (fun r ↦ ⌜r = val_bool (n1 <= n2)⌝) :=
+by
+  sby apply triple_binop
+
+lemma triple_lt n1 n2 :
+  triple (trm_app val_lt (val_int n1) (val_int n2))
+    emp
+    (fun r ↦ ⌜r = val_bool (n1 < n2)⌝) :=
+by
+  sby apply triple_binop
+
+lemma triple_ge n1 n2 :
+  triple (trm_app val_ge (val_int n1) (val_int n2))
+    emp
+    (fun r ↦ ⌜r = val_bool (n1 >= n2)⌝) :=
+by
+  sby apply triple_binop
+
+lemma triple_gt n1 n2 :
+  triple (trm_app val_gt (val_int n1) (val_int n2))
+    emp
+    (fun r ↦ ⌜r = val_bool (n1 > n2)⌝) :=
+by
+  sby apply triple_binop
+
+lemma abs_nonneg n :
+  n ≥ 0 → Int.natAbs n = n :=
+by
+  move=> ?
+  sby elim: n
+
+lemma triple_ptr_add (p : loc) (n : ℤ) :
+  p + n >= 0 →
+  triple (trm_app val_ptr_add (val_loc p) (val_int n))
+    emp
+    (fun r ↦ ⌜r = val_loc (Int.toNat (Int.natAbs (p + n)))⌝) :=
+by
+  move=> ?
+  apply triple_binop
+  apply evalbinop.evalbinop_ptr_add
+  sby srw abs_nonneg
+
+lemma triple_ptr_add_nat p (f : ℕ) :
+  triple (trm_app val_ptr_add (val_loc p) (val_int (Int.ofNat f)))
+    emp
+    (fun r ↦ ⌜r = val_loc (Int.toNat (p + f))⌝) :=
+by
+  apply triple_conseq _ _ _ _ _ (triple_ptr_add p f _)=>//
+  { sdone }
+  sorry
+
+
+/- ---------- Definition and Structural Rules for [wp] ---------- -/
+
+/- Definition of [wp] -/
+
+def wp (t : trm) (Q : val → hprop) : hprop :=
+  fun s ↦ eval s t Q
+
+/- Equivalence b/w [wp] and [triple] -/
+
+lemma wp_equiv t H Q :
+  (H ==> wp t Q) ↔ triple t H Q :=
+by
+  sby move=> ⟨|⟩
+
+/- Consequence rule for [wp] -/
+
+lemma wp_conseq t Q1 Q2 :
+  Q1 ===> Q2 →
+  wp t Q1 ==> wp t Q2 :=
+by
+  move=> ??
+  srw []wp => ?
+  sby apply eval_conseq
+
+/- Frame rule for [wp] -/
+
+lemma wp_frame t H Q :
+  (wp t Q) ∗ H ==> wp t (Q ∗∗ H) :=
+by
+  move=> h ![????? hU]
+  srw hU wp
+  apply eval_conseq
+  { sby apply eval_frame }
+  sorry
+
+/- Corollaries -/
+
+lemma wp_ramified t Q1 Q2 :
+  (wp t Q1) ∗ (Q1 -∗∗ Q2) ==> (wp t Q2) :=
+by
+  apply himpl_trans
+  { apply wp_frame }
+  apply wp_conseq
+  sorry
+  -- apply qwand_cancel
+
+lemma wp_conseq_frame t H Q1 Q2 :
+  Q1 ∗∗ H ===> Q2 →
+  (wp t Q1) ∗ H ==> (wp t Q2) :=
+by
+  srw -qwand_equiv
+  move=> ?
+  sorry
+
+lemma wp_ramified_trans t H Q1 Q2 :
+  H ==> (wp t Q1) ∗ (Q1 -∗∗ Q2) →
+  H ==> (wp t Q2) :=
+by
+  move=> ?
+  sorry
+
+
+/- ---------- Weakest-Precondition Reasoning Rules for Terms ---------- -/
+
+lemma wp_eval_like t1 t2 Q :
+  eval_like t1 t2 →
+  wp t1 Q ==> wp t2 Q :=
+by
+  sby move=> hEval ? /hEval
+
+lemma wp_val v Q :
+  Q v ==> wp (trm_val v) Q :=
+by sdone
+
+lemma wp_fun x t Q :
+  Q (val_fun x t) ==> wp (trm_fun x t) Q :=
+by sdone
+
+lemma wp_fix f x t Q :
+  Q (val_fix f x t) ==> wp (trm_fix f x t) Q :=
+by sdone
+
+lemma wp_app_fun x v1 v2 t1 Q :
+  v1 = val_fun x t1 →
+  wp (subst x v2 t1) Q ==> wp (trm_app v1 v2) Q :=
+by
+  move=> ? ??
+  sby apply eval.eval_app_fun
+
+lemma wp_app_fix f x v1 v2 t1 Q :
+  v1 = val_fix f x t1 →
+  wp (subst x v2 (subst f v1 t1)) Q ==> wp (trm_app v1 v2) Q :=
+by
+  move=> ? ??
+  sby apply eval.eval_app_fix
+
+lemma wp_seq t1 t2 Q :
+  wp t1 (fun _ ↦ wp t2 Q) ==> wp (trm_seq t1 t2) Q :=
+by
+  move=> ??
+  sby apply eval.eval_seq
+
+lemma wp_let x t1 t2 Q :
+  wp t1 (fun v ↦ wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q :=
+by
+  move=> ??
+  sby apply eval.eval_let
+
+lemma wp_if (b : Bool) t1 t2 Q :
+  wp (if b then t1 else t2) Q ==> wp (trm_if b t1 t2) Q :=
+by
+  move=> ??
+  sby apply eval.eval_if
+
+lemma wp_if_case (b : Bool) t1 t2 Q :
+  (if b then wp t1 Q else wp t2 Q) ==> wp (trm_if b t1 t2) Q :=
+by
+  apply himpl_trans (wp (if b then t1 else t2) Q)
+  { sby scase_if=> ?? }
+  apply wp_if
