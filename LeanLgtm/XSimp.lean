@@ -877,9 +877,7 @@ example (Q : Int -> Bool -> _) :
   Q 4 true ==> Q 3 false ->
   H1 ∗ Q 4 true ==> h∃ x b, Q x b ∗ H1 := by
   move=> ?
-  put_hints [2, ?]
-  xsimp
-  -- xsimp 3, ?
+  xsimp[3, ?]=> //
 
 
 
