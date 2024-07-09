@@ -394,11 +394,11 @@ def xsimp_pick (i : Nat) (last? : Bool) : TacticM Unit :=
    {| apply xsimp_pick_lemma
       · apply $(hstar_pick_lemma i last?) |}
 
-def xsimp_pick_same (h hla : Term) : TacticM Unit :=
+def xsimp_pick_same (h hla : Term) : TacticM Unit := do
+  let h  <- Tactic.elabTerm h none
   hstar_search hla fun i h' last? => do
     -- dbg_trace "heaps: {h}, {h'}"
     let h' <- Tactic.elabTerm h' none
-    let h  <- Tactic.elabTerm h  none
     -- dbg_trace "elb heaps: {h}, {h'}"
     -- dbg_trace "isMeta {h'.isMVar}"
     -- let md <- h'.mvarId!.getDecl
@@ -482,17 +482,19 @@ def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
   match xsimp.hlw, xsimp.hlt, xsimp.hrt with
   | `(emp), `(emp), `($h ∗ $_) =>
     /- TODO: implement hook -/
-    match h with
-    | `(emp) => {| apply xsimpl_r_hempty |}
-    | `(⌜P⌝) => {| apply xsimpl_r_hpure |}
-    | `($h1 ∗ $h2) => {| rw [@hstar_assoc $h1 $h2] |}
-    | `(protect $_) => {| apply xsimp_r_keep |}
-    | _ =>
-      if (<- Tactic.elabTerm h none).isMVar then
-        {| apply xsimp_r_keep |}
-      else
-       xsimp_pick_same h xsimp.hla
-       {| apply xsimpl_lr_cancel_same |}
+    try
+      match h with
+      | `(emp) => {| apply xsimpl_r_hempty |}
+      | `(⌜P⌝) => {| apply xsimpl_r_hpure |}
+      | `($h1 ∗ $h2) => {| rw [@hstar_assoc $h1 $h2] |}
+      | `(protect $_) => {| apply xsimp_r_keep |}
+      | _ =>
+        if (<- Tactic.elabTerm h none).isMVar then
+          {| apply xsimp_r_keep |}
+        else
+        xsimp_pick_same h xsimp.hla
+        {| apply xsimpl_lr_cancel_same |}
+    catch _ => {| apply xsimp_r_keep |}
     -- | _ => throwError "not implemented"
   | _, _, _ => throwError "not implemented"
 
@@ -652,7 +654,13 @@ example :
     dup 3
     { xpull; sorry }
     { xsimp0; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1
-      xsimp1; xsimp1 }
+      xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; sorry }
+    xsimp; sorry
+
+example :
+  H1 ∗ H2 ∗ H3 ∗ H4 ==> H5 ∗ H3 ∗ H6 ∗ H7 := by
+  xsimp /- TODO: flip to preserve order -/
+  sorry
 
 
 
