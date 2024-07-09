@@ -443,7 +443,7 @@ def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
       | `(h∃ $_, $_) => xsimp_r_hexists_apply_hints
       | `(protect $_) => {| apply xsimp_r_keep |}
       | _ =>
-        if (<- Tactic.elabTerm h none).isMVar then
+        if h.isMVarStx then
           {| apply xsimp_r_keep |}
         else
         xsimp_pick_same h xsimp.hla
@@ -458,7 +458,7 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
   | `(emp) =>
     match xsimp.hra with
     | `($h1 ∗ emp) =>
-      if (<- Tactic.elabTerm h1 none).isMVar then
+      if h1.isMVarStx then
         {| hsimp; apply himpl_lr_refl |}
         return ()
       match h1 with
@@ -468,7 +468,7 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
         | _ => /- TODO: flip -/ {| apply xsimp_lr_hwand |}
       | `($h1 -∗∗ $_) =>
         try
-          let .true := (<- Tactic.elabTerm h1 none).isMVar | failure
+          let .true := h1.isMVarStx | failure
           {| apply himpl_lr_qwand_unify |}
         catch _ =>
           {| first | apply xsimpl_lr_qwand_unit
@@ -739,5 +739,3 @@ example (Q : Int -> Bool -> _) :
 
 end
 end
-
-/-  -/

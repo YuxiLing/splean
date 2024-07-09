@@ -61,6 +61,11 @@ partial def repeat'' (tac : TacticM Unit) : TacticM Unit := do
   catch _ => return ()
   repeat'' tac
 
+def _root_.Lean.TSyntax.isMVarStx (x : Term) : Bool :=
+  match x with
+  | `(?$_) => true
+  | _ => false
+
 -- #eval show MetaM (List Expr) from do
 --   let x <- `(term| [true,true,true])
 --   let x <- liftCommandElabM $ liftTermElabM $ Term.elabTerm x none
