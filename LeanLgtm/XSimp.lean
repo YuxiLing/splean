@@ -367,29 +367,40 @@ def xsimp_hwand_hstars_l (hla hs : Term) :=
     | `(emp) => {| apply xsimpl_l_cancel_hwand_hstar_hempty |}
     | _ => xsimp_pick_same h hla; {| apply xsimp_l_cancel_hwand_hstar |}
 
-def xsimo_l_exists (xs : Syntax) : TacticM Unit :=
+def xsimp_apply_intro_names (lem : Name) (xs : Syntax) : TacticM Unit :=
+  let lem := mkIdent lem
   match xs with
+  | `(Lean.explicitBinders| $xs:unbracketedExplicitBinders) =>
+    match xs with
+    | `(unbracketedExplicitBinders| $[$xs]* : $_)
+    | `(unbracketedExplicitBinders| $[$xs]*) =>
+      for x in xs do
+        match x with
+        | `(binderIdent| $x:ident) =>
+          {| apply $lem; intro $x:ident |}
+        | `(binderIdent| $_:hole) =>
+          {| apply $lem; unhygienic intro |}
+        | _ => throwError "xsimp_l_exists: @ unreachable 2"
+    | _ => throwError "xsimp_l_exists: @ unreachable 3"
   | `(Lean.explicitBinders| $[$xs]*) =>
-    for x in xs do
-      match x with
-      | `(Lean.bracketedExplicitBinders| ($x:ident : $ty) ) =>
-        {| repeat' (apply xsimp_l_hexists; intro $x:ident) |}
-      | _ => throwError "xsimp_l_exists: @ unreachable"
-  | `(unbracketedExplicitBinders| $[$xs]* $ty) ?)
-  | _ => throwError "xsimp_l_exists: @ unreachable"
+      for x in xs do
+        match x with
+        | `(Lean.bracketedExplicitBinders| ($x:ident : $_) ) =>
+          {| apply $lem; intro $x:ident |}
+        | _ => throwError "xsimp_l_exists: @ unreachable 1"
+  | _ => throwError "xsimp_l_exists: @ unreachable 3"
 
 def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit := do
   match xsimp.hlt, xsimp.hlw with
   | `($h ∗ $_), _ =>
     match h with
-    | `(emp)        => {| apply xsimp_l_hempty |}
-    | `(⌜$_⌝)       => {| apply xsimp_l_hpure; intro |}
-    | `($h1 ∗ $h2)  => {| rw [@hstar_assoc $h1 $h2] |}
-    /- TODO: we loose the name of a bounded variable here -/
-    | `(h∃ $xs , $_) => {| repeat' (apply xsimp_l_hexists; unhygienic intro) |}
-    | `($_ -∗ $_)   => {| apply xsimp_l_acc_wand |}
-    | `($_ -∗∗ $_)  => {| apply xsimp_l_acc_wand |}
-    | _             => {| apply xsimp_l_acc_other |}
+    | `(emp)         => {| apply xsimp_l_hempty |}
+    | `(⌜$_⌝)        => {| apply xsimp_l_hpure; intro |}
+    | `($h1 ∗ $h2)   => {| rw [@hstar_assoc $h1 $h2] |}
+    | `(h∃ $xs , $_) => xsimp_apply_intro_names `xsimp_l_hexists xs
+    | `($_ -∗ $_)    => {| apply xsimp_l_acc_wand |}
+    | `($_ -∗∗ $_)   => {| apply xsimp_l_acc_wand |}
+    | _              => {| apply xsimp_l_acc_other |}
   | `(emp), `($h1 ∗ $_) =>
     match h1 with
     | `($h1 -∗ $_) =>
@@ -485,7 +496,7 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
           {| first | apply xsimpl_lr_qwand_unit
                    | apply xsimpl_lr_qwand; unhygienic intro
              try simp only [qstar_simp] |}
-      | `(h∀ $_, $_) => /- TODO: flip -/ {| apply xsimpl_lr_hforall; unhygienic intro |}
+      | `(h∀ $xs, $_) => /- TODO: flip -/ xsimp_apply_intro_names `xsimpl_lr_hforall xs
       | _ => /- TODO: flip -/ {| apply xsimp_lr_exit |}
     | `(emp) => {| first | apply himpl_lr_refl | apply xsimp_lr_exit |}
     | _ => /- TODO: flip -/ {| apply xsimp_lr_exit |}
@@ -637,7 +648,8 @@ example :
   (H1 ∗ emp ∗ (H2 ∗ (h∃ (y:Int) (z : Int) (n:Int), ⌜y = y + z + n⌝)) ∗ H3) ==> H :=
   by
     dup 2
-    { xpull0; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1
+    { xpull0; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1;
+      xsimpl
       xsimp1; xsimpl; sorry }
     { xpull; sorry }
 
