@@ -45,6 +45,11 @@ initialize
 initialize
   registerTraceClass `xsimp_step_lr
 
+abbrev HintExtState := List Syntax
+
+initialize hintExt : EnvExtension HintExtState ←
+  registerEnvExtension (pure [])
+
 -- #eval show MetaM (List Expr) from do
 --   let x <- `(term| [true,true,true])
 --   let x <- liftCommandElabM $ liftTermElabM $ Term.elabTerm x none
