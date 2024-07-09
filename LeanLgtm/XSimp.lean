@@ -346,10 +346,10 @@ def xsimp_pick_same (h hla : Term) : TacticM Unit := do
       withAssignableSyntheticOpaque <| isDefEq h' h | throwError "not equal"
     xsimp_pick i last?
 
-def xsimp_pick_applied (h hla : Term) : TacticM Unit :=
+def xsimp_pick_applied (h hla : Term) : TacticM Unit := do
+  let h <- Term.elabTerm h  none
   hstar_search hla fun i h' last? => do
     let h' <- Term.elabTerm h' none
-    let h  <- Term.elabTerm h  none
     let numArgs + 1 := h'.getAppNumArgs' | throwError "not equal"
     let h' := h'.consumeMData.getAppPrefix numArgs
     let .true <-
@@ -367,6 +367,17 @@ def xsimp_hwand_hstars_l (hla hs : Term) :=
     | `(emp) => {| apply xsimpl_l_cancel_hwand_hstar_hempty |}
     | _ => xsimp_pick_same h hla; {| apply xsimp_l_cancel_hwand_hstar |}
 
+def xsimo_l_exists (xs : Syntax) : TacticM Unit :=
+  match xs with
+  | `(Lean.explicitBinders| $[$xs]*) =>
+    for x in xs do
+      match x with
+      | `(Lean.bracketedExplicitBinders| ($x:ident : $ty) ) =>
+        {| repeat' (apply xsimp_l_hexists; intro $x:ident) |}
+      | _ => throwError "xsimp_l_exists: @ unreachable"
+  | `(unbracketedExplicitBinders| $[$xs]* $ty) ?)
+  | _ => throwError "xsimp_l_exists: @ unreachable"
+
 def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit := do
   match xsimp.hlt, xsimp.hlw with
   | `($h ∗ $_), _ =>
@@ -375,7 +386,7 @@ def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit := do
     | `(⌜$_⌝)       => {| apply xsimp_l_hpure; intro |}
     | `($h1 ∗ $h2)  => {| rw [@hstar_assoc $h1 $h2] |}
     /- TODO: we loose the name of a bounded variable here -/
-    | `(h∃ $_ , $_) => {| repeat' (apply xsimp_l_hexists; unhygienic intro) |}
+    | `(h∃ $xs , $_) => {| repeat' (apply xsimp_l_hexists; unhygienic intro) |}
     | `($_ -∗ $_)   => {| apply xsimp_l_acc_wand |}
     | `($_ -∗∗ $_)  => {| apply xsimp_l_acc_wand |}
     | _             => {| apply xsimp_l_acc_other |}
@@ -476,9 +487,7 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
              try simp only [qstar_simp] |}
       | `(h∀ $_, $_) => /- TODO: flip -/ {| apply xsimpl_lr_hforall; unhygienic intro |}
       | _ => /- TODO: flip -/ {| apply xsimp_lr_exit |}
-    | `(emp) =>
-      {| first | apply himpl_lr_refl
-               | apply xsimp_lr_exit |}
+    | `(emp) => {| first | apply himpl_lr_refl | apply xsimp_lr_exit |}
     | _ => /- TODO: flip -/ {| apply xsimp_lr_exit |}
   | `(⊤ ∗ emp) => {| first | apply himpl_lr_htop | apply xsimp_lr_exit |}
   | _ => /- TODO: flip -/ {| apply xsimp_lr_exit |}
