@@ -38,6 +38,12 @@ def getGoalStxAll : Lean.Elab.Tactic.TacticM Syntax := do
   delabAll $ <- getMainTarget
 
 
+initialize
+  registerTraceClass `xsimp_step_l
+initialize
+  registerTraceClass `xsimp_step_r
+initialize
+  registerTraceClass `xsimp_step_lr
 
 -- #eval show MetaM (List Expr) from do
 --   let x <- `(term| [true,true,true])
