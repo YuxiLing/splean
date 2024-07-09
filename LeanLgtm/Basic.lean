@@ -2000,7 +2000,7 @@ lemma isubst_rem x v (E : ctx) t :
   isubst (insert x v E) t = subst x v (isubst (erase x E) t) :=
 by
   srw subst_eq_isubst_one -isubst_app isubst_app_swap
-  { apply isubst_ctx_equiv=> y
+  { apply isubst_ctx_equiv=> ?
     srw lookup_ins
     scase_if=> ?
     { srw lookup_union_left //
@@ -2013,7 +2013,27 @@ by
   sby srw Not -[]mem_keys mem_erase mem_insert => [] ?? []
 
 lemma isubst_rem_2 f x vf vx (E : ctx) t :
-  isubst (insert f vf (insert x vx E)) =
-  subst x vx (isubst (erase x (erase f E)) t) :=
+  isubst (insert f vf (insert x vx E)) t =
+  subst x vx (subst f vf (isubst (erase x (erase f E)) t)) :=
 by
-  sorry
+  srw !subst_eq_isubst_one -!isubst_app isubst_app_swap
+  { apply isubst_ctx_equiv=> ?
+    srw !lookup_ins
+    scase_if=>?
+    { srw !lookup_union_left //
+      srw lookup_insert }
+    scase_if=> ?
+    { srw lookup_union_left
+      rw [lookup_union_right, lookup_insert]
+      srw Not at *
+      rw [mem_insert]=> //
+      sby srw mem_union []mem_insert }
+    srw lookup_union_right
+    sdo 2 rw [lookup_rem]
+    scase_if=>//
+    scase_if=>//
+    srw Not at *
+    sby srw mem_union []mem_insert => [] [] }
+  move=> ?
+  srw Not -[]mem_keys !mem_erase => [] ? [] ??
+  sby srw mem_union []mem_insert
