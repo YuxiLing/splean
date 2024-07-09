@@ -528,9 +528,9 @@ def hforall {A} (J : A → hprop) : hprop :=
 notation:max "emp" => hempty
 -- notation:max "" => hempty
 
-infixr:52 " ~~> " => hsingle
+infixr:60 " ~~> " => hsingle
 
-infixr:53 " ∗ " => hstar
+infixr:55 " ∗ " => hstar
 
 /- This notation sucks (`h` prefix is not uniform across other notations)
    But I dunno know what would be a better one -/
@@ -539,6 +539,18 @@ open Lean.TSyntax.Compat
 macro "h∃" xs:Lean.explicitBinders ", " b:term : term => Lean.expandExplicitBinders ``hexists xs b
 macro "h∀" xs:Lean.explicitBinders ", " b:term : term => Lean.expandExplicitBinders ``hforall xs b
 end
+
+@[app_unexpander hexists] def unexpandHExists : Lean.PrettyPrinter.Unexpander
+  | `($(_) fun $x:ident => h∃ $xs:binderIdent*, $b) => `(h∃ $x:ident $xs:binderIdent*, $b)
+  | `($(_) fun $x:ident => $b)                     => `(h∃ $x:ident, $b)
+  | `($(_) fun ($x:ident : $t) => $b)              => `(h∃ ($x:ident : $t), $b)
+  | _                                              => throw ()
+
+@[app_unexpander hforall] def unexpandHForall : Lean.PrettyPrinter.Unexpander
+  | `($(_) fun $x:ident => h∀ $xs:binderIdent*, $b) => `(h∀ $x:ident $xs:binderIdent*, $b)
+  | `($(_) fun $x:ident => $b)                     => `(h∀ $x:ident, $b)
+  | `($(_) fun ($x:ident : $t) => $b)              => `(h∀ ($x:ident : $t), $b)
+  | _                                              => throw ()
 
 
 -- notation3 "exists' " (...) ", " J r:(scoped J => hexists J) => r
@@ -585,11 +597,11 @@ notation (priority := high) "⊤" => htop
 def qstar {A} (Q : A → hprop) (H : hprop) : A → hprop :=
   fun x => hstar (Q x) H
 
-infixr:53 " ∗∗ " => qstar
+infixr:54 " ∗∗ " => qstar
 
-infixr:54 " -∗ " => hwand
+infixr:53 " -∗ " => hwand
 
-infix:54 " -∗∗ " => qwand
+infix:53 " -∗∗ " => qwand
 
 
 /- ============ Properties of Separation Logic Operators ============ -/
