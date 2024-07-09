@@ -11,25 +11,10 @@ open hprop_scope
 open Lean Lean.Expr Lean.Meta Qq
 open Lean Elab Command Term Meta Tactic
 
-/-
-Lemma himpl_of_eq : forall H1 H2,
-  H1 = H2 ->
-  H1 ==> H2.
-Proof. intros. subst. applys~ himpl_refl. Qed.
--/
+/- **============ `hsimp` trivrial goal simplification tactic ============** -/
+
 lemma himpl_of_eq H1 H2 : H1 = H2 -> H1 ==> H2 :=
   by sby move=>-> ?
-
-lemma himpl_of_eq_sym H1 H2  : H1 = H2 -> H2 ==> H1 :=
-  by sby move=>-> ?
-
-
-/-
-Lemma himpl_hstar_trans_l : forall H1 H2 H3 H4,
-  H1 ==> H2 ->
-  H2 ∗ H3 ==> H4 ->
-  H1  H3 ==> H4.
--/
 
 /- Hack to solve `H ==> H` automatically. What is a better way?  -/
 @[simp]
@@ -52,21 +37,6 @@ lemma qimpl_refl (Q : α -> hprop) : Q ===> Q := by
 lemma qimpl_refl_resolve (Q : α -> hprop) : (Q ===> Q) = True := by
   sby simp=> ??
 
-lemma qimpl_trans (Q1 Q2 Q3 : α -> hprop) :
-  Q1 ===> Q2 ->
-  Q2 ===> Q3 ->
-  Q1 ===> Q3 := by
-  sby move=> q12 q23 ?? /q12 /q23
-
-lemma qimpl_antisym (Q1 Q2 : α -> hprop) :
-  Q1 ===> Q2 ->
-  Q2 ===> Q1 ->
-  Q1 = Q2 := by
-  sby move=> q12 q21;
-      apply funext=> ?
-      apply himpl_antisym
-      { apply q12 }
-      apply q21
 
 lemma hstar_comm_assoc (H1 H2 H3 : hprop) :
   H1 ∗ H2 ∗ H3 = H2 ∗ H1 ∗ H3 := by
@@ -84,22 +54,7 @@ attribute [heapSimp] hstar_hempty_l hstar_hempty_r
 macro "hsimp" : tactic => `(tactic| simp only [heapSimp])
 
 
-def hstarList : List hprop -> hprop
-  | [] => emp
-  | [h] => h
-  | h::hs => h ∗ hstarList hs
-
--- def XSimp (hl hr : List hprop × List hprop × List hprop) :=
---   let (hla, hlw, hlt) := hl
---   let (hra, hrg, hrt) := hr
---   hstarList hla ∗ hstarList hlw ∗ hstarList hlt ==>
---   hstarList hra ∗ hstarList hrg ∗ hstarList hrt
-
--- def XSimp (hl hr : List hprop × List hprop × List hprop) :=
---   let (hla, hlw, hlt) := hl
---   let (hra, hrg, hrt) := hr
---   hstarList hla ∗ hstarList hlw ∗ hstarList hlt ==>
---   hstarList hra ∗ hstarList hrg ∗ hstarList hrt
+/- **============ `xsimp` implementation ============** -/
 
 def XSimp (hl hr : hprop × hprop × hprop) :=
   let (hla, hlw, hlt) := hl
@@ -108,15 +63,6 @@ def XSimp (hl hr : hprop × hprop × hprop) :=
 
 @[heapSimp]
 def protect (x : α) := x
-
-partial def hstarGetList! (hs : Syntax) : MetaM $ List Syntax := do
-  match hs with
-  | `(hstar $hs) => return getList! hs
-  | `($hs1 ∗ $hs2) => do
-    let hs1 <- hstarGetList! hs1
-    let hs2 <- hstarGetList! hs2
-    return hs1 ++ hs2
-  | _ => throwError "hstarGetList!: {hs} is not a hstar"
 
 structure XSimpR where
   hla : Term
@@ -133,50 +79,12 @@ def XSimpRIni : TacticM XSimpR := withMainContext do
   return { hla := hla, hlw := hlw, hlt := hlt, hra := hra, hrg := hrg, hrt := hrt }
 
 
-def put.hlt (hlt : Term) : StateRefT XSimpR TacticM Unit := do
-  modify λ s => { s with hlt := hlt }
-
-def modify.hlt (f : Term -> Term) : StateRefT XSimpR TacticM Unit := do
-  modify λ s => { s with hlt := f s.hlt }
-
-def put.hla (hla : Term) : StateRefT XSimpR TacticM Unit := do
-  modify λ s => { s with hla := hla }
-
-def modify.hla (f : Term -> Term) : StateRefT XSimpR TacticM Unit := do
-  modify λ s => { s with hla := f s.hla }
-
-def put.hra (hra : Term) : StateRefT XSimpR TacticM Unit := do
-  modify λ s => { s with hra := hra }
-
-def modify.hra (f : Term -> Term) : StateRefT XSimpR TacticM Unit := do
-  modify λ s => { s with hra := f s.hra }
-
-def put.hlw (hlw : Term) : StateRefT XSimpR TacticM Unit := do
-  modify λ s => { s with hlw := hlw }
-
-def modify.hlw (f : Term -> Term) : StateRefT XSimpR TacticM Unit := do
-  modify λ s => { s with hlw := f s.hlw }
-
-def put.hrg (hrg : Term) : StateRefT XSimpR TacticM Unit := do
-  modify λ s => { s with hrg := hrg }
-
-def modify.hrg (f : Term -> Term) : StateRefT XSimpR TacticM Unit := do
-  modify λ s => { s with hrg := f s.hrg }
-
-def put.hrt (hrt : Term) : StateRefT XSimpR TacticM Unit := do
-  modify λ s => { s with hrt := hrt }
-
-def modify.hrt (f : Term -> Term) : StateRefT XSimpR TacticM Unit := do
-  modify λ s => { s with hrt := f s.hrt }
-
-
---------------------------------- Theory ---------------------------------
-section theory
+/- ============ Theory for `xsimp` ============ -/
 lemma xsimp_start_lemma :
   XSimp (emp, emp, h1 ∗ emp) (emp, emp, h2 ∗ emp) ->
   h1 ==> h2 := by sorry
 
-/- lemmas for left step -/
+/- ------------ Lemmas for LHS step ------------ -/
 lemma xsimp_l_hempty :
   XSimp (hla, hlw, hlt) hr ->
   XSimp (hla, hlw, emp ∗ hlt) hr := by sorry
@@ -233,10 +141,8 @@ lemma xsimp_l_cancel_qwand :
 lemma xpull_protect (h : H1 ==> protect H2) : H1 ==> H2 :=
   by simp [protect] at h; assumption
 
-/- lemmas for right step -/
+/- ------------ Lemmas for RHS step ------------ -/
 
-/- xsimp HL (Hra, Hrg, Hrt) ->
-  xsimp HL (Hra, Hrg, (\[] ∗ Hrt)).-/
 lemma xsimp_r_hempty :
   XSimp hl (hra, hrg, hrt) ->
   XSimp hl (hra, hrg, emp ∗ hrt) := by sorry
@@ -257,7 +163,17 @@ lemma xsimp_r_keep :
   XSimp hl (h ∗ hra, hrg, hrt) ->
   XSimp hl (hra, hrg, h ∗ hrt) := by sorry
 
-/- lemmas for left-right step -/
+lemma xsimpl_r_hgc_or_htop :
+    XSimp HL (Hra, (H ∗ Hrg), Hrt) ->
+    XSimp HL (Hra, Hrg, (H ∗ Hrt)) :=
+  by sorry
+
+lemma xsimpl_r_htop_drop :
+  XSimp HL (Hra, Hrg, Hrt) ->
+  XSimp HL (Hra, Hrg, (⊤ ∗ Hrt)) :=
+  by sorry
+
+/- ------------ Lemmas for LHS/RHS step ------------ -/
 
 lemma xsimp_lr_hwand_hfalse :
   XSimp (Hla, emp, emp) ((⌜False⌝ -∗ H1) ∗ emp, emp, emp) := by sorry
@@ -288,16 +204,6 @@ lemma himpl_lr_qwand_unify :
   by sorry
 
 
-lemma xsimpl_r_hgc_or_htop :
-    XSimp HL (Hra, (H ∗ Hrg), Hrt) ->
-    XSimp HL (Hra, Hrg, (H ∗ Hrt)) :=
-  by sorry
-
-lemma xsimpl_r_htop_drop :
-  XSimp HL (Hra, Hrg, Hrt) ->
-  XSimp HL (Hra, Hrg, (⊤ ∗ Hrt)) :=
-  by sorry
-
 lemma himpl_lr_htop :
   XSimp (emp, emp, emp) (emp, Hrg, emp) ->
   XSimp (Hla, emp, emp) (emp, (⊤ ∗ Hrg), emp) := by sorry
@@ -312,17 +218,16 @@ lemma xsimpl_lr_cancel_htop :
   XSimp ((H ∗ Hla), Hlw, Hlt) (Hra, (⊤ ∗ Hrg), Hrt) :=
   by sorry
 
+lemma xsimp_lr_exit :
+  Hla ==> Hra ∗ Hrg ->
+  XSimp (Hla, emp, emp) (Hra, Hrg, emp) := by sorry
+
 lemma qstar_simp :
   (Q1 ∗∗ H) x = Q1 x ∗ H := by rfl
 
-end theory
 
-syntax "{|" tacticSeq "|}" : term
+/- ------------ Tactic for picking a particular heap proposition ------------ -/
 
-macro_rules
-  | `(term| {| $seq |}) => `(run `(tacticSeq| $seq))
-
-/- pick lemmas -/
 /- TODO: Pregenerate such lemmas automatically -/
 /- Note: Copilot can generate them pretty good -/
 lemma hstar_pick_1 :
@@ -410,7 +315,18 @@ def hstar_pick_lemma (i : Nat) (pickLast : Bool) : Ident :=
   else
     mkIdent s!"hstar_pick_{i}".toName
 
-/- search and cancel -/
+lemma xsimp_pick_lemma :
+  hla2 = hla1 ->
+  XSimp (hla1, hlw, hlt) hr ->
+  XSimp (hla2, hlw, hlt) hr := by sby move=>->
+
+
+set_option linter.unusedTactic false
+set_option linter.unreachableTactic false
+
+def xsimp_pick (i : Nat) (last? : Bool) : TacticM Unit :=
+   {| apply xsimp_pick_lemma
+      · apply $(hstar_pick_lemma i last?) |}
 
 partial def hstar_search (hs : Term) (test : Nat -> Term -> optParam Bool false -> TacticM Unit) :=
   let rec loop (i : Nat) (hs : Term)  : TacticM Unit := do
@@ -422,54 +338,25 @@ partial def hstar_search (hs : Term) (test : Nat -> Term -> optParam Bool false 
     | _ => test i hs true
   loop 1 hs
 
-lemma xsimp_pick_lemma :
-  hla2 = hla1 ->
-  XSimp (hla1, hlw, hlt) hr ->
-  XSimp (hla2, hlw, hlt) hr := by sby move=>->
-
-
-set_option linter.unusedTactic false in
-set_option linter.unreachableTactic false in
-def xsimp_pick (i : Nat) (last? : Bool) : TacticM Unit :=
-  --  dbg_trace "found: {i}, {last?}"
-  --  dbg_trace "lemma: {hstar_pick_lemma i last?}"
-   {| apply xsimp_pick_lemma
-      · apply $(hstar_pick_lemma i last?) |}
-
 def xsimp_pick_same (h hla : Term) : TacticM Unit := do
   let h  <- Tactic.elabTerm h none
   hstar_search hla fun i h' last? => do
-    -- dbg_trace "heaps: {h}, {h'}"
     let h' <- Tactic.elabTerm h' none
-    -- dbg_trace "elb heaps: {h}, {h'}"
-    -- dbg_trace "isMeta {h'.isMVar}"
-    -- let md <- h'.mvarId!.getDecl
-    -- let mctx <- getMCtx
-    -- dbg_trace "Depth {md.depth}, {mctx.depth}"
-    -- dbg_trace "Depth {h'.mvarId!}"
-    -- dbg_trace "isAssn {<-h'.mvarId!.isAssigned}"
-    -- dbg_trace "num: {i}"
     let .true <-
       withAssignableSyntheticOpaque <| isDefEq h' h | throwError "not equal"
-    -- dbg_trace "num': {i}"
     xsimp_pick i last?
 
 def xsimp_pick_applied (h hla : Term) : TacticM Unit :=
   hstar_search hla fun i h' last? => do
-    -- dbg_trace "heaps: {h}, {h'}"
     let h' <- Term.elabTerm h' none
     let h  <- Term.elabTerm h  none
     let numArgs + 1 := h'.getAppNumArgs' | throwError "not equal"
     let h' := h'.consumeMData.getAppPrefix numArgs
-    -- dbg_trace "num: {i}"
     let .true <-
       withAssignableSyntheticOpaque <| isDefEq h h' | throwError "not equal"
-    -- dbg_trace "num': {i}"
     xsimp_pick i last?
 
-set_option linter.unusedTactic false
-set_option linter.unreachableTactic false
-
+/- ============ LHS xsmip step ============ -/
 
 def xsimp_hwand_hstars_l (hla hs : Term) :=
   hstar_search hs fun i h last? => do
@@ -480,15 +367,7 @@ def xsimp_hwand_hstars_l (hla hs : Term) :=
     | `(emp) => {| apply xsimpl_l_cancel_hwand_hstar_hempty |}
     | _ => xsimp_pick_same h hla; {| apply xsimp_l_cancel_hwand_hstar |}
 
-/- left step -/
-
 def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit := do
-  -- let hlt <- Tactic.elabTerm xsimp.hlt none
-  -- let hlw <- Tactic.elabTerm xsimp.hlw none
-  -- trace[xsimp_step_l] s!"xsimp_step_l: {hlt}, {hlw}"
-  -- match xsimp.hlw with
-  -- | `(($_ -∗ $_) ∗ $_) => dbg_trace "str"
-  -- | _ => dbg_trace "not str"
   match xsimp.hlt, xsimp.hlw with
   | `($h ∗ $_), _ =>
     match h with
@@ -519,12 +398,7 @@ def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit := do
     | _ => throwError "xsimp_step_l: @ unreachable"
   | _, _ => throwError "xsimp_step_l: @ unreachable"
 
-/- right step -/
-
--- lemma xsimp_r_keep :
---   XSimp HL ((H ∗ Hra), Hrg, Hrt) ->
---   XSimp HL (Hra, Hrg, (H ∗ Hrt)) := by sorry
-
+/- ============ RHS xsmip step ============ -/
 declare_syntax_cat hint
 
 syntax term : hint
@@ -543,13 +417,6 @@ def xsimp_r_hexists_apply_hints : TacticM Unit := do
     | `(hint| ?)       => {| eapply xsimp_r_hexists |}
     | `(hint| $t:term) => {| apply (@xsimp_r_hexists _ $t) |}
     | _ => throwError "xsimp_r_hexists_apply_hints: @ unreachable"
-
-
-partial def repeat'' (tac : TacticM Unit) : TacticM Unit := do
-  try
-    withMainContext tac
-  catch _ => return ()
-  repeat'' tac
 
 def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
   match xsimp.hlw, xsimp.hlt, xsimp.hrt with
@@ -582,14 +449,9 @@ def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
         xsimp_pick_same h xsimp.hla
         {| apply xsimp_lr_cancel_same |}
     catch _ => {| apply xsimp_r_keep |}
-    -- | _ => throwError "not implemented"
   | _, _, _ => throwError "not implemented"
 
-/- left-right step -/
-
-lemma xsimp_lr_exit :
-  Hla ==> Hra ∗ Hrg ->
-  XSimp (Hla, emp, emp) (Hra, Hrg, emp) := by sorry
+/- ============ LHS/RHS xsmip step ============ -/
 
 def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
   match xsimp.hrg with
@@ -609,7 +471,6 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
           let .true := (<- Tactic.elabTerm h1 none).isMVar | failure
           {| apply himpl_lr_qwand_unify |}
         catch _ =>
-          dbg_trace "not a meta"
           {| first | apply xsimpl_lr_qwand_unit
                    | apply xsimpl_lr_qwand; unhygienic intro
              try simp only [qstar_simp] |}
@@ -621,6 +482,9 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
     | _ => /- TODO: flip -/ {| apply xsimp_lr_exit |}
   | `(⊤ ∗ emp) => {| first | apply himpl_lr_htop | apply xsimp_lr_exit |}
   | _ => /- TODO: flip -/ {| apply xsimp_lr_exit |}
+
+
+/- ============ Tactic Notations ============ -/
 
 elab "xsimp_step" : tactic => do
   let xsimp <- XSimpRIni
@@ -685,11 +549,8 @@ elab "xsimp" ls:hints : tactic => do
        try hsimp |}
   | _ => throwError "xsimp: unreachable"
 
-/- Test cases -/
+/- **============ Test Cases ============** -/
 section
--- variable (f : False)
-
--- macro "demo" : tactic => `(tactic| cases sorryAx)
 
 lemma dup_lemma (p : Prop) : p -> p -> p := by sdone
 
@@ -702,8 +563,6 @@ elab "dup" n:num : tactic =>
   dup $ n.getNat -1
 
 /- [hstar_pick] -/
-
-
 section
 
 local elab "pick" i:num : tactic =>
@@ -794,8 +653,7 @@ example :
 example (Q : Int -> _) :
   Q 4 ==> Q 3 ->
   H1 ∗ Q 4 ==> h∃ x, Q x ∗ H1 :=
-  by sorry /- TODO: handle hints -/
-
+  by intro; xsimp[3]=> // /- TODO: handle hints -/
 
 example :
   (forall H, H1 ∗ H2 ==> H -> True) -> True :=
@@ -878,10 +736,6 @@ example (Q : Int -> Bool -> _) :
   H1 ∗ Q 4 true ==> h∃ x b, Q x b ∗ H1 := by
   move=> ?
   xsimp[3, ?]=> //
-
-
-
-
 
 end
 end

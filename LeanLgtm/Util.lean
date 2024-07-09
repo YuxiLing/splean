@@ -50,6 +50,17 @@ abbrev HintExtState := List Syntax
 initialize hintExt : EnvExtension HintExtState ←
   registerEnvExtension (pure [])
 
+syntax "{|" tacticSeq "|}" : term
+
+macro_rules
+  | `(term| {| $seq |}) => `(withMainContext do evalTactic $ <- `(tacticSeq| $seq))
+
+partial def repeat'' (tac : TacticM Unit) : TacticM Unit := do
+  try
+    withMainContext tac
+  catch _ => return ()
+  repeat'' tac
+
 -- #eval show MetaM (List Expr) from do
 --   let x <- `(term| [true,true,true])
 --   let x <- liftCommandElabM $ liftTermElabM $ Term.elabTerm x none
