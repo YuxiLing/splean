@@ -390,13 +390,16 @@ def xsimp_apply_intro_names (lem : Name) (xs : Syntax) : TacticM Unit :=
         | _ => throwError "xsimp_l_exists: @ unreachable 1"
   | _ => throwError "xsimp_l_exists: @ unreachable 3"
 
-def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit := do
+partial def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit := do
+  trace[xsimp] "LHS step"
   match xsimp.hlt, xsimp.hlw with
   | `($h ∗ $_), _ =>
     match h with
     | `(emp)         => {| apply xsimp_l_hempty |}
     | `(⌜$_⌝)        => {| apply xsimp_l_hpure; intro |}
-    | `($h1 ∗ $h2)   => {| rw [@hstar_assoc $h1 $h2] |}
+    | `($h1 ∗ $h2)   =>
+      {| rw [@hstar_assoc $h1 $h2] |} /- we know that here should be another LHS step -/
+      xsimp_step_l (<- XSimpRIni) cancelWand
     | `(h∃ $xs , $_) => xsimp_apply_intro_names `xsimp_l_hexists xs
     | `($_ -∗ $_)    => {| apply xsimp_l_acc_wand |}
     | `($_ -∗∗ $_)   => {| apply xsimp_l_acc_wand |}
@@ -440,7 +443,8 @@ def xsimp_r_hexists_apply_hints : TacticM Unit := do
     | `(hint| $t:term) => {| apply (@xsimp_r_hexists _ $t) |}
     | _ => throwError "xsimp_r_hexists_apply_hints: @ unreachable"
 
-def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
+partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
+  trace[xsimp] "RHS step"
   match xsimp.hlw, xsimp.hlt, xsimp.hrt with
   | `(emp), `(emp), `($h ∗ $_) =>
     /- TODO: implement hook -/
@@ -448,7 +452,10 @@ def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
       match h with
       | `(emp) => {| apply xsimp_r_hempty |}
       | `(⌜P⌝) => {| apply xsimp_r_hpure |}
-      | `($h1 ∗ $h2) => {| rw [@hstar_assoc $h1 $h2] |}
+      | `($h1 ∗ $h2) =>
+        {| rw [@hstar_assoc $h1 $h2] |}
+         /- we know that here should be another LHS step -/
+        xsimp_step_r (<- XSimpRIni)
       | `($h1 -∗ $_) =>
         match h1 with
         | `(⌜$_⌝) => {| apply xsimp_r_keep |}
@@ -476,6 +483,7 @@ def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
 /- ============ LHS/RHS xsmip step ============ -/
 
 def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
+  trace[xsimp] "LHS/RHS step"
   match xsimp.hrg with
   | `(emp) =>
     match xsimp.hra with
@@ -598,9 +606,9 @@ example :
   intro M
   dup 2 <;> eapply M
   { pick 3 }
-  { sorry }
+  { admit }
   { pickl 4 }
-  { sorry }
+  { admit }
 
 /- `xsimp_pick` -/
 
@@ -632,7 +640,7 @@ example (Q : Bool -> _):
   xsimp_pick_same H3
   xsimp_pick_same ⌜True⌝
   xsimp_pick_same (⌜P⌝ -∗ H1)
-  sorry
+  admit
 
 /- `xsimp/xpull` -/
 
@@ -649,23 +657,22 @@ example :
   by
     dup 2
     { xpull0; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1;
-      xsimpl
-      xsimp1; xsimpl; sorry }
-    { xpull; sorry }
+      admit }
+    { xpull; admit }
 
 example :
   H1 ∗ H2 ∗ H3 ∗ H4 ==> H4 ∗ H3 ∗ H5 ∗ H2 :=
   by
     dup 3
-    { xpull; sorry }
+    { xpull; admit }
     { xsimp0; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1
-      xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; sorry }
-    xsimp; sorry
+      xsimp1; xsimp1; admit }
+    xsimp; admit
 
 example :
   H1 ∗ H2 ∗ H3 ∗ H4 ==> H5 ∗ H3 ∗ H6 ∗ H7 := by
   xsimp /- TODO: flip to preserve order -/
-  sorry
+  admit
 
 example :
   H1 ∗ H2 ∗ H3 ∗ H4 ∗ H5 ==> H3 ∗ H1 ∗ H2 ∗ ⊤ := by
@@ -700,8 +707,7 @@ example :
       xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1;
       xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1;
       xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1;
-      xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1;
-      xsimp1  }
+      xsimp1; xsimp1  }
     { xsimp }
 
 example :
@@ -736,11 +742,11 @@ example :
 
 example :
   (emp -∗ H1) ∗ H2 ==> H3 :=
-  by xsimp; sorry
+  by xsimp; admit
 
 example :
   ((H0 ∗ emp) -∗ emp -∗ H1) ∗ H2 ==> H3 := by
-  xsimp; sorry
+  xsimp; admit
 
 example :
   H1 ∗ H2 ∗ ((H1 ∗ H3) -∗ (H4 -∗ H5)) ∗ H4 ==> ((H2 -∗ H3) -∗ H5) := by
