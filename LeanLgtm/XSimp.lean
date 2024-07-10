@@ -68,6 +68,7 @@ structure XSimpR where
   hla : Term
   hlw : Term
   hlt : Term
+  ----------
   hra : Term
   hrg : Term
   hrt : Term
@@ -91,7 +92,7 @@ lemma xsimp_l_hempty :
 
 lemma xsimp_l_hpure :
   (p -> XSimp (hla, hlw, hlt) hr) ->
-  XSimp (hla, hlw, hpure p ∗ hlt) hr := by sorry
+  XSimp (hla, hlw, ⌜p⌝ ∗ hlt) hr := by sorry
 
 lemma xsimp_l_acc_wand :
   XSimp (hla, h ∗ hlw, hlt) hr ->
@@ -124,6 +125,9 @@ lemma xsimp_l_hwand_reorder :
   XSimp (hla, ((h1' -∗ h2) ∗ hlw), hlt) hr ->
   XSimp (hla, (h1 -∗ h2) ∗ hlw, hlt) hr := by sorry
 
+/-
+  XSimp (hla, (h1 ∗ h2 ∗ ... ∗ hn -∗ h) ∗ hlw, hlt) hr
+-/
 lemma xsimp_l_cancel_hwand_hstar :
     XSimp (Hla, Hlw, (H2 -∗ H3) ∗ Hlt) HR →
     XSimp ((H1 ∗ Hla), (((H1 ∗ H2) -∗ H3) ∗ Hlw), Hlt) HR :=
@@ -472,6 +476,14 @@ partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
         | _ => throwError "xsimp_step_r: @ unreachable"
       | `(h∃ $_, $_) => xsimp_r_hexists_apply_hints
       | `(protect $_) => {| apply xsimp_r_keep |}
+      /-
+      | `($x ~~> $u) =>
+        if x.isMVarStx then
+          {| apply xsimp_r_keep |}
+        else
+          xsimp_pick_same_pointer x xsimp.hla
+          {| apply xsimp_lr_cancel_same_hsingle |}
+      -/
       | _ =>
         if h.isMVarStx then
           {| apply xsimp_r_keep |}
