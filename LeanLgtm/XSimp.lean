@@ -398,7 +398,8 @@ partial def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit :=
     | `(emp)         => {| apply xsimp_l_hempty |}
     | `(⌜$_⌝)        => {| apply xsimp_l_hpure; intro |}
     | `($h1 ∗ $h2)   =>
-      {| rw [@hstar_assoc $h1 $h2] |} /- we know that here should be another LHS step -/
+      {| rw [@hstar_assoc $h1 $h2] |}
+      /- we know that here should be another LHS step -/
       xsimp_step_l (<- XSimpRIni) cancelWand
     | `(h∃ $xs , $_) => xsimp_apply_intro_names `xsimp_l_hexists xs
     | `($_ -∗ $_)    => {| apply xsimp_l_acc_wand |}
@@ -454,7 +455,7 @@ partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
       | `(⌜P⌝) => {| apply xsimp_r_hpure |}
       | `($h1 ∗ $h2) =>
         {| rw [@hstar_assoc $h1 $h2] |}
-         /- we know that here should be another LHS step -/
+         /- we know that here should be another RHS step -/
         xsimp_step_r (<- XSimpRIni)
       | `($h1 -∗ $_) =>
         match h1 with
@@ -516,7 +517,10 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
 
 elab "xsimp_step" : tactic => do
   let xsimp <- XSimpRIni
-  /- TODO: optimise -/
+  /- TODO: optimise.
+    Sometimes we tell that some transitions are not availible at the moment.
+    So it might be possible to come up with something better than trying all
+    transitions one by one -/
   withMainContext do
     xsimp_step_l  xsimp <|>
     xsimp_step_r  xsimp <|>
@@ -747,6 +751,8 @@ example :
 example :
   ((H0 ∗ emp) -∗ emp -∗ H1) ∗ H2 ==> H3 := by
   xsimp; admit
+
+set_option trace.xsimp true
 
 example :
   H1 ∗ H2 ∗ ((H1 ∗ H3) -∗ (H4 -∗ H5)) ∗ H4 ==> ((H2 -∗ H3) -∗ H5) := by
