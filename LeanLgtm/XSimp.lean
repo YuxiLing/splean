@@ -3,11 +3,11 @@ import Qq
 
 import SSReflect.Lang
 
-import LeanLgtm.Basic
+import LeanLgtm.HProp
 import LeanLgtm.Util
 
 
-open hprop_scope
+-- open hprop_scope
 open Lean Lean.Expr Lean.Meta Qq
 open Lean Elab Command Term Meta Tactic
 
@@ -21,13 +21,13 @@ lemma himpl_of_eq H1 H2 : H1 = H2 -> H1 ==> H2 :=
 lemma himpl_refl_resolve  H : (H ==> H) = True := by
   sby simp=> ?
 
-lemma himpl_hstar_trans_l H1 H2 H3 H4 :
-  H1 ==> H2 ->
-  H2 ∗ H3 ==> H4 ->
-  H1 ∗ H3 ==> H4 := by
-  move=> ??
-  eapply himpl_trans=> //
-  apply himpl_frame_lr=> //
+-- lemma himpl_hstar_trans_l H1 H2 H3 H4 :
+--   H1 ==> H2 ->
+--   H2 ∗ H3 ==> H4 ->
+--   H1 ∗ H3 ==> H4 := by
+--   move=> ??
+--   eapply himpl_trans=> //
+--   apply himpl_frame_lr=> //
 
 lemma qimpl_refl (Q : α -> hprop) : Q ===> Q := by
   sby move=> ?; apply himpl_refl
