@@ -779,7 +779,7 @@ declare_syntax_cat args
 
 syntax ident : lang
 syntax num : lang
-syntax lang lang lang*: lang
+syntax lang "(" lang,* ")" : lang
 syntax "if " lang "then " lang "end " : lang
 syntax ppIndent("if " lang " then") ppSpace lang ppDedent(ppSpace) ppRealFill("else " lang) : lang
 syntax "let" ident " := " lang " in" ppDedent(ppLine lang) : lang
@@ -819,44 +819,49 @@ def trm_apps (f:trm) (ts:List trm) : trm :=
   | [] => f
   | ti::ts' => trm_apps (trm_app f ti) ts'
 
--- partial def macroApps : Lean.Syntax -> List Lean.Syntax
---   | `(lang| $t1 $t2) => macroApps t1 ++ [t2.raw]
---   | _ => []
+def trm_funs (xs:List var) (t:trm) : trm :=
+  match xs with
+  | [] => t
+  | x1::xs' => trm_fun x1 (trm_funs xs' t)
 
--- partial def appsToList : List Lean.Syntax -> Lean.MacroM Lean.Term
---   | [] => `([])
---   | a :: as => do
---     let x <- appsToList as
---     `([lang| $(⟨a⟩)] :: $x)
+def val_funs (xs:List var) (t:trm) : val :=
+  match xs with
+  | [] => panic! "function with zero argumets!"
+  | x1::xs' => val_fun x1 (trm_funs xs' t)
 
+def trm_fixs (f:var) (xs:List var) (t:trm) : trm :=
+  match xs with
+  | [] => t
+  | x1::xs' => trm_fix f x1 (trm_funs xs' t)
 
+def val_fixs (f:var) (xs:List var) (t:trm) : val :=
+  match xs with
+  | .nil => val_uninit
+  | x1::xs' => val_fix f x1 (trm_funs xs' t)
 
 macro_rules
   | `([lang| ()])                       => `(trm_val val_unit)
   | `([lang| $n:num])                   => `(trm_val (val_int $n))
   | `([lang| $x:ident])                 => `(trm_var $(%x))
-  | `([lang| $t1 $t2])                  => do
-    -- dbg_trace t2
-    -- let args <- appsToList $ macroApps t1 ++ [t2.raw]
-    `(trm_app [lang| $t1] [lang| $t2])
+  | `([lang| $t1 ( $t2,* )])                  => do
+    `(trm_apps [lang| $t1] [ $[[lang|$t2]],* ])
   | `([lang| if $t1 then $t2 else $t3]) => `(trm_if [lang| $t1] [lang| $t2] [lang| $t3])
   | `([lang| if $t1 then $t2 end])      => `(trm_if [lang| $t1] [lang| $t2] (trm_val val_unit))
   | `([lang| let $x := $t1:lang in $t2:lang])     =>
     `(trm_let $(%x) [lang| $t1] [lang| $t2])
   | `([lang| $t1 ; $t2])                => `(trm_seq [lang| $t1] [lang| $t2])
-  | `([lang| fun_ => $t])               => `([lang| $t])
-  | `([lang| fun_ $x => $t])            => `(trm_fun $(%x) [lang| $t])
-  | `([lang| fun_ $x $xs* => $t])       =>
-    `(trm_fun $(%x) [lang| fun_ $xs* => $t])
-  | `([lang| fun $x => $t])             => `(val_fun $(%x) [lang| $t])
-  | `([lang| fun $x $xs* => $t])        =>
-    `(val_fun $(%x) [lang| fun_ $xs* => $t])
-  | `([lang| fix_ $f $x => $t])         => `(trm_fix $(%f) $(%x) [lang| $t])
-  | `([lang| fix_ $f $x $xs* => $t])    =>
-    `(trm_fix $(%f) $(%x) [lang| fun_ $xs* => $t])
-  | `([lang| fix $f $x => $t])          => `(val_fix $(%f) $(%x) [lang| $t])
-  | `([lang| fix $f $x $xs* => $t])     =>
-    `(val_fix $(%f) $(%x) [lang| fun_ $xs* => $t])
+  | `([lang| fun_ $xs* => $t])             => do
+    let xs <- xs.mapM fun x => `(term| $(%x))
+    `(trm_funs [ $xs,* ] [lang| $t])
+  | `([lang| fun $xs* => $t])             => do
+    let xs <- xs.mapM fun x => `(term| $(%x))
+    `(val_funs [ $xs,* ] [lang| $t])
+  | `([lang| fix_ $f $xs* => $t])    => do
+      let xs <- xs.mapM fun x => `(term| $(%x))
+      `(trm_fixs $(%f) [ $xs,* ] [lang| $t])
+  | `([lang| fix $f $xs* => $t])    => do
+      let xs <- xs.mapM fun x => `(term| $(%x))
+      `(val_fixs $(%f) [ $xs,* ] [lang| $t])
   | `([lang| ref])                      => `(trm_val (val_prim val_ref))
   | `([lang| free])                     => `(trm_val (val_prim val_free))
   | `([lang| not])                      => `(trm_val (val_prim val_not))
@@ -909,9 +914,9 @@ macro_rules
       | _ => return x
     | `(val_prim val_get) => `([lang| !$t2])
     | `(val_prim val_neg) => `([lang| -$t2])
-    | `([lang| $f]) => `([lang| $f $t2])
+    -- | `([lang| $f]) => `([lang| $f $t2])
     | _ => return x
-  | `($(_) [lang| $t1] [lang| $t2]) => `([lang| $t1 $t2])
+  -- | `($(_) [lang| $t1] [lang| $t2]) => `([lang| $t1 $t2])
   | t => return t
 
 @[app_unexpander trm_var] def unexpandVar : Lean.PrettyPrinter.Unexpander
@@ -988,25 +993,46 @@ macro_rules
     `([lang| fix $nameF $nameX => $t])
   | t => return t
 
--- partial def unexpandApps : Lean.PrettyPrinter.Unexpander
---   | `($(_) [lang| $f] $xs) =>
---     match xs with
---     | `([]) => `([lang| $f])
---     | `([[lang| $l], $xs]) => do
---       let stx <- `(trm_apps [lang| $f $l] $xs)
---       unexpandApps stx
---     | _ => `([lang| $f])
---   | t => return t
+@[app_unexpander trm_apps] def unexpandApps : Lean.PrettyPrinter.Unexpander
+  | `($(_) [lang| $f] [ $[[lang|$xs]],* ]) => `([lang| $f ( $xs,* )])
+  | t => return t
 
--- @[app_unexpander trm_apps] def unexpandApps' : Lean.PrettyPrinter.Unexpander := unexpandApps
+@[app_unexpander trm_funs] def unexpandTFuns : Lean.PrettyPrinter.Unexpander
+  | `($(_) [ $xs:str,* ] [lang| $f]) =>
+    let xs := xs.getElems.map (Lean.mkIdent $ Lean.Name.mkSimple ·.getString)
+    `([lang| fun $xs* => $f])
+  | t => return t
+
+@[app_unexpander val_funs] def unexpandVFuns : Lean.PrettyPrinter.Unexpander
+  | `($(_) [ $xs:str,* ] [lang| $f]) =>
+    let xs := xs.getElems.map (Lean.mkIdent $ Lean.Name.mkSimple ·.getString)
+    `([lang| fun $xs* => $f])
+  | t => return t
+
+@[app_unexpander trm_fixs] def unexpandTFixs : Lean.PrettyPrinter.Unexpander
+  | `($(_) $f:str [ $xs:str,* ] [lang| $t]) =>
+    let xs := xs.getElems.map (Lean.mkIdent $ Lean.Name.mkSimple ·.getString)
+    let f := Lean.mkIdent $ Lean.Name.mkSimple f.getString
+    `([lang| fix $f $xs* => $t])
+  | t => return t
+
+@[app_unexpander val_fixs] def unexpandVFixs : Lean.PrettyPrinter.Unexpander
+  | `($(_) $f:str [ $xs:str,* ] [lang| $t]) =>
+    let xs := xs.getElems.map (Lean.mkIdent $ Lean.Name.mkSimple ·.getString)
+    let f := Lean.mkIdent $ Lean.Name.mkSimple f.getString
+    `([lang| fix $f $xs* => $t])
+  | t => return t
+
 
 #check [lang|
   fix f y z =>
-    if f y z
+    if f(y, z)
     then
-      let y := 1 + 1 in
+      let y := 1 + 1 + () in
       let y := 1 + 1 in
       let z := 1 in
       y + z
     else
-      y]
+      let y := 1 + 1 in
+      let z := 1 in
+      y + z]
