@@ -1,7 +1,7 @@
 import Lean.Elab.Tactic
 import Qq
 
-import SSReflect.Lang
+-- import SSReflect.Lang
 
 import LeanLgtm.HProp
 import LeanLgtm.Util
@@ -194,7 +194,7 @@ lemma xsimp_lr_hwand :
   XSimp (Hla, emp, emp) ((H1 -∗ H2) ∗ emp, emp, emp) := by sorry
 
 lemma xsimpl_lr_qwand_unit :
-  XSimp (emp, emp, (Q1 () ∗ Hla)) (emp, emp, (Q2 () ∗ emp)) ->
+  XSimp (emp, emp, (Q1 ( ) ∗ Hla)) (emp, emp, (Q2 ( ) ∗ emp)) ->
   XSimp (Hla, emp, emp) ((Q1 -∗∗ Q2) ∗ emp, emp, emp) :=
   by sorry
 
@@ -503,7 +503,7 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
     | `($h1 ∗ emp) =>
       if h1.isMVarStx then
         {| hsimp; apply himpl_lr_refl |}
-        return ()
+        return ( )
       match h1 with
       | `($h1 -∗ $_) =>
         match h1 with
@@ -549,7 +549,7 @@ elab "xsimp_handle_qimpl" : tactic => do
   | himpl _ h2 =>
      if h2.isMVar then
       {| apply himpl_refl |}
-     else return ()
+     else return ( )
   | Eq tp _ _ =>
     let_expr hprop := tp | throwError "not a goal for xsimp/xpull"
     {| apply himpl_antisym |}

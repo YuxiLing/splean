@@ -2,6 +2,7 @@ import Lean
 import Lean.Elab.Tactic
 import Batteries.Lean.Meta.UnusedNames
 import Qq
+import SSReflect.Lang
 
 open Lean Lean.Expr Lean.Meta Qq
 open Lean Elab Command Term Meta Tactic
@@ -32,7 +33,7 @@ def getGoalProp : Lean.Elab.Tactic.TacticM Q(Prop) := do
   | none => throwError "goal is not a proposition"
 
 
-def delabAll :=  (withOptions (fun _ => {}) $ PrettyPrinter.delab ·)
+def delabAll :=  (withOptions (fun _ => { }) $ PrettyPrinter.delab ·)
 
 def getGoalStxAll : Lean.Elab.Tactic.TacticM Syntax := do
   delabAll $ <- getMainTarget
@@ -68,6 +69,20 @@ def _root_.Lean.TSyntax.isMVarStx (x : Term) : Bool :=
   match x with
   | `(?$_) => true
   | _ => false
+
+  syntax "sdo" num tactic : tactic
+
+partial def elabSDo (n : Nat) (tac : Lean.Elab.Tactic.TacticM Unit) : Lean.Elab.Tactic.TacticM Unit := do
+  if n == 0 then
+    return ()
+  else
+    tryGoal tac
+    allGoal $ elabSDo (n - 1) tac
+
+elab_rules : tactic
+  | `(tactic| sdo $n $t) => do
+    elabSDo n.getNat (elabTactic t)
+
 
 -- #eval show MetaM (List Expr) from do
 --   let x <- `(term| [true,true,true])

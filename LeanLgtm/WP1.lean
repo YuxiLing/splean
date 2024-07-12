@@ -1,6 +1,6 @@
 import Lean
 
-import Ssreflect.Lang
+-- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
 import LeanLgtm.Util
@@ -666,7 +666,7 @@ set_option linter.unusedTactic false in
 elab "xstruct_if_needed" : tactic => do
   match <- getGoalStxAll with
   | `($_ ==> mkstruct $_ $_) => {| apply xstruct |}
-  | _ => pure ()
+  | _ => pure ( )
 
 macro "xval" : tactic => do
   `(tactic| (xstruct_if_needed; apply xval_lemma))
@@ -685,8 +685,8 @@ elab "xseq_xlet_if_needed" : tactic => do
     match f with
     | `(wpgen_seq $_ $_) => {| xseq |}
     | `(wpgen_let $_ $_) => {| xlet |}
-    | _ => pure ()
-  | _ => pure ()
+    | _ => pure ( )
+  | _ => pure ( )
 
 
 macro "xif" : tactic => do
@@ -696,7 +696,7 @@ macro "xif" : tactic => do
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
 elab "xapp_try_clear_unit_result" : tactic => do
-  let .some (_, _) := (← Lean.Elab.Tactic.getMainTarget).arrow? | pure ()
+  let .some (_, _) := (← Lean.Elab.Tactic.getMainTarget).arrow? | pure ( )
   -- let_expr val := val | pure ()
   {| move=> _ |}
 
@@ -706,7 +706,7 @@ macro "xtriple" :tactic =>
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
 elab "xtriple_if_needed" : tactic => do
-  let_expr triple _ _ _ := (<- getMainTarget) | pure ()
+  let_expr triple _ _ _ := (<- getMainTarget) | pure ( )
   {| xtriple |}
 
 lemma xapp_simpl_lemma (F : formula) :
@@ -771,268 +771,95 @@ macro "xwp" : tactic =>
 
 end tactics
 
-/- ================================================================= -/
-/-* ** Notation for Concrete Terms -/
+abbrev var_funs (xs:List var) (n:Nat) : Prop :=
+     xs.Nodup
+  /\ xs.length = n
+  /\ xs != []
 
-declare_syntax_cat lang
-declare_syntax_cat args
+@[simp]
+def trms_vals (vs : List var) : List trm :=
+  vs.map trm_var
 
-syntax ident : lang
-syntax num : lang
-syntax lang "(" lang,* ")" : lang
-syntax "if " lang "then " lang "end " : lang
-syntax ppIndent("if " lang " then") ppSpace lang ppDedent(ppSpace) ppRealFill("else " lang) : lang
-syntax "let" ident " := " lang " in" ppDedent(ppLine lang) : lang
--- syntax withPosition("let" ident " := " lang) " in " lang : lang
-syntax lang ";\n" ppDedent(lang) : lang
-syntax "fun" ident+ " => " lang : lang
-syntax "fix" ident ident+ " => " lang : lang
-syntax "fun_ " ident* " => " lang : lang
-syntax "fix_ " ident ident* " => " lang : lang
-syntax "()" : lang
-syntax "ref" : lang
-syntax "free" : lang
-syntax "not" : lang
-syntax "!" noWs lang : lang
-syntax "-" noWs lang : lang
-syntax lang " := " lang : lang
-syntax lang " + " lang : lang
-syntax lang " * " lang : lang
-syntax lang " - " lang : lang
-syntax lang " / " lang : lang
-syntax lang " < " lang : lang
-syntax lang " > " lang : lang
-syntax lang " = " lang : lang
-syntax lang " <= " lang : lang
-syntax lang " >= " lang : lang
-syntax lang " != " lang : lang
-syntax lang " mod " lang : lang
-syntax "(" lang ")" : lang
+instance : Coe (List var) (List trm) where
+  coe := trms_vals
 
-syntax "[lang|\n" lang "]" : term
+-- lemma trms_vals_nil :
+--   trms_vals .nil = .nil := by rfl
 
-
-local notation "%" x => (Lean.quote (toString (Lean.Syntax.getId x)))
-
-def trm_apps (f:trm) (ts:List trm) : trm :=
+def trms_to_vals (ts:List trm) : Option (List val) :=
   match ts with
-  | [] => f
-  | ti::ts' => trm_apps (trm_app f ti) ts'
+  | [] => .some []
+  | (trm_val v) :: ts' =>
+      match trms_to_vals ts' with
+      | .none => .none
+      | .some vs' => v :: vs'
+  | _ => .none
 
-def trm_funs (xs:List var) (t:trm) : trm :=
-  match xs with
-  | [] => t
-  | x1::xs' => trm_fun x1 (trm_funs xs' t)
+/- ======================= WP Generator ======================= -/
+/- Below we define a function [wpgen t] recursively over [t] such that
+   [wpgen t Q] entails [wp t Q].
 
-def val_funs (xs:List var) (t:trm) : val :=
-  match xs with
-  | [] => panic! "function with zero argumets!"
-  | x1::xs' => val_fun x1 (trm_funs xs' t)
+   We actually define [wpgen E t], where [E] is a list of bindings, to
+   compute a formula that entails [wp (isubst E t)], where [isubst E t]
+   is the iterated substitution of bindings from [E] inside [t].
+-/
 
-def trm_fixs (f:var) (xs:List var) (t:trm) : trm :=
-  match xs with
-  | [] => t
-  | x1::xs' => trm_fix f x1 (trm_funs xs' t)
+open AList
 
-def val_fixs (f:var) (xs:List var) (t:trm) : val :=
-  match xs with
-  | .nil => val_uninit
-  | x1::xs' => val_fix f x1 (trm_funs xs' t)
+abbrev ctx := AList (fun _ : var ↦ val)
 
-macro_rules
-  | `([lang| ()])                       => `(trm_val val_unit)
-  | `([lang| $n:num])                   => `(trm_val (val_int $n))
-  | `([lang| $x:ident])                 => `(trm_var $(%x))
-  | `([lang| $t1 ( $t2,* )])                  => do
-    `(trm_apps [lang| $t1] [ $[[lang|$t2]],* ])
-  | `([lang| if $t1 then $t2 else $t3]) => `(trm_if [lang| $t1] [lang| $t2] [lang| $t3])
-  | `([lang| if $t1 then $t2 end])      => `(trm_if [lang| $t1] [lang| $t2] (trm_val val_unit))
-  | `([lang| let $x := $t1:lang in $t2:lang])     =>
-    `(trm_let $(%x) [lang| $t1] [lang| $t2])
-  | `([lang| $t1 ; $t2])                => `(trm_seq [lang| $t1] [lang| $t2])
-  | `([lang| fun_ $xs* => $t])             => do
-    let xs <- xs.mapM fun x => `(term| $(%x))
-    `(trm_funs [ $xs,* ] [lang| $t])
-  | `([lang| fun $xs* => $t])             => do
-    let xs <- xs.mapM fun x => `(term| $(%x))
-    `(val_funs [ $xs,* ] [lang| $t])
-  | `([lang| fix_ $f $xs* => $t])    => do
-      let xs <- xs.mapM fun x => `(term| $(%x))
-      `(trm_fixs $(%f) [ $xs,* ] [lang| $t])
-  | `([lang| fix $f $xs* => $t])    => do
-      let xs <- xs.mapM fun x => `(term| $(%x))
-      `(val_fixs $(%f) [ $xs,* ] [lang| $t])
-  | `([lang| ref])                      => `(trm_val (val_prim val_ref))
-  | `([lang| free])                     => `(trm_val (val_prim val_free))
-  | `([lang| not])                      => `(trm_val (val_prim val_not))
-  | `([lang| !$t])                      => `(trm_val val_get [lang| $t])
-  | `([lang| $t1 := $t2])               => `(trm_val val_set [lang| $t1] [lang| $t2])
-  | `([lang| $t1 + $t2])                => `(trm_val val_add [lang| $t1] [lang| $t2])
-  | `([lang| $t1 * $t2])                => `(trm_val val_mul [lang| $t1] [lang| $t2])
-  | `([lang| $t1 - $t2])                => `(trm_val val_sub [lang| $t1] [lang| $t2])
-  | `([lang| $t1 / $t2])                => `(trm_val val_div [lang| $t1] [lang| $t2])
-  | `([lang| $t1 < $t2])                => `(trm_val val_lt [lang| $t1] [lang| $t2])
-  | `([lang| $t1 > $t2])                => `(trm_val val_gt [lang| $t1] [lang| $t2])
-  | `([lang| $t1 <= $t2])               => `(trm_val val_le [lang| $t1] [lang| $t2])
-  | `([lang| $t1 >= $t2])               => `(trm_val val_ge [lang| $t1] [lang| $t2])
-  | `([lang| -$t])                      => `(trm_val val_opp [lang| $t])
-  | `([lang| $t1 = $t2])                => `(trm_val val_eq [lang| $t1] [lang| $t2])
-  | `([lang| $t1 != $t2])               => `(trm_val val_neq [lang| $t1] [lang| $t2])
-  | `([lang| $t1 mod $t2])              => `(trm_val val_mod [lang| $t1] [lang| $t2])
-  | `([lang| ($t)]) => `([lang| $t])
+/- Definition of Multi-Substitution -/
 
+def isubst (E : ctx) (t : trm) : trm :=
+  match t with
+  | trm_val v =>
+      v
+  | trm_var x =>
+      match lookup x E with
+      | none   => t
+      | some v => v
+  | trm_fun x t1 =>
+      trm_fun x (isubst (erase x E) t1)
+  | trm_fix f x t1 =>
+      trm_fix f x (isubst (erase x (erase f E)) t1)
+  | trm_if t0 t1 t2 =>
+      trm_if (isubst E t0) (isubst E t1) (isubst E t2)
+  | trm_seq t1 t2 =>
+      trm_seq (isubst E t1) (isubst E t2)
+  | trm_let x t1 t2 =>
+      trm_let x (isubst E t1) (isubst (erase x E) t2)
+  | trm_app t1 t2 =>
+      trm_app (isubst E t1) (isubst E t2)
 
-@[app_unexpander trm_val] def unexpandVal : Lean.PrettyPrinter.Unexpander
-  | `($(_) $x) =>
-    match x with
-    | `(val_unit) => `([lang| ()])
-    | `(val_int $n:num) => `([lang| $n:num])
-    | `(val_prim val_ref) => `([lang| ref])
-    | `(val_prim val_free) => `([lang| free])
-    | `(val_prim val_not) => `([lang| not])
-    | t => return t
-  | t => return t
+def _root_.List.mkAlist [DecidableEq α] (xs : List α) (vs : List β) :=
+  ((xs.zip vs).map fun (x, y) => ⟨x, y⟩).toAList
 
-@[app_unexpander trm_app] def unexpandApp : Lean.PrettyPrinter.Unexpander := fun x =>
-  match x with
-  | `($(_) $op [lang| $t2]) =>
-    match op with
-    | `(trm_app $prim [lang| $t1]) =>
-      match prim with
-      | `(val_prim val_add) => `([lang| $t1 + $t2])
-      | `(val_prim val_mul) => `([lang| $t1 * $t2])
-      | `(val_prim val_sub) => `([lang| $t1 - $t2])
-      | `(val_prim val_div) => `([lang| $t1 / $t2])
-      | `(val_prim val_lt) => `([lang| $t1 < $t2])
-      | `(val_prim val_gt) => `([lang| $t1 > $t2])
-      | `(val_prim val_le) => `([lang| $t1 <= $t2])
-      | `(val_prim val_ge) => `([lang| $t1 >= $t2])
-      | `(val_prim val_eq) => `([lang| $t1 = $t2])
-      | `(val_prim val_neq) => `([lang| $t1 != $t2])
-      | `(val_prim val_mod) => `([lang| $t1 mod $t2])
-      | `(val_prim val_set) => `([lang| $t1 := $t2])
-      | _ => return x
-    | `(val_prim val_get) => `([lang| !$t2])
-    | `(val_prim val_neg) => `([lang| -$t2])
-    -- | `([lang| $f]) => `([lang| $f $t2])
-    | _ => return x
-  -- | `($(_) [lang| $t1] [lang| $t2]) => `([lang| $t1 $t2])
-  | t => return t
+lemma xwp_lemma_funs (xs : List _) (vs : List val) :
+  t = trm_apps v0 ts ->
+  v0 = val_funs xs t1 ->
+  trms_to_vals ts = vs ->
+  var_funs xs vs.length ->
+  H ==> wpgen (isubst (xs.mkAlist vs) t1) Q ->
+  triple t H Q := by sorry
 
-@[app_unexpander trm_var] def unexpandVar : Lean.PrettyPrinter.Unexpander
-  | `($(_) $x:str) =>
-    let str := x.getString
-    let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| $name:ident])
-  | t => return t
+lemma xwp_lemma_fixs (xs : List _) (vs : List val) :
+  t = trm_apps v0 ts ->
+  v0 = val_fixs f xs t1 ->
+  trms_to_vals ts = vs ->
+  var_funs xs vs.length ->
+  f ∉ xs ->
+  H ==> wpgen (isubst (xs.mkAlist vs) t1) Q ->
+  triple t H Q := by sorry
 
-@[app_unexpander trm_seq] def unexpandSeq : Lean.PrettyPrinter.Unexpander
-  | `($(_) [lang| $t1] [lang| $t2]) => `([lang| $t1 ; $t2])
-  | t => return t
-
-@[app_unexpander trm_let] def unexpandLet : Lean.PrettyPrinter.Unexpander
-  | `($(_) $x:str [lang| $t1] [lang| $t2]) =>
-    let str := x.getString
-    let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| let $name := $t1 in $t2])
-  | t => return t
-
-@[app_unexpander trm_if] def unexpandIf : Lean.PrettyPrinter.Unexpander
-  | `($(_) [lang| $t1] [lang| $t2] [lang| $t3]) => `([lang| if $t1 then $t2 else $t3])
-  | t => return t
-
-@[app_unexpander trm_fun] def unexpandTFun : Lean.PrettyPrinter.Unexpander
-  | `($(_) $x:str [lang| fun $xs* => $t]) =>
-    let str := x.getString
-    let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| fun $name $xs* => $t])
-  | `($(_) $x:str [lang| $t]) =>
-    let str := x.getString
-    let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| fun $name => $t])
-  | t => return t
-
-@[app_unexpander val_fun] def unexpandVFun : Lean.PrettyPrinter.Unexpander
-  | `($(_) $x:str [lang| fun $xs* => $t]) =>
-    let str := x.getString
-    let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| fun $name $xs* => $t])
-  | `($(_) $x:str [lang| $t]) =>
-    let str := x.getString
-    let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| fun $name => $t])
-  | t => return t
-
-@[app_unexpander trm_fix] def unexpandTFix : Lean.PrettyPrinter.Unexpander
-  | `($(_) $f:str $x:str [lang| fun $xs* => $t]) =>
-    let f := f.getString
-    let x := x.getString
-    let nameF := Lean.mkIdent $ Lean.Name.mkSimple f
-    let nameX := Lean.mkIdent $ Lean.Name.mkSimple x
-    `([lang| fix $nameF $nameX $xs* => $t])
-  | `($(_) $f:str $x:str [lang| $t]) =>
-    let f := f.getString
-    let x := x.getString
-    let nameF := Lean.mkIdent $ Lean.Name.mkSimple f
-    let nameX := Lean.mkIdent $ Lean.Name.mkSimple x
-    `([lang| fix $nameF $nameX => $t])
-  | t => return t
-
-@[app_unexpander val_fix] def unexpandVFix : Lean.PrettyPrinter.Unexpander
-  | `($(_) $f:str $x:str [lang| fun $xs* => $t]) =>
-    let f := f.getString
-    let x := x.getString
-    let nameF := Lean.mkIdent $ Lean.Name.mkSimple f
-    let nameX := Lean.mkIdent $ Lean.Name.mkSimple x
-    `([lang| fix $nameF $nameX $xs* => $t])
-  | `($(_) $f:str $x:str [lang| $t]) =>
-    let f := f.getString
-    let x := x.getString
-    let nameF := Lean.mkIdent $ Lean.Name.mkSimple f
-    let nameX := Lean.mkIdent $ Lean.Name.mkSimple x
-    `([lang| fix $nameF $nameX => $t])
-  | t => return t
-
-@[app_unexpander trm_apps] def unexpandApps : Lean.PrettyPrinter.Unexpander
-  | `($(_) [lang| $f] [ $[[lang|$xs]],* ]) => `([lang| $f ( $xs,* )])
-  | t => return t
-
-@[app_unexpander trm_funs] def unexpandTFuns : Lean.PrettyPrinter.Unexpander
-  | `($(_) [ $xs:str,* ] [lang| $f]) =>
-    let xs := xs.getElems.map (Lean.mkIdent $ Lean.Name.mkSimple ·.getString)
-    `([lang| fun $xs* => $f])
-  | t => return t
-
-@[app_unexpander val_funs] def unexpandVFuns : Lean.PrettyPrinter.Unexpander
-  | `($(_) [ $xs:str,* ] [lang| $f]) =>
-    let xs := xs.getElems.map (Lean.mkIdent $ Lean.Name.mkSimple ·.getString)
-    `([lang| fun $xs* => $f])
-  | t => return t
-
-@[app_unexpander trm_fixs] def unexpandTFixs : Lean.PrettyPrinter.Unexpander
-  | `($(_) $f:str [ $xs:str,* ] [lang| $t]) =>
-    let xs := xs.getElems.map (Lean.mkIdent $ Lean.Name.mkSimple ·.getString)
-    let f := Lean.mkIdent $ Lean.Name.mkSimple f.getString
-    `([lang| fix $f $xs* => $t])
-  | t => return t
-
-@[app_unexpander val_fixs] def unexpandVFixs : Lean.PrettyPrinter.Unexpander
-  | `($(_) $f:str [ $xs:str,* ] [lang| $t]) =>
-    let xs := xs.getElems.map (Lean.mkIdent $ Lean.Name.mkSimple ·.getString)
-    let f := Lean.mkIdent $ Lean.Name.mkSimple f.getString
-    `([lang| fix $f $xs* => $t])
-  | t => return t
+lemma wp_of_wpgen :
+  H ==> wpgen t Q ->
+  H ==> wp t Q := by sorry
 
 
-#check [lang|
-  fix f y z =>
-    if f(y, z)
-    then
-      let y := 1 + 1 + () in
-      let y := 1 + 1 in
-      let z := 1 in
-      y + z
-    else
-      let y := 1 + 1 in
-      let z := 1 in
-      y + z]
+macro "xwp" : tactic =>
+  `(tactic|
+    (intros
+     first | apply xwp_lemma_fixs=> //
+           | apply xwp_lemma_funs=> //
+           | apply wp_of_wpgen
+     simp only [wpgen, subst, isubst]))

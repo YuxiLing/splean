@@ -2,7 +2,7 @@ import Ssreflect.Lang
 import Mathlib.Data.Finmap
 import LeanLgtm.Util
 
-import LeanLgtm.Basic
+import LeanLgtm.HProp
 import LeanLgtm.XSimp
 import LeanLgtm.SepLog
 
