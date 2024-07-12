@@ -775,21 +775,16 @@ end tactics
 /-* ** Notation for Concrete Terms -/
 
 declare_syntax_cat lang
-def pushNone := leading_parser (withAnonymousAntiquot := false) Lean.Parser.pushNone
-def checkLinebreakBefore' := leading_parser (withAnonymousAntiquot := false) Lean.Parser.checkLinebreakBefore
-def optSemicolon p := leading_parser (withAnonymousAntiquot := false) Lean.Parser.Term.optSemicolon p
--- #check let x := 1
-      --  let x := 1
-      --  x
+declare_syntax_cat args
 
 syntax ident : lang
 syntax num : lang
-syntax lang lang : lang
-syntax "\nif" ppIndent(lang) "then\n" lang "\nelse" lang : lang
+syntax lang lang lang*: lang
 syntax "if " lang "then " lang "end " : lang
-syntax "let" ident " := " lang " in\n" ppDedent(lang) : lang
+syntax ppIndent("if " lang " then") ppSpace lang ppDedent(ppSpace) ppRealFill("else " lang) : lang
+syntax "let" ident " := " lang " in" ppDedent(ppLine lang) : lang
 -- syntax withPosition("let" ident " := " lang) " in " lang : lang
-syntax lang ";\n" lang : lang
+syntax lang ";\n" ppDedent(lang) : lang
 syntax "fun" ident+ " => " lang : lang
 syntax "fix" ident ident+ " => " lang : lang
 syntax "fun_ " ident* " => " lang : lang
@@ -819,13 +814,31 @@ syntax "[lang|\n" lang "]" : term
 
 local notation "%" x => (Lean.quote (toString (Lean.Syntax.getId x)))
 
+def trm_apps (f:trm) (ts:List trm) : trm :=
+  match ts with
+  | [] => f
+  | ti::ts' => trm_apps (trm_app f ti) ts'
+
+-- partial def macroApps : Lean.Syntax -> List Lean.Syntax
+--   | `(lang| $t1 $t2) => macroApps t1 ++ [t2.raw]
+--   | _ => []
+
+-- partial def appsToList : List Lean.Syntax -> Lean.MacroM Lean.Term
+--   | [] => `([])
+--   | a :: as => do
+--     let x <- appsToList as
+--     `([lang| $(⟨a⟩)] :: $x)
+
 
 
 macro_rules
   | `([lang| ()])                       => `(trm_val val_unit)
   | `([lang| $n:num])                   => `(trm_val (val_int $n))
   | `([lang| $x:ident])                 => `(trm_var $(%x))
-  | `([lang| $t1 $t2])                  => `(trm_app [lang| $t1] [lang| $t2])
+  | `([lang| $t1 $t2])                  => do
+    -- dbg_trace t2
+    -- let args <- appsToList $ macroApps t1 ++ [t2.raw]
+    `(trm_app [lang| $t1] [lang| $t2])
   | `([lang| if $t1 then $t2 else $t3]) => `(trm_if [lang| $t1] [lang| $t2] [lang| $t3])
   | `([lang| if $t1 then $t2 end])      => `(trm_if [lang| $t1] [lang| $t2] (trm_val val_unit))
   | `([lang| let $x := $t1:lang in $t2:lang])     =>
@@ -975,7 +988,18 @@ macro_rules
     `([lang| fix $nameF $nameX => $t])
   | t => return t
 
--- bug in unexpander?
+-- partial def unexpandApps : Lean.PrettyPrinter.Unexpander
+--   | `($(_) [lang| $f] $xs) =>
+--     match xs with
+--     | `([]) => `([lang| $f])
+--     | `([[lang| $l], $xs]) => do
+--       let stx <- `(trm_apps [lang| $f $l] $xs)
+--       unexpandApps stx
+--     | _ => `([lang| $f])
+--   | t => return t
+
+-- @[app_unexpander trm_apps] def unexpandApps' : Lean.PrettyPrinter.Unexpander := unexpandApps
+
 #check [lang|
   fix f y z =>
     if f y z
