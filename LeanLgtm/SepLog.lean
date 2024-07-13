@@ -1,11 +1,14 @@
-import Ssreflect.Lang
+-- import Ssreflect.Lang
 import Mathlib.Data.Finmap
-import LeanLgtm.Util
 
+import LeanLgtm.Util
 import LeanLgtm.HProp
 import LeanLgtm.XSimp
 
 open trm val prim
+
+local instance : Coe val trm where
+  coe v := trm.trm_val v
 
 /- ================= Separation Logic Reasoning Rules ================= -/
 

@@ -1,5 +1,6 @@
-import Ssreflect.Lang
+-- import Ssreflect.Lang
 import Mathlib.Data.Finmap
+
 import LeanLgtm.Util
 
 
@@ -60,7 +61,8 @@ end
 abbrev state := Finmap (λ _ : loc ↦ val)
 abbrev heap := state
 
-
+section
+def trm_app' := trm.trm_app
 /- ============================= Notations ============================= -/
 
 /- val and term are inhabited -/
@@ -94,7 +96,7 @@ instance : Coe var trm where
   coe x := trm.trm_var x
 
 instance : CoeFun trm (fun _ => trm -> trm) where
-  coe x := trm.trm_app x
+  coe x := trm_app' x
 
 /- ================== Terms, Values and Substitutions ================== -/
 open trm
@@ -485,6 +487,35 @@ end eval
 /- ================================================================= -/
 /-* ** Notation for Concrete Terms -/
 
+def trm_apps (f:trm) (ts:List trm) : trm :=
+  match ts with
+  | [] => f
+  | ti::ts' => trm_apps (trm_app f ti) ts'
+
+def trm_funs (xs:List var) (t:trm) : trm :=
+  match xs with
+  | [] => t
+  | x1::xs' => trm_fun x1 (trm_funs xs' t)
+
+def val_funs (xs:List var) (t:trm) : val :=
+  match xs with
+  | [] => panic! "function with zero argumets!"
+  | x1::xs' => val_fun x1 (trm_funs xs' t)
+
+def trm_fixs (f:var) (xs:List var) (t:trm) : trm :=
+  match xs with
+  | [] => t
+  | x1::xs' => trm_fix f x1 (trm_funs xs' t)
+
+def val_fixs (f:var) (xs:List var) (t:trm) : val :=
+  match xs with
+  | .nil => val_uninit
+  | x1::xs' => val_fix f x1 (trm_funs xs' t)
+
+end
+
+open trm val prim
+
 declare_syntax_cat lang
 declare_syntax_cat args
 
@@ -525,35 +556,15 @@ syntax "[lang|\n" lang "]" : term
 
 local notation "%" x => (Lean.quote (toString (Lean.Syntax.getId x)))
 
-def trm_apps (f:trm) (ts:List trm) : trm :=
-  match ts with
-  | [] => f
-  | ti::ts' => trm_apps (trm_app f ti) ts'
 
-def trm_funs (xs:List var) (t:trm) : trm :=
-  match xs with
-  | [] => t
-  | x1::xs' => trm_fun x1 (trm_funs xs' t)
 
-def val_funs (xs:List var) (t:trm) : val :=
-  match xs with
-  | [] => panic! "function with zero argumets!"
-  | x1::xs' => val_fun x1 (trm_funs xs' t)
-
-def trm_fixs (f:var) (xs:List var) (t:trm) : trm :=
-  match xs with
-  | [] => t
-  | x1::xs' => trm_fix f x1 (trm_funs xs' t)
-
-def val_fixs (f:var) (xs:List var) (t:trm) : val :=
-  match xs with
-  | .nil => val_uninit
-  | x1::xs' => val_fix f x1 (trm_funs xs' t)
+-- def isCapital (i : Lean.Syntax) : Bool :=
+--   i.getId.isStr && (i.getId.toString.get! 0).isUpper
 
 macro_rules
-  | `([lang| ()])                       => `(trm_val val_unit)
+  | `([lang| ()])                       => `(trm_val (val_unit))
   | `([lang| $n:num])                   => `(trm_val (val_int $n))
-  | `([lang| $x:ident])                 => `(trm_var $(%x))
+    -- if isCapital x then `(trm_val $x) else `(trm_var $(%x))
   | `([lang| $t1 ( $t2,* )])                  => do
     `(trm_apps [lang| $t1] [ $[[lang|$t2]],* ])
   | `([lang| if $t1 then $t2 else $t3]) => `(trm_if [lang| $t1] [lang| $t2] [lang| $t3])
@@ -593,64 +604,93 @@ macro_rules
   | `([lang| ($t)]) => `([lang| $t])
 
 
-@[app_unexpander trm_val] def unexpandVal : Lean.PrettyPrinter.Unexpander
-  | `($(_) $x) =>
+open Lean Elab Term
+elab_rules : term
+  | `([lang| $x:ident]) => do
+    try do
+      (<- withoutErrToSorry <| elabTermAndSynthesize x none).ensureHasNoMVars
+      elabTerm (<- `(trm_val $x)) none
+    catch _ => do
+      let x <- `(trm_var $(%x))
+      elabTerm x none
+
+-- macro_rules
+--   | `([lang| $x:ident])                 => `(trm_val $x)
+
+-- macro_rules
+--   | `([lang| $x:ident])                 => `(trm_var $(%x))
+
+
+@[app_unexpander trm_val] def unexpandVal : Lean.PrettyPrinter.Unexpander := fun x =>
+  match x with
+  | `($(_) $x:ident) =>
     match x with
     | `(val_unit) => `([lang| ()])
+    | _ => `([lang| $x:ident])
+  | `($(_) $x) =>
+    match x with
     | `(val_int $n:num) => `([lang| $n:num])
+    | `(val_int $n:ident) => `([lang| $n:ident])
+    | `(val_loc $n:ident) => `([lang| $n:ident])
     | `(val_prim val_ref) => `([lang| ref])
     | `(val_prim val_free) => `([lang| free])
     | `(val_prim val_not) => `([lang| not])
-    | t => return t
-  | t => return t
+    | _ => throw ( )
+  | _ => throw ( )
 
-@[app_unexpander trm_app] def unexpandApp : Lean.PrettyPrinter.Unexpander := fun x =>
-  match x with
+@[app_unexpander trm_app'] def unexpandApp : Lean.PrettyPrinter.Unexpander
   | `($(_) $op [lang| $t2]) =>
     match op with
-    | `(trm_app $prim [lang| $t1]) =>
+    | `(trm_val $op) =>
+      match op with
+      | `(val_prim val_get) => `([lang| !$t2])
+      | `(val_prim val_opp) => `([lang| -$t2])
+      | _ => throw ( )
+    | `(trm_app' $prim [lang| $t1]) =>
       match prim with
-      | `(val_prim val_add) => `([lang| $t1 + $t2])
-      | `(val_prim val_mul) => `([lang| $t1 * $t2])
-      | `(val_prim val_sub) => `([lang| $t1 - $t2])
-      | `(val_prim val_div) => `([lang| $t1 / $t2])
-      | `(val_prim val_lt) => `([lang| $t1 < $t2])
-      | `(val_prim val_gt) => `([lang| $t1 > $t2])
-      | `(val_prim val_le) => `([lang| $t1 <= $t2])
-      | `(val_prim val_ge) => `([lang| $t1 >= $t2])
-      | `(val_prim val_eq) => `([lang| $t1 = $t2])
-      | `(val_prim val_neq) => `([lang| $t1 != $t2])
-      | `(val_prim val_mod) => `([lang| $t1 mod $t2])
-      | `(val_prim val_set) => `([lang| $t1 := $t2])
-      | _ => return x
-    | `(val_prim val_get) => `([lang| !$t2])
-    | `(val_prim val_neg) => `([lang| -$t2])
+      | `(trm_val $prim) =>
+        match prim with
+        | `(val_prim val_add) => `([lang| $t1 + $t2])
+        | `(val_prim val_mul) => `([lang| $t1 * $t2])
+        | `(val_prim val_sub) => `([lang| $t1 - $t2])
+        | `(val_prim val_div) => `([lang| $t1 / $t2])
+        | `(val_prim val_lt) => `([lang| $t1 < $t2])
+        | `(val_prim val_gt) => `([lang| $t1 > $t2])
+        | `(val_prim val_le) => `([lang| $t1 <= $t2])
+        | `(val_prim val_ge) => `([lang| $t1 >= $t2])
+        | `(val_prim val_eq) => `([lang| $t1 = $t2])
+        | `(val_prim val_neq) => `([lang| $t1 != $t2])
+        | `(val_prim val_mod) => `([lang| $t1 mod $t2])
+        | `(val_prim val_set) => `([lang| $t1 := $t2])
+        | _ => throw ( )
+      | _ => throw ( )
+
     -- | `([lang| $f]) => `([lang| $f $t2])
-    | _ => return x
+    | _ => throw ( )
   -- | `($(_) [lang| $t1] [lang| $t2]) => `([lang| $t1 $t2])
-  | t => return t
+  | _ => throw ( )
 
 @[app_unexpander trm_var] def unexpandVar : Lean.PrettyPrinter.Unexpander
   | `($(_) $x:str) =>
     let str := x.getString
     let name := Lean.mkIdent $ Lean.Name.mkSimple str
     `([lang| $name:ident])
-  | t => return t
+  | _ => throw ( )
 
 @[app_unexpander trm_seq] def unexpandSeq : Lean.PrettyPrinter.Unexpander
   | `($(_) [lang| $t1] [lang| $t2]) => `([lang| $t1 ; $t2])
-  | t => return t
+  | _ => throw ( )
 
 @[app_unexpander trm_let] def unexpandLet : Lean.PrettyPrinter.Unexpander
   | `($(_) $x:str [lang| $t1] [lang| $t2]) =>
     let str := x.getString
     let name := Lean.mkIdent $ Lean.Name.mkSimple str
     `([lang| let $name := $t1 in $t2])
-  | t => return t
+  | _ => throw ( )
 
 @[app_unexpander trm_if] def unexpandIf : Lean.PrettyPrinter.Unexpander
   | `($(_) [lang| $t1] [lang| $t2] [lang| $t3]) => `([lang| if $t1 then $t2 else $t3])
-  | t => return t
+  | _ => throw ( )
 
 @[app_unexpander trm_fun] def unexpandTFun : Lean.PrettyPrinter.Unexpander
   | `($(_) $x:str [lang| fun $xs* => $t]) =>
@@ -661,7 +701,7 @@ macro_rules
     let str := x.getString
     let name := Lean.mkIdent $ Lean.Name.mkSimple str
     `([lang| fun $name => $t])
-  | t => return t
+  | _ => throw ( )
 
 @[app_unexpander val_fun] def unexpandVFun : Lean.PrettyPrinter.Unexpander
   | `($(_) $x:str [lang| fun $xs* => $t]) =>
@@ -672,7 +712,7 @@ macro_rules
     let str := x.getString
     let name := Lean.mkIdent $ Lean.Name.mkSimple str
     `([lang| fun $name => $t])
-  | t => return t
+  | _ => throw ( )
 
 @[app_unexpander trm_fix] def unexpandTFix : Lean.PrettyPrinter.Unexpander
   | `($(_) $f:str $x:str [lang| fun $xs* => $t]) =>
@@ -687,7 +727,7 @@ macro_rules
     let nameF := Lean.mkIdent $ Lean.Name.mkSimple f
     let nameX := Lean.mkIdent $ Lean.Name.mkSimple x
     `([lang| fix $nameF $nameX => $t])
-  | t => return t
+  | _ => throw ( )
 
 @[app_unexpander val_fix] def unexpandVFix : Lean.PrettyPrinter.Unexpander
   | `($(_) $f:str $x:str [lang| fun $xs* => $t]) =>
@@ -702,48 +742,69 @@ macro_rules
     let nameF := Lean.mkIdent $ Lean.Name.mkSimple f
     let nameX := Lean.mkIdent $ Lean.Name.mkSimple x
     `([lang| fix $nameF $nameX => $t])
-  | t => return t
+  | _ => throw ( )
 
 @[app_unexpander trm_apps] def unexpandApps : Lean.PrettyPrinter.Unexpander
+  -- Unexpand function applications when arguments are program-variables
   | `($(_) [lang| $f] [ $[[lang|$xs]],* ]) => `([lang| $f ( $xs,* )])
-  | t => return t
+  -- | `($(_) $f:ident [ $[[lang|$xs]],* ]) => `([lang| $f:ident ( $xs,* )])
+  -- Unexpand function applications when arguments are meta-variables
+  | `($(_) $f:ident [ $xs:term,* ]) => do
+    -- hack to workaround the fact that elements of `xs` are identifiers with
+    -- explicit coercions: [val_loc p, val_int n, ....]
+    let x <- xs.getElems.mapM fun
+       | `($(_) $i:ident) => `(ident| $i:ident)
+       | _ => throw ( )
+    `([lang| $f:ident ( $[ $x:ident],* )])
+  | _ => throw ( )
 
 @[app_unexpander trm_funs] def unexpandTFuns : Lean.PrettyPrinter.Unexpander
   | `($(_) [ $xs:str,* ] [lang| $f]) =>
     let xs := xs.getElems.map (Lean.mkIdent $ Lean.Name.mkSimple ·.getString)
     `([lang| fun $xs* => $f])
-  | t => return t
+  | t => throw ( )
 
-@[app_unexpander val_funs] def unexpandVFuns : Lean.PrettyPrinter.Unexpander
+@[app_unexpander val_funs] def unexpandVFuns : Lean.PrettyPrinter.Unexpander := fun x =>
+  match x with
   | `($(_) [ $xs:str,* ] [lang| $f]) =>
     let xs := xs.getElems.map (Lean.mkIdent $ Lean.Name.mkSimple ·.getString)
     `([lang| fun $xs* => $f])
-  | t => return t
+  | _ => throw ( )
 
 @[app_unexpander trm_fixs] def unexpandTFixs : Lean.PrettyPrinter.Unexpander
   | `($(_) $f:str [ $xs:str,* ] [lang| $t]) =>
     let xs := xs.getElems.map (Lean.mkIdent $ Lean.Name.mkSimple ·.getString)
     let f := Lean.mkIdent $ Lean.Name.mkSimple f.getString
     `([lang| fix $f $xs* => $t])
-  | t => return t
+  | _ => throw ( )
 
 @[app_unexpander val_fixs] def unexpandVFixs : Lean.PrettyPrinter.Unexpander
   | `($(_) $f:str [ $xs:str,* ] [lang| $t]) =>
     let xs := xs.getElems.map (Lean.mkIdent $ Lean.Name.mkSimple ·.getString)
     let f := Lean.mkIdent $ Lean.Name.mkSimple f.getString
     `([lang| fix $f $xs* => $t])
-  | t => return t
+  | _ => throw ( )
+
+-- syntax ident "((" ident,* "))" : lang
+
+@[app_unexpander trm_apps] def unexpandApps' : Lean.PrettyPrinter.Unexpander
+  | `($(_) [lang| $f] [ $[[lang|$xs]],* ]) => `([lang| $f ( $xs,* )])
+  | `($(_) $f:ident [ $[[lang|$xs]],* ]) => `([lang| $f:ident ( $[ $xs:lang ],* )])
+  -- | `($(_) $f:ident [ $xs:ident,* ]) => `([lang| $f:ident ( $[ $xs:ident ],* )])
+  | _ => throw ( )
 
 
--- #check [lang|
---   fix f y z =>
---     if f(y, z)
---     then
---       let y := 1 + 1 + () in
---       let y := 1 + 1 in
---       let z := ref(1) in
---       y + z
---     else
---       let y := 1 + 1 in
---       let z := 1 in
---       y + z]
+#check [lang| ()]
+
+#check fun (F : val)  => [lang|
+  fix f y z =>
+    if F(y, z)
+    then
+      let y := 1 + () in
+      let y := 1 + 1 in
+      let z := ref(1) in
+      y + z
+    else
+      let y := 1 + 1 in
+      let z := 1 in
+      y + z]

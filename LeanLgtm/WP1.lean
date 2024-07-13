@@ -10,6 +10,11 @@ import LeanLgtm.SepLog
 
 open trm val prim
 
+section
+
+local instance : Coe val trm where
+  coe v := trm.trm_val v
+
 /- ---------- Definition and Structural Rules for [wp] ---------- -/
 
 /- Definition of [wp] -/
@@ -401,6 +406,7 @@ def wpgen_if (t : trm) (F1 F2 : formula) : formula :=
 def wpgen_if_trm (F0 F1 F2 : formula) : formula :=
   wpgen_let F0 (fun v ↦ mkstruct (wpgen_if v F1 F2))
 
+@[simp]
 def wpgen_app (t : trm) : formula :=
   fun Q ↦ h∃ H, H ∗ ⌜triple t H Q⌝
 
@@ -665,7 +671,7 @@ set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
 elab "xstruct_if_needed" : tactic => do
   match <- getGoalStxAll with
-  | `($_ ==> mkstruct $_ $_) => {| apply xstruct |}
+  | `($_ ==> mkstruct $_ $_) => {| apply xstruct_lemma |}
   | _ => pure ( )
 
 macro "xval" : tactic => do
@@ -771,6 +777,7 @@ macro "xwp" : tactic =>
 
 end tactics
 
+@[simp]
 abbrev var_funs (xs:List var) (n:Nat) : Prop :=
      xs.Nodup
   /\ xs.length = n
@@ -785,15 +792,12 @@ instance : Coe (List var) (List trm) where
 
 -- lemma trms_vals_nil :
 --   trms_vals .nil = .nil := by rfl
-
-def trms_to_vals (ts:List trm) : Option (List val) :=
+@[simp]
+def trms_to_vals (ts:List trm) : Option (List val) := do
   match ts with
-  | [] => .some []
-  | (trm_val v) :: ts' =>
-      match trms_to_vals ts' with
-      | .none => .none
-      | .some vs' => v :: vs'
-  | _ => .none
+  | [] => return []
+  | (trm_val v) :: ts' => v :: (<- trms_to_vals ts')
+  | _ => failure
 
 /- ======================= WP Generator ======================= -/
 /- Below we define a function [wpgen t] recursively over [t] such that
@@ -859,7 +863,54 @@ lemma wp_of_wpgen :
 macro "xwp" : tactic =>
   `(tactic|
     (intros
-     first | apply xwp_lemma_fixs=> //
-           | apply xwp_lemma_funs=> //
+     first | (apply xwp_lemma_fixs; rfl; rfl)=> //
+           | (apply xwp_lemma_funs; rfl; rfl)=> //
            | apply wp_of_wpgen
-     simp only [wpgen, subst, isubst]))
+     all_goals try simp only [wpgen, subst, isubst, trm_apps, wpgen_app]))
+
+end
+
+
+/- ################################################################# -/
+/-* * Demo Programs -/
+
+macro "lang_def" n:ident ":=" l:lang : command => do
+  `(def $n:ident : val := [lang| $l])
+
+lang_def incr :=
+  fun p =>
+    let n := !p in
+    let m := n + 1 in
+    p := m
+
+instance : HAdd ℤ ℤ val := ⟨fun x y => val_int (x + y)⟩
+instance : HAdd ℤ ℕ val := ⟨fun x y => (x + (y : Int))⟩
+instance : HAdd ℕ ℤ val := ⟨fun x y => ((x : Int) + y)⟩
+
+-- notation "{ " P " }\n" "[" t "]" "\n{ " Q " }" => triple [lang| t] P Q
+#check fun x => x
+
+syntax ppGroup("{ " term " }") ppSpace ppGroup("[" lang "]") ppSpace ppGroup("{ " Lean.Parser.Term.funBinder ", " term " }") : term
+
+macro_rules
+  | `({ $P }[$t:lang]{$v, $Q}) => `(triple [lang| $t] $P (fun $v => $Q))
+
+@[app_unexpander triple] def unexpandTriple : Lean.PrettyPrinter.Unexpander
+  | `($(_) [lang| $t] $P fun $v ↦ $Q) => `({ $P }[$t:lang]{$v, $Q})
+  | _ => throw ( )
+
+
+lemma triple_incr (p : loc) (n : Int) :
+  {p ~~> n}
+  [incr(p)]
+  {_, (p ~~> n + 1)} := by
+  xwp
+  xlet
+  simp [subst, AList.lookup, List.dlookup]
+
+
+  -- apply xwp_lemma_funs; rfl; rfl
+  -- dsimp only [trms_to_vals]
+  -- -- unfold wpgen_app
+  -- unfold mkstruct
+  -- xsimp
