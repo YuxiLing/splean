@@ -522,7 +522,6 @@ declare_syntax_cat uop
 syntax ident : lang
 syntax num : lang
 syntax lang lang : lang
-syntax term : lang
 syntax "if " lang "then " lang "end " : lang
 syntax ppIndent("if " lang " then") ppSpace lang ppDedent(ppSpace) ppRealFill("else " lang) : lang
 syntax "let" ident " := " lang " in" ppDedent(ppLine lang) : lang
@@ -572,7 +571,7 @@ macro_rules
   | `([lang| ()])                       => `(trm_val (val_unit))
   | `([lang| $n:num])                   => `(trm_val (val_int $n))
   | `([lang| $t1 $t2])                  => `(trm_app [lang| $t1] [lang| $t2])
-  | `([lang| if $t1:lang then $t2 else $t3]) => `(trm_if [lang| $t1] [lang| $t2] [lang| $t3])
+  | `([lang| if $t1 then $t2 else $t3]) => `(trm_if [lang| $t1] [lang| $t2] [lang| $t3])
   | `([lang| if $t1 then $t2 end])      => `(trm_if [lang| $t1] [lang| $t2] (trm_val val_unit))
   | `([lang| let $x := $t1:lang in $t2:lang])     =>
     `(trm_let $(%x) [lang| $t1] [lang| $t2])
@@ -580,7 +579,7 @@ macro_rules
   | `([lang| fun_ $xs* => $t])             => do
     let xs <- xs.mapM fun x => `(term| $(%x))
     `(trm_funs [ $xs,* ] [lang| $t])
-  | `([lang| fun $xs* => $t:lang])             => do
+  | `([lang| fun $xs* => $t])             => do
     let xs <- xs.mapM fun x => `(term| $(%x))
     `(val_funs [ $xs,* ] [lang| $t])
   | `([lang| fix_ $f $xs* => $t])    => do
@@ -606,7 +605,7 @@ macro_rules
   | `([lang| $t1 = $t2])                => `(trm_val val_eq [lang| $t1] [lang| $t2])
   | `([lang| $t1 != $t2])               => `(trm_val val_neq [lang| $t1] [lang| $t2])
   | `([lang| $t1 mod $t2])              => `(trm_val val_mod [lang| $t1] [lang| $t2])
-  | `([lang| ($t:lang)]) => `([lang| $t])
+  | `([lang| ($t)]) => `([lang| $t])
 
 
 open Lean Elab Term
@@ -672,10 +671,10 @@ elab_rules : term
     | `(uop| ref)  => `([lang| ref $t])
     | `(uop| free) => `([lang| free $t])
     | `(uop| not)  => `([lang| not $t])
-    | `(uop| !)    => `([lang| !$t:lang])
-    | `(uop| -)    => `([lang| -$t:lang])
+    | `(uop| !)    => `([lang| !$t])
+    | `(uop| -)    => `([lang| -$t])
     | _ => throw ( )
-  | `($(_) $app [lang| $t2:lang]) =>
+  | `($(_) $app [lang| $t2]) =>
     -- dbg_trace app
     match app with
     | `([bop| $bop].trm_app [lang| $t1]) =>
@@ -683,7 +682,7 @@ elab_rules : term
       | `(bop| :=) => `([lang| $t1 := $t2])
       | `(bop| +) => `([lang| $t1 + $t2])
       | `(bop| *) => `([lang| $t1 * $t2])
-      | `(bop| -) => `([lang| $t1 - $t2:lang])
+      | `(bop| -) => `([lang| $t1 - $t2])
       | `(bop| /) => `([lang| $t1 / $t2])
       | `(bop| <) => `([lang| $t1 < $t2])
       | `(bop| >) => `([lang| $t1 > $t2])
@@ -744,33 +743,33 @@ elab_rules : term
   | _ => throw ( )
 
 @[app_unexpander trm_if] def unexpandIf : Lean.PrettyPrinter.Unexpander
-  | `($(_) [lang| $t1] [lang| $t2] [lang| $t3]) => `([lang| if $t1:lang then $t2 else $t3])
+  | `($(_) [lang| $t1] [lang| $t2] [lang| $t3]) => `([lang| if $t1 then $t2 else $t3])
   | _ => throw ( )
 
 @[app_unexpander trm_fun] def unexpandTFun : Lean.PrettyPrinter.Unexpander
-  | `($(_) $x:str [lang| fun $xs:ident* => $t:lang]) =>
+  | `($(_) $x:str [lang| fun $xs* => $t]) =>
     let str := x.getString
     let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| fun $name $xs* => $t:lang])
-  | `($(_) $x:str [lang| $t:lang]) =>
-    let str := x.getString
-    let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| fun $name => $t:lang])
-  | _ => throw ( )
-
-@[app_unexpander val_fun] def unexpandVFun : Lean.PrettyPrinter.Unexpander
-  | `($(_) $x:str [lang| fun $xs:ident* => $t:lang]) =>
-    let str := x.getString
-    let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| fun $name $xs* => $t:lang])
+    `([lang| fun $name $xs* => $t])
   | `($(_) $x:str [lang| $t]) =>
     let str := x.getString
     let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| fun $name => $t:lang])
+    `([lang| fun $name => $t])
+  | _ => throw ( )
+
+@[app_unexpander val_fun] def unexpandVFun : Lean.PrettyPrinter.Unexpander
+  | `($(_) $x:str [lang| fun $xs* => $t]) =>
+    let str := x.getString
+    let name := Lean.mkIdent $ Lean.Name.mkSimple str
+    `([lang| fun $name $xs* => $t])
+  | `($(_) $x:str [lang| $t]) =>
+    let str := x.getString
+    let name := Lean.mkIdent $ Lean.Name.mkSimple str
+    `([lang| fun $name => $t])
   | _ => throw ( )
 
 @[app_unexpander trm_fix] def unexpandTFix : Lean.PrettyPrinter.Unexpander
-  | `($(_) $f:str $x:str [lang| fun $xs:ident* => $t:lang]) =>
+  | `($(_) $f:str $x:str [lang| fun $xs* => $t]) =>
     let f := f.getString
     let x := x.getString
     let nameF := Lean.mkIdent $ Lean.Name.mkSimple f
@@ -785,7 +784,7 @@ elab_rules : term
   | _ => throw ( )
 
 @[app_unexpander val_fix] def unexpandVFix : Lean.PrettyPrinter.Unexpander
-  | `($(_) $f:str $x:str [lang| fun $xs:ident* => $t:lang]) =>
+  | `($(_) $f:str $x:str [lang| fun $xs* => $t]) =>
     let f := f.getString
     let x := x.getString
     let nameF := Lean.mkIdent $ Lean.Name.mkSimple f
