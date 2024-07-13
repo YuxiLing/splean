@@ -711,6 +711,14 @@ macro "xtriple" :tactic =>
 
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
+elab "xwp_equiv" :tactic => do
+  let_expr himpl _ wp := (<- getMainTarget) | pure ( )
+  let_expr wp _ _ := wp | pure ( )
+  {| srw wp_equiv |}
+
+
+set_option linter.unreachableTactic false in
+set_option linter.unusedTactic false in
 elab "xtriple_if_needed" : tactic => do
   let_expr triple _ _ _ := (<- getMainTarget) | pure ( )
   {| xtriple |}
@@ -740,34 +748,31 @@ macro "xsimp_no_cancel_wand" : tactic =>
 macro "xapp_simp" : tactic => do
   `(tactic|
       first | apply xapp_simpl_lemma
-            | xsimp_no_cancel_wand; unfold protect; xapp_try_clear_unit_result)
+            | xsimp_no_cancel_wand; try unfold protect; xapp_try_clear_unit_result)
 
 macro "xapp_pre" : tactic => do
   `(tactic|
-    (xtriple_if_needed; xseq_xlet_if_needed; xstruct_if_needed))
+    (xwp_equiv
+     xtriple_if_needed
+     xseq_xlet_if_needed;
+     xstruct_if_needed))
 
 macro "xapp_nosubst" e:term  : tactic =>
   `(tactic|
     (xapp_pre
-     eapply xapp_lemma
-     · eapply $e=> //
-     all_goals try xapp_simp=>//))
+     eapply xapp_lemma; eapply $e
+     rotate_left; xapp_simp=>//))
 
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
 elab "xapp_try_subst" : tactic => do
-  let x <- fresh `H
-  {|
-    (first
-      | move=> ? ->
-      | intros _ $x
-        move=> ->
-        revert $x)
-      |}
+  {| unhygienic (skip=>>)
+     try move=>-> |}
 
 macro "xapp" e:term : tactic =>
   `(tactic|
-    (xapp_nosubst $e; xapp_try_subst))
+    (xapp_nosubst $e; xapp_try_subst;
+     all_goals try srw wp_equiv))
 
 macro "xwp" : tactic =>
   `(tactic|
@@ -838,6 +843,13 @@ def isubst (E : ctx) (t : trm) : trm :=
 def _root_.List.mkAlist [DecidableEq α] (xs : List α) (vs : List β) :=
   ((xs.zip vs).map fun (x, y) => ⟨x, y⟩).toAList
 
+lemma trm_apps1 :
+  trm_app t1 t2 = trm_apps t1 [t2] := by rfl
+
+lemma trm_apps2 :
+  trm_apps (trm_app t1 t2) ts = trm_apps t1 (t2::ts) := by rfl
+
+
 lemma xwp_lemma_funs (xs : List _) (vs : List val) :
   t = trm_apps v0 ts ->
   v0 = val_funs xs t1 ->
@@ -863,6 +875,7 @@ lemma wp_of_wpgen :
 macro "xwp" : tactic =>
   `(tactic|
     (intros
+     srw ?trm_apps1 ?trm_apps2
      first | (apply xwp_lemma_fixs; rfl; rfl)=> //
            | (apply xwp_lemma_funs; rfl; rfl)=> //
            | apply wp_of_wpgen
@@ -887,9 +900,6 @@ instance : HAdd ℤ ℤ val := ⟨fun x y => val_int (x + y)⟩
 instance : HAdd ℤ ℕ val := ⟨fun x y => (x + (y : Int))⟩
 instance : HAdd ℕ ℤ val := ⟨fun x y => ((x : Int) + y)⟩
 
--- notation "{ " P " }\n" "[" t "]" "\n{ " Q " }" => triple [lang| t] P Q
-#check fun x => x
-
 syntax ppGroup("{ " term " }") ppSpace ppGroup("[" lang "]") ppSpace ppGroup("{ " Lean.Parser.Term.funBinder ", " term " }") : term
 
 macro_rules
@@ -899,6 +909,19 @@ macro_rules
   | `($(_) [lang| $t] $P fun $v ↦ $Q) => `({ $P }[$t:lang]{$v, $Q})
   | _ => throw ( )
 
+elab "xsimpr" : tactic => do
+  xsimp_step_r (<- XSimpRIni)
+
+elab "last" : tactic => do
+  let gs <- Lean.Elab.Tactic.getUnsolvedGoals
+  let g := gs.getLast!
+
+
+
+
+-- set_option allowUnsafeReducibility true
+
+-- attribute [irreducible] triple
 
 lemma triple_incr (p : loc) (n : Int) :
   {p ~~> n}
@@ -906,7 +929,28 @@ lemma triple_incr (p : loc) (n : Int) :
   {_, (p ~~> n + 1)} := by
   xwp
   xlet
-  simp [subst, AList.lookup, List.dlookup]
+  simp [subst, AList.lookup, List.dlookup, isubst]
+
+  srw wp_equiv
+  xapp_nosubst triple_get
+  xapp_try_subst
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
   -- apply xwp_lemma_funs; rfl; rfl

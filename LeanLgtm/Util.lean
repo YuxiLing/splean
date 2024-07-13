@@ -33,7 +33,8 @@ def getGoalProp : Lean.Elab.Tactic.TacticM Q(Prop) := do
   | none => throwError "goal is not a proposition"
 
 
-def delabAll :=  (withOptions (fun _ => { }) $ PrettyPrinter.delab ·)
+def delabAll :=
+  (withOptions (fun _ => KVMap.empty.insert `pp.funBinderTypes true) $ PrettyPrinter.delab ·)
 
 def getGoalStxAll : Lean.Elab.Tactic.TacticM Syntax := do
   delabAll $ <- getMainTarget

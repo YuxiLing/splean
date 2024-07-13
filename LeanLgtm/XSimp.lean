@@ -458,6 +458,8 @@ partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
       | `(emp) => {| apply xsimp_r_hempty |}
       | `(⌜P⌝) => {| apply xsimp_r_hpure |}
       | `($h1 ∗ $h2) =>
+        dbg_trace "h1: {h1}"
+        dbg_trace "h2: {h2}"
         {| rw [@hstar_assoc $h1 $h2] |}
          /- we know that here should be another RHS step -/
         xsimp_step_r (<- XSimpRIni)

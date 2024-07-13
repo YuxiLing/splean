@@ -62,7 +62,6 @@ abbrev state := Finmap (λ _ : loc ↦ val)
 abbrev heap := state
 
 section
-def trm_app' := trm.trm_app
 /- ============================= Notations ============================= -/
 
 /- val and term are inhabited -/
@@ -96,7 +95,7 @@ instance : Coe var trm where
   coe x := trm.trm_var x
 
 instance : CoeFun trm (fun _ => trm -> trm) where
-  coe x := trm_app' x
+  coe x := trm.trm_app x
 
 /- ================== Terms, Values and Substitutions ================== -/
 open trm
@@ -517,11 +516,13 @@ end
 open trm val prim
 
 declare_syntax_cat lang
-declare_syntax_cat args
+declare_syntax_cat bop
+declare_syntax_cat uop
 
 syntax ident : lang
 syntax num : lang
-syntax lang "(" lang,* ")" : lang
+syntax lang lang : lang
+syntax term : lang
 syntax "if " lang "then " lang "end " : lang
 syntax ppIndent("if " lang " then") ppSpace lang ppDedent(ppSpace) ppRealFill("else " lang) : lang
 syntax "let" ident " := " lang " in" ppDedent(ppLine lang) : lang
@@ -532,26 +533,32 @@ syntax "fix" ident ident+ " => " lang : lang
 syntax "fun_ " ident* " => " lang : lang
 syntax "fix_ " ident ident* " => " lang : lang
 syntax "()" : lang
-syntax "ref" : lang
-syntax "free" : lang
-syntax "not" : lang
-syntax "!" noWs lang : lang
-syntax "-" noWs lang : lang
-syntax lang " := " lang : lang
-syntax lang " + " lang : lang
-syntax lang " * " lang : lang
-syntax lang " - " lang : lang
-syntax lang " / " lang : lang
-syntax lang " < " lang : lang
-syntax lang " > " lang : lang
-syntax lang " = " lang : lang
-syntax lang " <= " lang : lang
-syntax lang " >= " lang : lang
-syntax lang " != " lang : lang
-syntax lang " mod " lang : lang
+syntax uop lang : lang
+syntax lang bop lang : lang
 syntax "(" lang ")" : lang
 
+syntax " := " : bop
+syntax " + " : bop
+syntax " - " : bop
+syntax " * " : bop
+syntax " / " : bop
+syntax " < " : bop
+syntax " > " : bop
+syntax " <= " : bop
+syntax " >= " : bop
+syntax " = " : bop
+syntax " != " : bop
+syntax " mod " : bop
+
+syntax "!" : uop
+syntax "-" : uop
+syntax "ref" : uop
+syntax "free" : uop
+syntax "not" : uop
+
 syntax "[lang|\n" lang "]" : term
+syntax "[bop|\n" bop "]" : term
+syntax "[uop|\n" uop "]" : term
 
 
 local notation "%" x => (Lean.quote (toString (Lean.Syntax.getId x)))
@@ -564,10 +571,8 @@ local notation "%" x => (Lean.quote (toString (Lean.Syntax.getId x)))
 macro_rules
   | `([lang| ()])                       => `(trm_val (val_unit))
   | `([lang| $n:num])                   => `(trm_val (val_int $n))
-    -- if isCapital x then `(trm_val $x) else `(trm_var $(%x))
-  | `([lang| $t1 ( $t2,* )])                  => do
-    `(trm_apps [lang| $t1] [ $[[lang|$t2]],* ])
-  | `([lang| if $t1 then $t2 else $t3]) => `(trm_if [lang| $t1] [lang| $t2] [lang| $t3])
+  | `([lang| $t1 $t2])                  => `(trm_app [lang| $t1] [lang| $t2])
+  | `([lang| if $t1:lang then $t2 else $t3]) => `(trm_if [lang| $t1] [lang| $t2] [lang| $t3])
   | `([lang| if $t1 then $t2 end])      => `(trm_if [lang| $t1] [lang| $t2] (trm_val val_unit))
   | `([lang| let $x := $t1:lang in $t2:lang])     =>
     `(trm_let $(%x) [lang| $t1] [lang| $t2])
@@ -575,7 +580,7 @@ macro_rules
   | `([lang| fun_ $xs* => $t])             => do
     let xs <- xs.mapM fun x => `(term| $(%x))
     `(trm_funs [ $xs,* ] [lang| $t])
-  | `([lang| fun $xs* => $t])             => do
+  | `([lang| fun $xs* => $t:lang])             => do
     let xs <- xs.mapM fun x => `(term| $(%x))
     `(val_funs [ $xs,* ] [lang| $t])
   | `([lang| fix_ $f $xs* => $t])    => do
@@ -584,9 +589,9 @@ macro_rules
   | `([lang| fix $f $xs* => $t])    => do
       let xs <- xs.mapM fun x => `(term| $(%x))
       `(val_fixs $(%f) [ $xs,* ] [lang| $t])
-  | `([lang| ref])                      => `(trm_val (val_prim val_ref))
-  | `([lang| free])                     => `(trm_val (val_prim val_free))
-  | `([lang| not])                      => `(trm_val (val_prim val_not))
+  | `([lang| ref $t])                   => `(trm_val (val_prim val_ref) [lang| $t])
+  | `([lang| free $t])                  => `(trm_val (val_prim val_free) [lang| $t])
+  | `([lang| not $t])                   => `(trm_val (val_prim val_not) [lang| $t])
   | `([lang| !$t])                      => `(trm_val val_get [lang| $t])
   | `([lang| $t1 := $t2])               => `(trm_val val_set [lang| $t1] [lang| $t2])
   | `([lang| $t1 + $t2])                => `(trm_val val_add [lang| $t1] [lang| $t2])
@@ -601,7 +606,7 @@ macro_rules
   | `([lang| $t1 = $t2])                => `(trm_val val_eq [lang| $t1] [lang| $t2])
   | `([lang| $t1 != $t2])               => `(trm_val val_neq [lang| $t1] [lang| $t2])
   | `([lang| $t1 mod $t2])              => `(trm_val val_mod [lang| $t1] [lang| $t2])
-  | `([lang| ($t)]) => `([lang| $t])
+  | `([lang| ($t:lang)]) => `([lang| $t])
 
 
 open Lean Elab Term
@@ -614,12 +619,38 @@ elab_rules : term
       let x <- `(trm_var $(%x))
       elabTerm x none
 
--- macro_rules
---   | `([lang| $x:ident])                 => `(trm_val $x)
+@[app_unexpander val_unit] def unexpandUnitL : Lean.PrettyPrinter.Unexpander
+  | `($(_) val_unit) => `([lang| ()])
+  | _ => throw ( )
 
--- macro_rules
---   | `([lang| $x:ident])                 => `(trm_var $(%x))
+@[app_unexpander val_int] def unexpandInt : Lean.PrettyPrinter.Unexpander
+  | `($(_) $n:num) => `($n:num)
+  | `($(_) $n:ident) => `($n:ident)
+  | _ => throw ( )
 
+@[app_unexpander val_loc] def unexpandLoc : Lean.PrettyPrinter.Unexpander
+  | `($(_) $n:ident) => `($n:ident)
+  | _ => throw ( )
+
+@[app_unexpander val_prim] def unexpandPrim : Lean.PrettyPrinter.Unexpander
+  | `($(_) val_ref) => `([uop| ref])
+  | `($(_) val_free) => `([uop| free])
+  | `($(_) val_not) => `([uop| not])
+  | `($(_) val_opp) => `([uop| -])
+  | `($(_) val_get) => `([uop| !])
+  | `($(_) val_add) => `([bop| +])
+  | `($(_) val_mul) => `([bop| *])
+  | `($(_) val_sub) => `([bop| -])
+  | `($(_) val_div) => `([bop| /])
+  | `($(_) val_lt) => `([bop| <])
+  | `($(_) val_gt) => `([bop| >])
+  | `($(_) val_le) => `([bop| <=])
+  | `($(_) val_ge) => `([bop| >=])
+  | `($(_) val_eq) => `([bop| =])
+  | `($(_) val_neq) => `([bop| !=])
+  | `($(_) val_mod) => `([bop| mod])
+  | `($(_) val_set) => `([bop| :=])
+  | _ => throw ( )
 
 @[app_unexpander trm_val] def unexpandVal : Lean.PrettyPrinter.Unexpander := fun x =>
   match x with
@@ -629,46 +660,70 @@ elab_rules : term
     | _ => `([lang| $x:ident])
   | `($(_) $x) =>
     match x with
-    | `(val_int $n:num) => `([lang| $n:num])
-    | `(val_int $n:ident) => `([lang| $n:ident])
-    | `(val_loc $n:ident) => `([lang| $n:ident])
-    | `(val_prim val_ref) => `([lang| ref])
-    | `(val_prim val_free) => `([lang| free])
-    | `(val_prim val_not) => `([lang| not])
-    | _ => throw ( )
+    | `($n:num) => `([lang| $n:num])
+    | `($n:ident) => `([lang| $n:ident])
+    | t => return t
   | _ => throw ( )
 
-@[app_unexpander trm_app'] def unexpandApp : Lean.PrettyPrinter.Unexpander
-  | `($(_) $op [lang| $t2]) =>
-    match op with
-    | `(trm_val $op) =>
-      match op with
-      | `(val_prim val_get) => `([lang| !$t2])
-      | `(val_prim val_opp) => `([lang| -$t2])
-      | _ => throw ( )
-    | `(trm_app' $prim [lang| $t1]) =>
-      match prim with
-      | `(trm_val $prim) =>
-        match prim with
-        | `(val_prim val_add) => `([lang| $t1 + $t2])
-        | `(val_prim val_mul) => `([lang| $t1 * $t2])
-        | `(val_prim val_sub) => `([lang| $t1 - $t2])
-        | `(val_prim val_div) => `([lang| $t1 / $t2])
-        | `(val_prim val_lt) => `([lang| $t1 < $t2])
-        | `(val_prim val_gt) => `([lang| $t1 > $t2])
-        | `(val_prim val_le) => `([lang| $t1 <= $t2])
-        | `(val_prim val_ge) => `([lang| $t1 >= $t2])
-        | `(val_prim val_eq) => `([lang| $t1 = $t2])
-        | `(val_prim val_neq) => `([lang| $t1 != $t2])
-        | `(val_prim val_mod) => `([lang| $t1 mod $t2])
-        | `(val_prim val_set) => `([lang| $t1 := $t2])
-        | _ => throw ( )
-      | _ => throw ( )
-
-    -- | `([lang| $f]) => `([lang| $f $t2])
+@[app_unexpander trm_app] def unexpandApp : Lean.PrettyPrinter.Unexpander := fun x => do
+  match x with
+  | `($(_) [uop|$uop] [lang| $t]) =>
+    match uop with
+    | `(uop| ref)  => `([lang| ref $t])
+    | `(uop| free) => `([lang| free $t])
+    | `(uop| not)  => `([lang| not $t])
+    | `(uop| !)    => `([lang| !$t:lang])
+    | `(uop| -)    => `([lang| -$t:lang])
     | _ => throw ( )
-  -- | `($(_) [lang| $t1] [lang| $t2]) => `([lang| $t1 $t2])
+  | `($(_) $app [lang| $t2:lang]) =>
+    -- dbg_trace app
+    match app with
+    | `([bop| $bop].trm_app [lang| $t1]) =>
+      match bop with
+      | `(bop| :=) => `([lang| $t1 := $t2])
+      | `(bop| +) => `([lang| $t1 + $t2])
+      | `(bop| *) => `([lang| $t1 * $t2])
+      | `(bop| -) => `([lang| $t1 - $t2:lang])
+      | `(bop| /) => `([lang| $t1 / $t2])
+      | `(bop| <) => `([lang| $t1 < $t2])
+      | `(bop| >) => `([lang| $t1 > $t2])
+      | `(bop| <=) => `([lang| $t1 <= $t2])
+      | `(bop| >=) => `([lang| $t1 >= $t2])
+      | `(bop| =) => `([lang| $t1 = $t2])
+      | `(bop| !=) => `([lang| $t1 != $t2])
+      | `(bop| mod) => `([lang| $t1 mod $t2])
+      | _ => throw ( )
+    | `([lang| $t1]) => `([lang| $t1 $t2])
+    | _ => throw ( )
+  | `($(_) [bop| $bop] [lang| $t1]) => return x
   | _ => throw ( )
+
+-- @[app_unexpander trm_app] def unexpandApp : Lean.PrettyPrinter.Unexpander
+--   | `($(_) $op [lang| $t2]) =>
+--     match op with
+--     | `(trm_val $op) =>
+--       match op with
+--       | `(val_prim val_get) => `([lang| !$t2])
+--       | `(val_prim val_opp) => `([lang| -$t2])
+--       | _ => throw ( )
+--     | `(trm_app' $prim [lang| $t1]) =>
+--       match prim with
+--       | `(trm_val $prim) =>
+--         match prim with
+--         | `(val_prim val_add) => `([lang| $t1 + $t2])
+--         | `(val_prim val_mul) => `([lang| $t1 * $t2])
+--         | `(val_prim val_sub) => `([lang| $t1 - $t2])
+--         | `(val_prim val_div) => `([lang| $t1 / $t2])
+--         | `(val_prim val_lt) => `([lang| $t1 < $t2])
+--         | `(val_prim val_gt) => `([lang| $t1 > $t2])
+--         | `(val_prim val_le) => `([lang| $t1 <= $t2])
+--         | `(val_prim val_ge) => `([lang| $t1 >= $t2])
+--         | `(val_prim val_eq) => `([lang| $t1 = $t2])
+--         | `(val_prim val_neq) => `([lang| $t1 != $t2])
+--         | `(val_prim val_mod) => `([lang| $t1 mod $t2])
+--         | `(val_prim val_set) => `([lang| $t1 := $t2])
+--         | _ => throw ( )
+--       | _ => throw ( )
 
 @[app_unexpander trm_var] def unexpandVar : Lean.PrettyPrinter.Unexpander
   | `($(_) $x:str) =>
@@ -689,33 +744,33 @@ elab_rules : term
   | _ => throw ( )
 
 @[app_unexpander trm_if] def unexpandIf : Lean.PrettyPrinter.Unexpander
-  | `($(_) [lang| $t1] [lang| $t2] [lang| $t3]) => `([lang| if $t1 then $t2 else $t3])
+  | `($(_) [lang| $t1] [lang| $t2] [lang| $t3]) => `([lang| if $t1:lang then $t2 else $t3])
   | _ => throw ( )
 
 @[app_unexpander trm_fun] def unexpandTFun : Lean.PrettyPrinter.Unexpander
-  | `($(_) $x:str [lang| fun $xs* => $t]) =>
+  | `($(_) $x:str [lang| fun $xs:ident* => $t:lang]) =>
     let str := x.getString
     let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| fun $name $xs* => $t])
-  | `($(_) $x:str [lang| $t]) =>
+    `([lang| fun $name $xs* => $t:lang])
+  | `($(_) $x:str [lang| $t:lang]) =>
     let str := x.getString
     let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| fun $name => $t])
+    `([lang| fun $name => $t:lang])
   | _ => throw ( )
 
 @[app_unexpander val_fun] def unexpandVFun : Lean.PrettyPrinter.Unexpander
-  | `($(_) $x:str [lang| fun $xs* => $t]) =>
+  | `($(_) $x:str [lang| fun $xs:ident* => $t:lang]) =>
     let str := x.getString
     let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| fun $name $xs* => $t])
+    `([lang| fun $name $xs* => $t:lang])
   | `($(_) $x:str [lang| $t]) =>
     let str := x.getString
     let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| fun $name => $t])
+    `([lang| fun $name => $t:lang])
   | _ => throw ( )
 
 @[app_unexpander trm_fix] def unexpandTFix : Lean.PrettyPrinter.Unexpander
-  | `($(_) $f:str $x:str [lang| fun $xs* => $t]) =>
+  | `($(_) $f:str $x:str [lang| fun $xs:ident* => $t:lang]) =>
     let f := f.getString
     let x := x.getString
     let nameF := Lean.mkIdent $ Lean.Name.mkSimple f
@@ -730,7 +785,7 @@ elab_rules : term
   | _ => throw ( )
 
 @[app_unexpander val_fix] def unexpandVFix : Lean.PrettyPrinter.Unexpander
-  | `($(_) $f:str $x:str [lang| fun $xs* => $t]) =>
+  | `($(_) $f:str $x:str [lang| fun $xs:ident* => $t:lang]) =>
     let f := f.getString
     let x := x.getString
     let nameF := Lean.mkIdent $ Lean.Name.mkSimple f
@@ -744,25 +799,25 @@ elab_rules : term
     `([lang| fix $nameF $nameX => $t])
   | _ => throw ( )
 
-@[app_unexpander trm_apps] def unexpandApps : Lean.PrettyPrinter.Unexpander
-  -- Unexpand function applications when arguments are program-variables
-  | `($(_) [lang| $f] [ $[[lang|$xs]],* ]) => `([lang| $f ( $xs,* )])
-  -- | `($(_) $f:ident [ $[[lang|$xs]],* ]) => `([lang| $f:ident ( $xs,* )])
-  -- Unexpand function applications when arguments are meta-variables
-  | `($(_) $f:ident [ $xs:term,* ]) => do
-    -- hack to workaround the fact that elements of `xs` are identifiers with
-    -- explicit coercions: [val_loc p, val_int n, ....]
-    let x <- xs.getElems.mapM fun
-       | `($(_) $i:ident) => `(ident| $i:ident)
-       | _ => throw ( )
-    `([lang| $f:ident ( $[ $x:ident],* )])
-  | _ => throw ( )
+-- @[app_unexpander trm_apps] def unexpandApps : Lean.PrettyPrinter.Unexpander
+--   -- Unexpand function applications when arguments are program-variables
+--   | `($(_) [lang| $f] [ $[[lang|$xs]],* ]) => `([lang| $f  $xs )])
+--   -- | `($(_) $f:ident [ $[[lang|$xs]],* ]) => `([lang| $f:ident ( $xs,* )])
+--   -- Unexpand function applications when arguments are meta-variables
+--   | `($(_) $f:ident [ $xs:term,* ]) => do
+--     -- hack to workaround the fact that elements of `xs` are identifiers with
+--     -- explicit coercions: [val_loc p, val_int n, ....]
+--     let x <- xs.getElems.mapM fun
+--        | `($(_) $i:ident) => `(ident| $i:ident)
+--        | _ => throw ( )
+--     `([lang| $f:ident ( $[ $x:ident],* )])
+--   | _ => throw ( )
 
 @[app_unexpander trm_funs] def unexpandTFuns : Lean.PrettyPrinter.Unexpander
   | `($(_) [ $xs:str,* ] [lang| $f]) =>
     let xs := xs.getElems.map (Lean.mkIdent $ Lean.Name.mkSimple ·.getString)
     `([lang| fun $xs* => $f])
-  | t => throw ( )
+  | _ => throw ( )
 
 @[app_unexpander val_funs] def unexpandVFuns : Lean.PrettyPrinter.Unexpander := fun x =>
   match x with
@@ -787,22 +842,22 @@ elab_rules : term
 
 -- syntax ident "((" ident,* "))" : lang
 
-@[app_unexpander trm_apps] def unexpandApps' : Lean.PrettyPrinter.Unexpander
-  | `($(_) [lang| $f] [ $[[lang|$xs]],* ]) => `([lang| $f ( $xs,* )])
-  | `($(_) $f:ident [ $[[lang|$xs]],* ]) => `([lang| $f:ident ( $[ $xs:lang ],* )])
-  -- | `($(_) $f:ident [ $xs:ident,* ]) => `([lang| $f:ident ( $[ $xs:ident ],* )])
-  | _ => throw ( )
+-- @[app_unexpander trm_apps] def unexpandApps' : Lean.PrettyPrinter.Unexpander
+--   | `($(_) [lang| $f] [ $[[lang|$xs]],* ]) => `([lang| $f ( $xs,* )])
+--   | `($(_) $f:ident [ $[[lang|$xs]],* ]) => `([lang| $f:ident ( $[ $xs:lang ],* )])
+--   -- | `($(_) $f:ident [ $xs:ident,* ]) => `([lang| $f:ident ( $[ $xs:ident ],* )])
+--   | _ => throw ( )
 
 
-#check [lang| ()]
+#check [lang| 1-1]
 
-#check fun (F : val)  => [lang|
+#check fun (p : loc)  => [lang|
   fix f y z =>
-    if F(y, z)
+    if F y z
     then
       let y := 1 + () in
       let y := 1 + 1 in
-      let z := ref(1) in
+      let z := ref p in
       y + z
     else
       let y := 1 + 1 in
