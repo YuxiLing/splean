@@ -535,6 +535,7 @@ syntax "()" : lang
 syntax uop lang : lang
 syntax lang bop lang : lang
 syntax "(" lang ")" : lang
+syntax "{" term "}" : lang
 
 syntax " := " : bop
 syntax " + " : bop
@@ -562,10 +563,6 @@ syntax "[uop|\n" uop "]" : term
 
 local notation "%" x => (Lean.quote (toString (Lean.Syntax.getId x)))
 
-
-
--- def isCapital (i : Lean.Syntax) : Bool :=
---   i.getId.isStr && (i.getId.toString.get! 0).isUpper
 
 macro_rules
   | `([lang| ()])                       => `(trm_val (val_unit))
@@ -606,6 +603,7 @@ macro_rules
   | `([lang| $t1 != $t2])               => `(trm_val val_neq [lang| $t1] [lang| $t2])
   | `([lang| $t1 mod $t2])              => `(trm_val val_mod [lang| $t1] [lang| $t2])
   | `([lang| ($t)]) => `([lang| $t])
+  | `([lang| {$t}]) => `(val_int $t)
 
 
 open Lean Elab Term
@@ -625,6 +623,7 @@ elab_rules : term
 @[app_unexpander val_int] def unexpandInt : Lean.PrettyPrinter.Unexpander
   | `($(_) $n:num) => `($n:num)
   | `($(_) $n:ident) => `($n:ident)
+  | `($(_) $n:term) => `({$n:term})
   | _ => throw ( )
 
 @[app_unexpander val_loc] def unexpandLoc : Lean.PrettyPrinter.Unexpander
@@ -661,6 +660,7 @@ elab_rules : term
     match x with
     | `($n:num) => `([lang| $n:num])
     | `($n:ident) => `([lang| $n:ident])
+    | `({$n:term}) => `([lang| {$n}])
     | t => return t
   | _ => throw ( )
 
@@ -696,33 +696,6 @@ elab_rules : term
     | _ => throw ( )
   | `($(_) [bop| $bop] [lang| $t1]) => return x
   | _ => throw ( )
-
--- @[app_unexpander trm_app] def unexpandApp : Lean.PrettyPrinter.Unexpander
---   | `($(_) $op [lang| $t2]) =>
---     match op with
---     | `(trm_val $op) =>
---       match op with
---       | `(val_prim val_get) => `([lang| !$t2])
---       | `(val_prim val_opp) => `([lang| -$t2])
---       | _ => throw ( )
---     | `(trm_app' $prim [lang| $t1]) =>
---       match prim with
---       | `(trm_val $prim) =>
---         match prim with
---         | `(val_prim val_add) => `([lang| $t1 + $t2])
---         | `(val_prim val_mul) => `([lang| $t1 * $t2])
---         | `(val_prim val_sub) => `([lang| $t1 - $t2])
---         | `(val_prim val_div) => `([lang| $t1 / $t2])
---         | `(val_prim val_lt) => `([lang| $t1 < $t2])
---         | `(val_prim val_gt) => `([lang| $t1 > $t2])
---         | `(val_prim val_le) => `([lang| $t1 <= $t2])
---         | `(val_prim val_ge) => `([lang| $t1 >= $t2])
---         | `(val_prim val_eq) => `([lang| $t1 = $t2])
---         | `(val_prim val_neq) => `([lang| $t1 != $t2])
---         | `(val_prim val_mod) => `([lang| $t1 mod $t2])
---         | `(val_prim val_set) => `([lang| $t1 := $t2])
---         | _ => throw ( )
---       | _ => throw ( )
 
 @[app_unexpander trm_var] def unexpandVar : Lean.PrettyPrinter.Unexpander
   | `($(_) $x:str) =>
@@ -839,26 +812,18 @@ elab_rules : term
     `([lang| fix $f $xs* => $t])
   | _ => throw ( )
 
--- syntax ident "((" ident,* "))" : lang
 
--- @[app_unexpander trm_apps] def unexpandApps' : Lean.PrettyPrinter.Unexpander
---   | `($(_) [lang| $f] [ $[[lang|$xs]],* ]) => `([lang| $f ( $xs,* )])
---   | `($(_) $f:ident [ $[[lang|$xs]],* ]) => `([lang| $f:ident ( $[ $xs:lang ],* )])
---   -- | `($(_) $f:ident [ $xs:ident,* ]) => `([lang| $f:ident ( $[ $xs:ident ],* )])
---   | _ => throw ( )
+-- #check [lang| 1-1]
 
-
-#check [lang| 1-1]
-
-#check fun (p : loc)  => [lang|
-  fix f y z =>
-    if F y z
-    then
-      let y := 1 + () in
-      let y := 1 + 1 in
-      let z := ref p in
-      y + z
-    else
-      let y := 1 + 1 in
-      let z := 1 in
-      y + z]
+-- #check fun (p : loc)  => [lang|
+--   fix f y z =>
+--     if F y z
+--     then
+--       let y := {1 + 1}in
+--       let y := 1 + 1 in
+--       let z := ref p in
+--       y + z
+--     else
+--       let y := 1 + 1 in
+--       let z := 1 in
+--       y + z]

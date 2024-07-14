@@ -36,6 +36,17 @@ def getGoalProp : Lean.Elab.Tactic.TacticM Q(Prop) := do
 def delabAll :=
   (withOptions (fun _ => KVMap.empty.insert `pp.funBinderTypes true) $ PrettyPrinter.delab ·)
 
+def delabPpAll :=
+  (withOptions (fun _ => KVMap.empty.insert `pp.all true) $ PrettyPrinter.delab ·)
+
+
+def delabNoNotations :=
+  (withOptions (fun _ =>
+    ((KVMap.empty.insert
+      `pp.notation false).insert
+      `pp.funBinderTypes true).insert
+      `pp.explicit true) $ PrettyPrinter.delab ·)
+
 def getGoalStxAll : Lean.Elab.Tactic.TacticM Syntax := do
   delabAll $ <- getMainTarget
 

@@ -678,7 +678,7 @@ macro "xval" : tactic => do
   `(tactic| (xstruct_if_needed; apply xval_lemma))
 
 macro "xlet" : tactic => do
-  `(tactic| (xstruct_if_needed; apply xlet_lemma))
+  `(tactic| (xstruct_if_needed; apply xlet_lemma; dsimp))
 
 macro "xseq" : tactic => do
   `(tactic| (xstruct_if_needed; apply xseq_lemma))
@@ -772,7 +772,8 @@ elab "xapp_try_subst" : tactic => do
 macro "xapp" e:term : tactic =>
   `(tactic|
     (xapp_nosubst $e; xapp_try_subst;
-     all_goals try srw wp_equiv))
+     all_goals try srw wp_equiv
+     all_goals try subst_vars))
 
 macro "xwp" : tactic =>
   `(tactic|
@@ -896,7 +897,7 @@ lang_def incr :=
     let m := n + 1 in
     p := m
 
-instance : HAdd ℤ ℤ val := ⟨fun x y => val_int (x + y)⟩
+instance : HAdd ℤ ℤ val := ⟨fun x y => val.val_int (x + y)⟩
 instance : HAdd ℤ ℕ val := ⟨fun x y => (x + (y : Int))⟩
 instance : HAdd ℕ ℤ val := ⟨fun x y => ((x : Int) + y)⟩
 
@@ -912,17 +913,6 @@ macro_rules
 elab "xsimpr" : tactic => do
   xsimp_step_r (<- XSimpRIni)
 
-elab "last" : tactic => do
-  let gs <- Lean.Elab.Tactic.getUnsolvedGoals
-  let g := gs.getLast!
-
-
-
-
--- set_option allowUnsafeReducibility true
-
--- attribute [irreducible] triple
-
 lemma triple_incr (p : loc) (n : Int) :
   {p ~~> n}
   [incr(p)]
@@ -930,31 +920,8 @@ lemma triple_incr (p : loc) (n : Int) :
   xwp
   xlet
   simp [subst, AList.lookup, List.dlookup, isubst]
-
-  srw wp_equiv
-  xapp_nosubst triple_get
-  xapp_try_subst
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  -- apply xwp_lemma_funs; rfl; rfl
-  -- dsimp only [trms_to_vals]
-  -- -- unfold wpgen_app
-  -- unfold mkstruct
-  -- xsimp
+  xapp triple_get
+  xwp
+  xlet
+  xapp triple_add
+  sorry

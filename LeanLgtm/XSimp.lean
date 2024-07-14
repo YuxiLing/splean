@@ -73,10 +73,25 @@ structure XSimpR where
   hrg : Term
   hrt : Term
 
+def getGoalStxNN : Lean.Elab.Tactic.TacticM Syntax := do
+  delabNoNotations $ <- getMainTarget
+
+/-
+XSimp
+      (@Prod.mk hprop (Prod hprop hprop)
+        (hstar H1 (hstar H2 (hstar H3 (hstar (Q true) (hstar (hwand (hpure P) HX) (hstar HY hempty))))))
+        (@Prod.mk hprop hprop Hlw Hlt))
+      (@Prod.mk hprop (Prod hprop hprop) Hra (@Prod.mk hprop hprop Hrg Hrt))
+-/
 
 def XSimpRIni : TacticM XSimpR := withMainContext do
-  let goal <- getGoalStxAll
-  let `(XSimp  ($hla, $hlw, $hlt) ($hra, $hrg, $hrt)) := goal | throwError "not a XSimp goal"
+  (<- getMainGoal).setTag `xsimp
+  let goal <- getGoalStxNN
+  let `(XSimp $hl $hr) := goal | throwError "not a XSimp goal"
+  let `(@Prod.mk hprop $_ $hla $hlwt) := hl | throwError "not a XSimp goal"
+  let `(@Prod.mk hprop hprop $hlw $hlt) := hlwt | throwError "not a XSimp goal"
+  let `(@Prod.mk hprop $_ $hra $hrgt) := hr | throwError "not a XSimp goal"
+  let `(@Prod.mk hprop hprop $hrg $hrt) := hrgt | throwError "not a XSimp goal"
   return { hla := hla, hlw := hlw, hlt := hlt, hra := hra, hrg := hrg, hrt := hrt }
 
 
@@ -335,7 +350,7 @@ def xsimp_pick (i : Nat) (last? : Bool) : TacticM Unit :=
 partial def hstar_search (hs : Term) (test : Nat -> Term -> optParam Bool false -> TacticM Unit) :=
   let rec loop (i : Nat) (hs : Term)  : TacticM Unit := do
     match hs with
-    | `($h1 ∗ $h2) => do
+    | `(hstar $h1 $h2) => do
       try
         test i h1
       catch _ => loop (i+1) h2
@@ -368,7 +383,7 @@ def xsimp_hwand_hstars_l (hla hs : Term) :=
     {| apply xsimp_l_hwand_reorder
        · apply $(hstar_pick_lemma i last?) |}
     match h with
-    | `(emp) => {| apply xsimpl_l_cancel_hwand_hstar_hempty |}
+    | `(hempty) => {| apply xsimpl_l_cancel_hwand_hstar_hempty |}
     | _ => xsimp_pick_same h hla; {| apply xsimp_l_cancel_hwand_hstar |}
 
 def xsimp_apply_intro_names (lem : Name) (xs : Syntax) : TacticM Unit :=
@@ -397,30 +412,32 @@ def xsimp_apply_intro_names (lem : Name) (xs : Syntax) : TacticM Unit :=
 partial def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit := do
   trace[xsimp] "LHS step"
   match xsimp.hlt, xsimp.hlw with
-  | `($h ∗ $_), _ =>
+  | `(hstar $h $_), _ =>
     match h with
-    | `(emp)         => {| apply xsimp_l_hempty |}
-    | `(⌜$_⌝)        => {| apply xsimp_l_hpure; intro |}
-    | `($h1 ∗ $h2)   =>
-      {| rw [@hstar_assoc $h1 $h2] |}
+    | `(hempty)         => {| apply xsimp_l_hempty |}
+    | `(hpure $_)        => {| apply xsimp_l_hpure; intro |}
+    | `(hstar $h1 $h2)   =>
+      {| erw [@hstar_assoc $h1 $h2] |}
+      -- rewriteTarget (<- `(@hstar_assoc $h1 $h2)) false
       /- we know that here should be another LHS step -/
       xsimp_step_l (<- XSimpRIni) cancelWand
-    | `(h∃ $xs , $_) => xsimp_apply_intro_names `xsimp_l_hexists xs
-    | `($_ -∗ $_)    => {| apply xsimp_l_acc_wand |}
-    | `($_ -∗∗ $_)   => {| apply xsimp_l_acc_wand |}
+    | `(@hexists $_ $t) =>
+      {| apply xsimp_l_hexists; unhygienic intro |}
+    | `(hwand $_ $_)    => {| apply xsimp_l_acc_wand |}
+    | `(@qwand $_ $_ $_)   => {| apply xsimp_l_acc_wand |}
     | _              => {| apply xsimp_l_acc_other |}
-  | `(emp), `($h1 ∗ $_) =>
+  | `(hempty), `(hstar $h1 $_) =>
     match h1 with
-    | `($h1 -∗ $_) =>
+    | `(hwand $h1 $_) =>
       match h1 with
-      | `(emp) => {| apply xsimp_l_cancel_hwand_hempty |}
-      | `($_ ∗ $_) => xsimp_hwand_hstars_l xsimp.hla h1
+      | `(hempty) => {| apply xsimp_l_cancel_hwand_hempty |}
+      | `(hstar $_ $_) => xsimp_hwand_hstars_l xsimp.hla h1
       | _ => try
           let .true := cancelWand | failure
           xsimp_pick_same h1 xsimp.hla
           {| apply xsimp_l_cancel_hwand |}
         catch _ => {| apply xsimp_l_keep_wand |}
-    | `($q1 -∗∗ $_) =>
+    | `(@qwand $_ $q1 $_) =>
       if cancelWand then
         xsimp_pick_applied q1 xsimp.hla
         {| apply xsimp_l_cancel_qwand |}
@@ -451,32 +468,30 @@ def xsimp_r_hexists_apply_hints : TacticM Unit := do
 partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
   trace[xsimp] "RHS step"
   match xsimp.hlw, xsimp.hlt, xsimp.hrt with
-  | `(emp), `(emp), `($h ∗ $_) =>
+  | `(hempty), `(hempty), `(hstar $h $_) =>
     /- TODO: implement hook -/
     try
       match h with
-      | `(emp) => {| apply xsimp_r_hempty |}
-      | `(⌜P⌝) => {| apply xsimp_r_hpure |}
-      | `($h1 ∗ $h2) =>
-        dbg_trace "h1: {h1}"
-        dbg_trace "h2: {h2}"
-        {| rw [@hstar_assoc $h1 $h2] |}
+      | `(hempty) => {| apply xsimp_r_hempty |}
+      | `(hpure P) => {| apply xsimp_r_hpure |}
+      | `(hstar $h1 $h2) =>
+        {| erw [@hstar_assoc $h1 $h2] |}
          /- we know that here should be another RHS step -/
         xsimp_step_r (<- XSimpRIni)
-      | `($h1 -∗ $_) =>
+      | `(hwand $h1 $_) =>
         match h1 with
-        | `(⌜$_⌝) => {| apply xsimp_r_keep |}
+        | `(hpure $_) => {| apply xsimp_r_keep |}
         | _ => {| apply xsimp_r_hwand_same |}
-      | `(⊤) =>
+      | `(htop) =>
         match xsimp.hrg with
-        | `(emp) =>
+        | `(hempty) =>
           {| apply xsimpl_r_hgc_or_htop |}
           repeat'' do
             xsimp_pick_same h xsimp.hla
             {| apply xsimp_lr_cancel_same |}
-        | `(⊤ ∗ emp) => {| apply xsimpl_r_htop_drop |}
+        | `(hstar htop hempty) => {| apply xsimpl_r_htop_drop |}
         | _ => throwError "xsimp_step_r: @ unreachable"
-      | `(h∃ $_, $_) => xsimp_r_hexists_apply_hints
+      | `(@hexists $_ $_) => xsimp_r_hexists_apply_hints
       | `(protect $_) => {| apply xsimp_r_keep |}
       /-
       | `($x ~~> $u) =>
@@ -492,7 +507,9 @@ partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
         else
         xsimp_pick_same h xsimp.hla
         {| apply xsimp_lr_cancel_same |}
-    catch _ => {| apply xsimp_r_keep |}
+    catch ex =>
+      trace[xsimp] ex.toMessageData
+      {| apply xsimp_r_keep |}
   | _, _, _ => throwError "not implemented"
 
 /- ============ LHS/RHS xsmip step ============ -/
@@ -500,18 +517,18 @@ partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
 def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
   trace[xsimp] "LHS/RHS step"
   match xsimp.hrg with
-  | `(emp) =>
+  | `(hempty) =>
     match xsimp.hra with
-    | `($h1 ∗ emp) =>
+    | `(hstar $h1 hempty) =>
       if h1.isMVarStx then
         {| hsimp; apply himpl_lr_refl |}
         return ( )
       match h1 with
-      | `($h1 -∗ $_) =>
+      | `(hwand $h1 $_) =>
         match h1 with
-        | `(⌜False⌝) => {| apply xsimp_lr_hwand_hfalse |}
+        | `(hpure False) => {| apply xsimp_lr_hwand_hfalse |}
         | _ => /- TODO: flip -/ {| apply xsimp_lr_hwand |}
-      | `($h1 -∗∗ $_) =>
+      | `(@qwand $_ $h1 $_) =>
         try
           let .true := h1.isMVarStx | failure
           {| apply himpl_lr_qwand_unify |}
@@ -519,11 +536,12 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
           {| first | apply xsimpl_lr_qwand_unit
                    | apply xsimpl_lr_qwand; unhygienic intro
              try simp only [qstar_simp] |}
-      | `(h∀ $xs, $_) => /- TODO: flip -/ xsimp_apply_intro_names `xsimpl_lr_hforall xs
+      | `(hforall $_) => /- TODO: flip -/
+        {| apply xsimpl_lr_hforall; unhygienic intro |}
       | _ => /- TODO: flip -/ {| apply xsimp_lr_exit |}
-    | `(emp) => {| first | apply himpl_lr_refl | apply xsimp_lr_exit |}
+    | `(hempty) => {| first | apply himpl_lr_refl | apply xsimp_lr_exit |}
     | _ => /- TODO: flip -/ {| apply xsimp_lr_exit |}
-  | `(⊤ ∗ emp) => {| first | apply himpl_lr_htop | apply xsimp_lr_exit |}
+  | `(hstar htop hempty) => {| first | apply himpl_lr_htop | apply xsimp_lr_exit |}
   | _ => /- TODO: flip -/ {| apply xsimp_lr_exit |}
 
 
@@ -539,6 +557,7 @@ elab "xsimp_step" : tactic => do
     xsimp_step_l  xsimp <|>
     xsimp_step_r  xsimp <|>
     xsimp_step_lr xsimp
+
 
 elab "xsimp_handle_qimpl" : tactic => do
   match_expr <- getMainTarget with
@@ -643,6 +662,7 @@ local elab "xsimp_pick_same" h:term : tactic => do
 local elab "xsimp_pick_applied" h:term : tactic => do
   let xsimp <- XSimpRIni
   xsimp_pick_applied h xsimp.hla
+
 
 example (Q : Bool -> _):
   (forall HX HY,
