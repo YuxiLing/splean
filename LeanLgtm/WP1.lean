@@ -766,14 +766,17 @@ macro "xapp_nosubst" e:term  : tactic =>
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
 elab "xapp_try_subst" : tactic => do
-  {| unhygienic (skip=>>)
-     try move=>-> |}
+  {| (unhygienic (skip=>>)
+      move=>->) |}
 
 macro "xapp" e:term : tactic =>
   `(tactic|
-    (xapp_nosubst $e; xapp_try_subst;
-     all_goals try srw wp_equiv
-     all_goals try subst_vars))
+    (xapp_nosubst $e;
+     try xapp_try_subst
+     first
+       | done
+       | all_goals try srw wp_equiv
+         all_goals try subst_vars))
 
 macro "xwp" : tactic =>
   `(tactic|
@@ -880,7 +883,7 @@ macro "xwp" : tactic =>
      first | (apply xwp_lemma_fixs; rfl; rfl)=> //
            | (apply xwp_lemma_funs; rfl; rfl)=> //
            | apply wp_of_wpgen
-     all_goals try simp only [wpgen, subst, isubst, trm_apps, wpgen_app]))
+     all_goals try simp only [wpgen, subst, isubst, trm_apps, wpgen_app, AList.lookup, List.dlookup]))
 
 end
 
@@ -919,9 +922,9 @@ lemma triple_incr (p : loc) (n : Int) :
   {_, (p ~~> n + 1)} := by
   xwp
   xlet
-  simp [subst, AList.lookup, List.dlookup, isubst]
   xapp triple_get
   xwp
   xlet
   xapp triple_add
-  sorry
+  xwp
+  xapp triple_set
