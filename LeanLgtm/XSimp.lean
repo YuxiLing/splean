@@ -536,7 +536,7 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
           {| first | apply xsimpl_lr_qwand_unit
                    | apply xsimpl_lr_qwand; unhygienic intro
              try simp only [qstar_simp] |}
-      | `(hforall $_) => /- TODO: flip -/
+      | `(@hforall $_ $_) => /- TODO: flip -/
         {| apply xsimpl_lr_hforall; unhygienic intro |}
       | _ => /- TODO: flip -/ {| apply xsimp_lr_exit |}
     | `(hempty) => {| first | apply himpl_lr_refl | apply xsimp_lr_exit |}
