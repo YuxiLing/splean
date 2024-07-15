@@ -745,6 +745,8 @@ macro "xsimp_no_cancel_wand" : tactic =>
     try hsimp
   ))
 
+section xapp
+
 macro "xapp_simp" : tactic => do
   `(tactic|
       first | apply xapp_simpl_lemma
@@ -757,32 +759,100 @@ macro "xapp_pre" : tactic => do
      xtriple_if_needed
      xstruct_if_needed))
 
-macro "xapp_nosubst" e:term  : tactic =>
-  `(tactic|
-    (xapp_pre
-     eapply xapp_lemma; eapply $e
-     rotate_left; xapp_simp=>//))
-
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
 elab "xapp_try_subst" : tactic => do
   {| (unhygienic (skip=>>)
       move=>->) |}
 
-macro "xapp" e:term : tactic =>
+macro "xapp_debug" :tactic => do
   `(tactic|
-    (xapp_nosubst $e;
+    (xapp_pre
+     eapply xapp_lemma))
+
+def getPrim (t :Expr) : Expr :=
+  let_expr val_prim v := t | t
+  v
+
+
+def getVal (t :Expr) : Expr :=
+  let_expr trm_val v := t | t
+  getPrim v
+
+partial def getNestedApp (t :Expr) : Expr :=
+  let_expr trm_app t _ := t | getVal t
+  getNestedApp t
+
+def pick_triple_lemma : TacticM Name := do
+  let g <- getMainTarget
+  let_expr triple t _ _ := g | throwError "goal is not a triple"
+  let_expr trm_app t _ := t | throwError "triple term is not an application"
+  let .some n := (getNestedApp t).constName? | throwError "nested application is not a constant"
+  -- dbg_trace n
+  let .some thm := (<- xappExt.get).find? n | throwError "no triple lemma found"
+  return thm
+
+set_option linter.hashCommand false
+
+elab "#hint_xapp" n:ident "=>" m:ident : command => do
+  Command.runTermElabM fun _ => do
+    let n := (<- Term.elabTerm n none).constName!
+    let m := (<- Term.elabTerm m none).constName!
+    xappExt.modify fun s => s.insert n m
+
+#hint_xapp val_get => triple_get
+#hint_xapp val_set => triple_set
+#hint_xapp val_add => triple_add
+#hint_xapp val_ref => triple_ref
+#hint_xapp val_free => triple_free
+
+set_option linter.unreachableTactic false in
+set_option linter.unusedTactic false in
+elab "xapp_pick" e:term ? : tactic => do
+  let thm <- (match e with
+    | .none => pick_triple_lemma
+    | .some thm => return thm.raw.getId : TacticM Name)
+  {| eapply $(mkIdent thm) |}
+
+set_option linter.unreachableTactic false in
+set_option linter.unusedTactic false in
+-- elab "xapp_nosubst"  : tactic => do
+--   {| (xapp_pre
+--       eapply xapp_lemma; xapp_pick_debug
+--       rotate_left; xapp_simp=>//) |}
+
+macro "xapp_nosubst" e:term ? : tactic =>
+  `(tactic|
+    (xapp_pre
+     eapply xapp_lemma; xapp_pick $(e)?
+     rotate_left; xapp_simp=>//))
+
+macro "xapp" : tactic =>
+  `(tactic|
+    (xapp_nosubst;
      try xapp_try_subst
      first
        | done
        | all_goals try srw wp_equiv
          all_goals try subst_vars))
 
+macro "xapp" colGt e:term ? : tactic =>
+  `(tactic|
+    (xapp_nosubst $(e)?;
+     try xapp_try_subst
+     first
+       | done
+       | all_goals try srw wp_equiv
+         all_goals try subst_vars))
+
+end xapp
+
 macro "xwp" : tactic =>
   `(tactic|
     (intros
      first | apply xwp_lemma_fix; rfl
            | apply xwp_lemma_fun; rfl))
+
 
 end tactics
 
@@ -895,9 +965,11 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => (x + (y : Int))⟩
 instance : HAdd ℕ ℤ val := ⟨fun x y => ((x : Int) + y)⟩
 
 syntax ppGroup("{ " term " }") ppSpace ppGroup("[" lang "]") ppSpace ppGroup("{ " Lean.Parser.Term.funBinder ", " term " }") : term
+syntax ppGroup("{ " term " }") ppSpace ppGroup("[" lang "]") ppSpace ppGroup("{ " term " }") : term
 
 macro_rules
   | `({ $P }[$t:lang]{$v, $Q}) => `(triple [lang| $t] $P (fun $v => $Q))
+  | `({ $P }[$t:lang]{$Q}) => `(triple [lang| $t] $P (fun _ => $Q))
 
 @[app_unexpander triple] def unexpandTriple : Lean.PrettyPrinter.Unexpander
   | `($(_) [lang| $t] $P fun $v ↦ $Q) => `({ $P }[$t:lang]{$v, $Q})
@@ -921,11 +993,10 @@ lang_def incr :=
 lemma triple_incr (p : loc) (n : Int) :
   {p ~~> n}
   [incr(p)]
-  {_, (p ~~> n + 1)} := by
-  /- sdo 3 xwp; xapp -/
-  xwp; xapp triple_get
-  xwp; xapp triple_add
-  xwp; xapp triple_set
+  {p ~~> n + 1} := by
+  sdo 3 (xwp; xapp)
+
+#hint_xapp incr => triple_incr
 
 lang_def mysucc :=
   fun n =>
@@ -943,8 +1014,5 @@ lemma triple_mysucc (n : Int) :
   { emp }
   [mysucc n]
   {v, ⌜ v = n + 1 ⌝} := by
-  xwp; xapp triple_ref
-  xwp; xapp triple_incr
-  xwp; xapp triple_get
-  xwp; xapp triple_free
+  sdo 4 (xwp; xapp)
   xwp; xval; xsimp

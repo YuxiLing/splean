@@ -66,6 +66,11 @@ abbrev HintExtState := List Syntax
 initialize hintExt : EnvExtension HintExtState ←
   registerEnvExtension (pure [])
 
+abbrev XAppExtState := RBMap Name Name Name.cmp
+
+initialize xappExt : EnvExtension XAppExtState ←
+  registerEnvExtension (pure RBMap.empty)
+
 syntax "{|" tacticSeq "|}" : term
 
 macro_rules
