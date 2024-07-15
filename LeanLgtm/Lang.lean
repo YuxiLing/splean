@@ -519,21 +519,23 @@ declare_syntax_cat lang
 declare_syntax_cat bop
 declare_syntax_cat uop
 
+-- #check let x := (); let y := (); y
+
 syntax ident : lang
 syntax num : lang
-syntax lang lang : lang
+syntax:20 lang ";" ppDedent(ppLine lang) : lang
+syntax lang lang:30 : lang
 syntax "if " lang "then " lang "end " : lang
 syntax ppIndent("if " lang " then") ppSpace lang ppDedent(ppSpace) ppRealFill("else " lang) : lang
 syntax "let" ident " := " lang " in" ppDedent(ppLine lang) : lang
--- syntax withPosition("let" ident " := " lang) " in " lang : lang
-syntax lang ";\n" ppDedent(lang) : lang
+-- TODO: I suspect it should be  `withPosition(lang ";") ppDedent(ppLine lang) : lang`, but Lean parser crashes. Report a bug.
 syntax "fun" ident+ " => " lang : lang
 syntax "fix" ident ident+ " => " lang : lang
 syntax "fun_ " ident* " => " lang : lang
 syntax "fix_ " ident ident* " => " lang : lang
 syntax "()" : lang
-syntax uop lang : lang
-syntax lang bop lang : lang
+syntax uop lang:30 : lang
+syntax lang:30 bop lang:30 : lang
 syntax "(" lang ")" : lang
 syntax "{" term "}" : lang
 
@@ -617,8 +619,8 @@ elab_rules : term
       elabTerm x none
 
 @[app_unexpander val_unit] def unexpandUnitL : Lean.PrettyPrinter.Unexpander
-  | `($(_) val_unit) => `([lang| ()])
-  | _ => throw ( )
+  | `($(_)) => `([lang| ()])
+  -- | _ => throw ( )
 
 @[app_unexpander val_int] def unexpandInt : Lean.PrettyPrinter.Unexpander
   | `($(_) $n:num) => `($n:num)
@@ -661,7 +663,10 @@ elab_rules : term
     | `($n:num) => `([lang| $n:num])
     | `($n:ident) => `([lang| $n:ident])
     | `({$n:term}) => `([lang| {$n}])
-    | t => return t
+    | `([lang| $_]) => return x
+    | `([uop| $_]) => return x
+    | `([bop| $_]) => return x
+    | t => `([lang| {$t}])
   | _ => throw ( )
 
 @[app_unexpander trm_app] def unexpandApp : Lean.PrettyPrinter.Unexpander := fun x => do
@@ -815,15 +820,21 @@ elab_rules : term
 
 -- #check [lang| 1-1]
 
--- #check fun (p : loc)  => [lang|
---   fix f y z =>
---     if F y z
---     then
---       let y := {1 + 1}in
---       let y := 1 + 1 in
---       let z := ref p in
---       y + z
---     else
---       let y := 1 + 1 in
---       let z := 1 in
---       y + z]
+#check fun (p : loc)  => [lang|
+  fix f y z =>
+    if F y z
+    then
+      let y := {1 + 1}in
+      let y := 1 + 1 in
+      let z := !p in
+      y + z
+    else
+      let y := 1 + 1 in
+      let z := 1 in
+      y + z]
+
+#check [lang| x; let x := !x in let y:= () in x]
+#check [lang|x y; z]
+#check [lang|!x; y]
+instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
+#check fun n : ℤ => (([lang| ()]).trm_seq (trm_val ((n + 1))))

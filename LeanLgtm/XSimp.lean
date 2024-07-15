@@ -471,9 +471,10 @@ partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
   | `(hempty), `(hempty), `(hstar $h $_) =>
     /- TODO: implement hook -/
     try
+      trace[xsimp] "xsimp_r deals with: {h}"
       match h with
       | `(hempty) => {| apply xsimp_r_hempty |}
-      | `(hpure P) => {| apply xsimp_r_hpure |}
+      | `(hpure $_) => {| apply xsimp_r_hpure |}
       | `(hstar $h1 $h2) =>
         {| erw [@hstar_assoc $h1 $h2] |}
          /- we know that here should be another RHS step -/

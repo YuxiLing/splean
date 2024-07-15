@@ -687,7 +687,7 @@ set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
 elab "xseq_xlet_if_needed" : tactic => do
   match <- getGoalStxAll with
-  | `($_ ==> mkstruct $_ $f) =>
+  | `($_ ==> mkstruct $f $_) =>
     match f with
     | `(wpgen_seq $_ $_) => {| xseq |}
     | `(wpgen_let $_ $_) => {| xlet |}
@@ -752,9 +752,9 @@ macro "xapp_simp" : tactic => do
 
 macro "xapp_pre" : tactic => do
   `(tactic|
-    (xwp_equiv
+    (xseq_xlet_if_needed
+     xwp_equiv
      xtriple_if_needed
-     xseq_xlet_if_needed;
      xstruct_if_needed))
 
 macro "xapp_nosubst" e:term  : tactic =>
@@ -880,25 +880,15 @@ macro "xwp" : tactic =>
   `(tactic|
     (intros
      srw ?trm_apps1 ?trm_apps2
-     first | (apply xwp_lemma_fixs; rfl; rfl)=> //
-           | (apply xwp_lemma_funs; rfl; rfl)=> //
+     first | (apply xwp_lemma_fixs; rfl; rfl; sdone; sdone; sdone)=> //
+           | (apply xwp_lemma_funs; rfl; rfl; rfl; sdone)=> //
            | apply wp_of_wpgen
-     all_goals try simp only [wpgen, subst, isubst, trm_apps, wpgen_app, AList.lookup, List.dlookup]))
+     all_goals try simp [wpgen, subst, isubst, subst, trm_apps, AList.lookup, List.dlookup]))
 
 end
 
-
-/- ################################################################# -/
-/-* * Demo Programs -/
-
 macro "lang_def" n:ident ":=" l:lang : command => do
   `(def $n:ident : val := [lang| $l])
-
-lang_def incr :=
-  fun p =>
-    let n := !p in
-    let m := n + 1 in
-    p := m
 
 instance : HAdd ℤ ℤ val := ⟨fun x y => val.val_int (x + y)⟩
 instance : HAdd ℤ ℕ val := ⟨fun x y => (x + (y : Int))⟩
@@ -916,15 +906,45 @@ macro_rules
 elab "xsimpr" : tactic => do
   xsimp_step_r (<- XSimpRIni)
 
+
+/- ################################################################# -/
+/-* * Demo Programs -/
+
+
+lang_def incr :=
+  fun p =>
+    let n := !p in
+    let m := n + 1 in
+    p := m
+
+
 lemma triple_incr (p : loc) (n : Int) :
   {p ~~> n}
   [incr(p)]
   {_, (p ~~> n + 1)} := by
-  xwp
-  xlet
-  xapp triple_get
-  xwp
-  xlet
-  xapp triple_add
-  xwp
-  xapp triple_set
+  /- sdo 3 xwp; xapp -/
+  xwp; xapp triple_get
+  xwp; xapp triple_add
+  xwp; xapp triple_set
+
+lang_def mysucc :=
+  fun n =>
+    let r := ref n in
+    incr r;
+    let x := !r in
+    free r;
+    x
+-- set_option pp.notation false
+-- set_option pp.explicit true
+-- set_option pp.funBinderTypes true
+-- set_option trace.xsimp true
+
+lemma triple_mysucc (n : Int) :
+  { emp }
+  [mysucc n]
+  {v, ⌜ v = n + 1 ⌝} := by
+  xwp; xapp triple_ref
+  xwp; xapp triple_incr
+  xwp; xapp triple_get
+  xwp; xapp triple_free
+  xwp; xval; xsimp
