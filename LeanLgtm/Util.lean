@@ -59,6 +59,8 @@ initialize
   registerTraceClass `xsimp_step_lr
 initialize
   registerTraceClass `xsimp
+initialize
+  registerTraceClass `xchange
 
 
 abbrev HintExtState := List Syntax
