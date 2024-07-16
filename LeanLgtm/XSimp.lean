@@ -95,10 +95,229 @@ def XSimpRIni : TacticM XSimpR := withMainContext do
   return { hla := hla, hlw := hlw, hlt := hlt, hra := hra, hrg := hrg, hrt := hrt }
 
 
+/- ------------ Tactic for flipping an interated [∗] operation ------------ -/
+
+lemma hstar_flip_0 :
+  emp = emp := by
+  sdone
+
+lemma hstar_flip_1 :
+  h1 ∗ emp = h1 ∗ emp := by
+  sdone
+
+lemma hstar_flip_2 :
+  h1 ∗ h2 ∗ emp = h2 ∗ h1 ∗ emp := by
+  srw hstar_comm_assoc
+
+lemma hstar_flip_3 :
+  h1 ∗ h2 ∗ h3 ∗ emp = h3 ∗ h2 ∗ h1 ∗ emp := by
+  srw [0] hstar_flip_2 !(hstar_comm_assoc h3)
+
+lemma hstar_flip_4 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ emp = h4 ∗ h3 ∗ h2 ∗ h1 ∗ emp := by
+  srw [0] hstar_flip_3 !(hstar_comm_assoc h4)
+
+lemma hstar_flip_5 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ emp = h5 ∗ h4 ∗ h3 ∗ h2 ∗ h1 ∗ emp := by
+  srw [0] hstar_flip_4 !(hstar_comm_assoc h5)
+
+lemma hstar_flip_6 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ emp =
+  h6 ∗ h5 ∗ h4 ∗ h3 ∗ h2 ∗ h1 ∗ emp := by
+  srw [0] hstar_flip_5 !(hstar_comm_assoc h6)
+
+lemma hstar_flip_7 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ emp =
+  h7 ∗ h6 ∗ h5 ∗ h4 ∗ h3 ∗ h2 ∗ h1 ∗ emp := by
+  srw [0] hstar_flip_6 !(hstar_comm_assoc h7)
+
+lemma hstar_flip_8 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ emp =
+  h8 ∗ h7 ∗ h6 ∗ h5 ∗ h4 ∗ h3 ∗ h2 ∗ h1 ∗ emp := by
+  srw [0] hstar_flip_7 !(hstar_comm_assoc h8)
+
+lemma hstar_flip_9 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ emp =
+  h9 ∗ h8 ∗ h7 ∗ h6 ∗ h5 ∗ h4 ∗ h3 ∗ h2 ∗ h1 ∗ emp := by
+  srw [0] hstar_flip_8 !(hstar_comm_assoc h9)
+
+lemma hstar_flip_10 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ h10 ∗ emp =
+  h10 ∗ h9 ∗ h8 ∗ h7 ∗ h6 ∗ h5 ∗ h4 ∗ h3 ∗ h2 ∗ h1 ∗ emp := by
+  srw [0] hstar_flip_9 !(hstar_comm_assoc h10)
+
+def hstar_flip_lemma (i : Nat) : Ident :=
+  mkIdent s!"hstar_flip_{i}".toName
+
+partial def hstar_arity (hs : Term) : TacticM Nat :=
+  match hs with
+  | `(emp)      => return (0)
+  | `($_ ∗ $h2) => do
+      let n <- hstar_arity h2
+      return (1 + n)
+  | _           => throwError "cannot get arity"
+
+set_option linter.unusedTactic false
+set_option linter.unreachableTactic false
+
+elab "hstar_flip" h:term : tactic => do
+  let i <- hstar_arity h
+  {| eapply $(hstar_flip_lemma i) |}
+
+lemma xsimp_flip_acc_l_lemma :
+  hla = hla' →
+  XSimp (hla', emp, emp) (hra, hrg, emp) →
+  XSimp (hla, emp, emp) (hra, hrg, emp) := by
+  sby move=> h /h
+
+lemma xsimp_flip_acc_r_lemma :
+  hra = hra' →
+  XSimp (hla, emp, emp) (hra', hrg, emp) →
+  XSimp (hla, emp, emp) (hra, hrg, emp) := by
+  sby move=> h /h
+
+elab "xsimp_flip_acc_l" hla:term : tactic =>
+  {| eapply xsimp_flip_acc_l_lemma ; hstar_flip $hla |}
+
+elab "xsimp_flip_acc_r" hra:term : tactic =>
+  {| eapply xsimp_flip_acc_r_lemma ; hstar_flip $hra |}
+
+def xsimp_flip_acc_lr (hla hra : Term) : TacticM Unit :=
+  {| xsimp_flip_acc_l $hla ; xsimp_flip_acc_r $hra |}
+
+
+/- ------------ Tactic for picking a particular heap proposition ------------ -/
+
+/- TODO: Pregenerate such lemmas automatically -/
+/- Note: Copilot can generate them pretty good -/
+lemma hstar_pick_1 :
+  h1 ∗ h = h1 ∗ h := by
+  sdone
+
+lemma hstar_pick_2  :
+  h1 ∗ h2 ∗ h = h2 ∗ h1 ∗ h := by
+  sby srw hstar_comm_assoc
+
+lemma hstar_pick_3 :
+  h1 ∗ h2 ∗ h3 ∗ h = h3 ∗ h1 ∗ h2 ∗ h := by
+  sby srw (hstar_comm_assoc h2); apply hstar_pick_2
+
+lemma hstar_pick_4 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h = h4 ∗ h1 ∗ h2 ∗ h3 ∗ h := by
+  sby srw (hstar_comm_assoc h3); apply hstar_pick_3
+
+lemma hstar_pick_5 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h = h5 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h := by
+  sby srw (hstar_comm_assoc h4); apply hstar_pick_4
+
+lemma hstar_pick_6 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h = h6 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h := by
+  sby srw (hstar_comm_assoc h5); apply hstar_pick_5
+
+lemma hstar_pick_7 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h = h7 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h := by
+  sby srw (hstar_comm_assoc h6); apply hstar_pick_6
+
+lemma hstar_pick_8 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h = h8 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h := by
+  sby srw (hstar_comm_assoc h7); apply hstar_pick_7
+
+lemma hstar_pick_9 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ h = h9 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h := by
+  sby srw (hstar_comm_assoc h8); apply hstar_pick_8
+
+lemma hstar_pick_10 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ h10 ∗ h = h10 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ h := by
+  sby srw (hstar_comm_assoc h9); apply hstar_pick_9
+
+lemma hstar_pick_last_1 :
+  h1 = h1 := by sdone
+
+lemma hstar_pick_last_2 :
+  h1 ∗ h2 = h2 ∗ h1 := by
+  sby srw hstar_comm
+
+lemma hstar_pick_last_3 :
+  h1 ∗ h2 ∗ h3 = h3 ∗ h1 ∗ h2 := by
+  sby srw (hstar_comm h2); apply hstar_pick_2
+
+lemma hstar_pick_last_4 :
+  h1 ∗ h2 ∗ h3 ∗ h4 = h4 ∗ h1 ∗ h2 ∗ h3 := by
+  sby srw (hstar_comm h3); apply hstar_pick_3
+
+lemma hstar_pick_last_5 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 = h5 ∗ h1 ∗ h2 ∗ h3 ∗ h4 := by
+  sby srw (hstar_comm h4); apply hstar_pick_4
+
+lemma hstar_pick_last_6 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 = h6 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 := by
+  sby srw (hstar_comm h5); apply hstar_pick_5
+
+lemma hstar_pick_last_7 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 = h7 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 := by
+  sby srw (hstar_comm h6); apply hstar_pick_6
+
+lemma hstar_pick_last_8 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 = h8 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 := by
+  sby srw (hstar_comm h7); apply hstar_pick_7
+
+lemma hstar_pick_last_9 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 = h9 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 := by
+  sby srw (hstar_comm h8); apply hstar_pick_8
+
+lemma hstar_pick_last_10 :
+  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ h10 = h10 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 := by
+  sby srw (hstar_comm h9); apply hstar_pick_9
+
+def hstar_pick_lemma (i : Nat) (pickLast : Bool) : Ident :=
+  if pickLast then
+    mkIdent s!"hstar_pick_last_{i}".toName
+  else
+    mkIdent s!"hstar_pick_{i}".toName
+
+lemma xsimp_pick_lemma :
+  hla2 = hla1 ->
+  XSimp (hla1, hlw, hlt) hr ->
+  XSimp (hla2, hlw, hlt) hr := by sby move=>->
+
+def xsimp_pick (i : Nat) (last? : Bool) : TacticM Unit :=
+   {| apply xsimp_pick_lemma
+      · apply $(hstar_pick_lemma i last?) |}
+
+partial def hstar_search (hs : Term) (test : Nat -> Term -> optParam Bool false -> TacticM Unit) :=
+  let rec loop (i : Nat) (hs : Term)  : TacticM Unit := do
+    match hs with
+    | `(hstar $h1 $h2) => do
+      try
+        test i h1
+      catch _ => loop (i+1) h2
+    | _ => test i hs true
+  loop 1 hs
+
+def xsimp_pick_same (h hla : Term) : TacticM Unit := do
+  let h  <- Tactic.elabTerm h none
+  hstar_search hla fun i h' last? => do
+    let h' <- Tactic.elabTerm h' none
+    let .true <-
+      withAssignableSyntheticOpaque <| isDefEq h' h | throwError "not equal"
+    xsimp_pick i last?
+
+def xsimp_pick_applied (h hla : Term) : TacticM Unit := do
+  let h <- Term.elabTerm h  none
+  hstar_search hla fun i h' last? => do
+    let h' <- Term.elabTerm h' none
+    let numArgs + 1 := h'.getAppNumArgs' | throwError "not equal"
+    let h' := h'.consumeMData.getAppPrefix numArgs
+    let .true <-
+      withAssignableSyntheticOpaque <| isDefEq h h' | throwError "not equal"
+    xsimp_pick i last?
+
+
 /- ============ Theory for `xsimp` ============ -/
 lemma xsimp_start_lemma :
   XSimp (emp, emp, h1 ∗ emp) (emp, emp, h2 ∗ emp) ->
-  h1 ==> h2 := by sorry
+  h1 ==> h2 := by
+  sby srw XSimp ; hsimp
 
 /- ------------ Lemmas for LHS step ------------ -/
 lemma xsimp_l_hempty :
@@ -245,137 +464,7 @@ lemma qstar_simp :
   (Q1 ∗∗ H) x = Q1 x ∗ H := by rfl
 
 
-/- ------------ Tactic for picking a particular heap proposition ------------ -/
-
-/- TODO: Pregenerate such lemmas automatically -/
-/- Note: Copilot can generate them pretty good -/
-lemma hstar_pick_1 :
-  h1 ∗ h = h1 ∗ h := by
-  sdone
-
-lemma hstar_pick_2  :
-  h1 ∗ h2 ∗ h = h2 ∗ h1 ∗ h := by
-  sby srw hstar_comm_assoc
-
-lemma hstar_pick_3 :
-  h1 ∗ h2 ∗ h3 ∗ h = h3 ∗ h1 ∗ h2 ∗ h := by
-  sby srw (hstar_comm_assoc h2); apply hstar_pick_2
-
-lemma hstar_pick_4 :
-  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h = h4 ∗ h1 ∗ h2 ∗ h3 ∗ h := by
-  sby srw (hstar_comm_assoc h3); apply hstar_pick_3
-
-lemma hstar_pick_5 :
-  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h = h5 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h := by
-  sby srw (hstar_comm_assoc h4); apply hstar_pick_4
-
-lemma hstar_pick_6 :
-  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h = h6 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h := by
-  sby srw (hstar_comm_assoc h5); apply hstar_pick_5
-
-lemma hstar_pick_7 :
-  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h = h7 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h := by
-  sby srw (hstar_comm_assoc h6); apply hstar_pick_6
-
-lemma hstar_pick_8 :
-  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h = h8 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h := by
-  sby srw (hstar_comm_assoc h7); apply hstar_pick_7
-
-lemma hstar_pick_9 :
-  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ h = h9 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h := by
-  sby srw (hstar_comm_assoc h8); apply hstar_pick_8
-
-lemma hstar_pick_10 :
-  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ h10 ∗ h = h10 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ h := by
-  sby srw (hstar_comm_assoc h9); apply hstar_pick_9
-
-lemma hstar_pick_last_1 :
-  h1 = h1 := by sdone
-
-lemma hstar_pick_last_2 :
-  h1 ∗ h2 = h2 ∗ h1 := by
-  sby srw hstar_comm
-
-lemma hstar_pick_last_3 :
-  h1 ∗ h2 ∗ h3 = h3 ∗ h1 ∗ h2 := by
-  sby srw (hstar_comm h2); apply hstar_pick_2
-
-lemma hstar_pick_last_4 :
-  h1 ∗ h2 ∗ h3 ∗ h4 = h4 ∗ h1 ∗ h2 ∗ h3 := by
-  sby srw (hstar_comm h3); apply hstar_pick_3
-
-lemma hstar_pick_last_5 :
-  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 = h5 ∗ h1 ∗ h2 ∗ h3 ∗ h4 := by
-  sby srw (hstar_comm h4); apply hstar_pick_4
-
-lemma hstar_pick_last_6 :
-  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 = h6 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 := by
-  sby srw (hstar_comm h5); apply hstar_pick_5
-
-lemma hstar_pick_last_7 :
-  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 = h7 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 := by
-  sby srw (hstar_comm h6); apply hstar_pick_6
-
-lemma hstar_pick_last_8 :
-  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 = h8 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 := by
-  sby srw (hstar_comm h7); apply hstar_pick_7
-
-lemma hstar_pick_last_9 :
-  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 = h9 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 := by
-  sby srw (hstar_comm h8); apply hstar_pick_8
-
-lemma hstar_pick_last_10 :
-  h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ h10 = h10 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 := by
-  sby srw (hstar_comm h9); apply hstar_pick_9
-
-def hstar_pick_lemma (i : Nat) (pickLast : Bool) : Ident :=
-  if pickLast then
-    mkIdent s!"hstar_pick_last_{i}".toName
-  else
-    mkIdent s!"hstar_pick_{i}".toName
-
-lemma xsimp_pick_lemma :
-  hla2 = hla1 ->
-  XSimp (hla1, hlw, hlt) hr ->
-  XSimp (hla2, hlw, hlt) hr := by sby move=>->
-
-
-set_option linter.unusedTactic false
-set_option linter.unreachableTactic false
-
-def xsimp_pick (i : Nat) (last? : Bool) : TacticM Unit :=
-   {| apply xsimp_pick_lemma
-      · apply $(hstar_pick_lemma i last?) |}
-
-partial def hstar_search (hs : Term) (test : Nat -> Term -> optParam Bool false -> TacticM Unit) :=
-  let rec loop (i : Nat) (hs : Term)  : TacticM Unit := do
-    match hs with
-    | `(hstar $h1 $h2) => do
-      try
-        test i h1
-      catch _ => loop (i+1) h2
-    | _ => test i hs true
-  loop 1 hs
-
-def xsimp_pick_same (h hla : Term) : TacticM Unit := do
-  let h  <- Tactic.elabTerm h none
-  hstar_search hla fun i h' last? => do
-    let h' <- Tactic.elabTerm h' none
-    let .true <-
-      withAssignableSyntheticOpaque <| isDefEq h' h | throwError "not equal"
-    xsimp_pick i last?
-
-def xsimp_pick_applied (h hla : Term) : TacticM Unit := do
-  let h <- Term.elabTerm h  none
-  hstar_search hla fun i h' last? => do
-    let h' <- Term.elabTerm h' none
-    let numArgs + 1 := h'.getAppNumArgs' | throwError "not equal"
-    let h' := h'.consumeMData.getAppPrefix numArgs
-    let .true <-
-      withAssignableSyntheticOpaque <| isDefEq h h' | throwError "not equal"
-    xsimp_pick i last?
-
-/- ============ LHS xsmip step ============ -/
+/- ============ LHS xsimp step ============ -/
 
 def xsimp_hwand_hstars_l (hla hs : Term) :=
   hstar_search hs fun i h last? => do
