@@ -950,10 +950,10 @@ macro_rules
 elab "xsimpr" : tactic => do
   xsimp_step_r (<- XSimpRIni)
 
+set_option linter.hashCommand false
 
 /- ################################################################# -/
 /-* * Demo Programs -/
-set_option linter.hashCommand false
 
 lang_def incr :=
   fun p =>
