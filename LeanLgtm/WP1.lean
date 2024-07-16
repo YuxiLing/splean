@@ -7,6 +7,7 @@ import LeanLgtm.Util
 import LeanLgtm.HProp
 import LeanLgtm.XSimp
 import LeanLgtm.SepLog
+import LeanLgtm.WPUtil
 
 open trm val prim
 
@@ -770,47 +771,18 @@ macro "xapp_debug" :tactic => do
     (xapp_pre
      eapply xapp_lemma))
 
-def getPrim (t :Expr) : Expr :=
-  let_expr val_prim v := t | t
-  v
-
-
-def getVal (t :Expr) : Expr :=
-  let_expr trm_val v := t | t
-  getPrim v
-
-partial def getNestedApp (t :Expr) : Expr :=
-  let_expr trm_app t _ := t | getVal t
-  getNestedApp t
-
-def pick_triple_lemma : TacticM Name := do
-  let g <- getMainTarget
-  let_expr triple t _ _ := g | throwError "goal is not a triple"
-  let_expr trm_app t _ := t | throwError "triple term is not an application"
-  let .some n := (getNestedApp t).constName? | throwError "nested application is not a constant"
-  -- dbg_trace n
-  let .some thm := (<- xappExt.get).find? n | throwError "no triple lemma found"
-  return thm
-
-set_option linter.hashCommand false
-
-elab "#hint_xapp" n:ident "=>" m:ident : command => do
-  Command.runTermElabM fun _ => do
-    let n := (<- Term.elabTerm n none).constName!
-    let m := (<- Term.elabTerm m none).constName!
-    xappExt.modify fun s => s.insert n m
-
-#hint_xapp val_get => triple_get
-#hint_xapp val_set => triple_set
-#hint_xapp val_add => triple_add
-#hint_xapp val_ref => triple_ref
-#hint_xapp val_free => triple_free
+#hint_xapp triple_get
+#hint_xapp triple_set
+#hint_xapp triple_add
+#hint_xapp triple_ref
+#hint_xapp triple_free
 
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
+
 elab "xapp_pick" e:term ? : tactic => do
   let thm <- (match e with
-    | .none => pick_triple_lemma
+    | .none => pickTripleLemma
     | .some thm => return thm.raw.getId : TacticM Name)
   {| eapply $(mkIdent thm) |}
 
@@ -981,7 +953,7 @@ elab "xsimpr" : tactic => do
 
 /- ################################################################# -/
 /-* * Demo Programs -/
-
+set_option linter.hashCommand false
 
 lang_def incr :=
   fun p =>
@@ -989,14 +961,12 @@ lang_def incr :=
     let m := n + 1 in
     p := m
 
-
+@[xapp]
 lemma triple_incr (p : loc) (n : Int) :
   {p ~~> n}
   [incr(p)]
   {p ~~> n + 1} := by
   sdo 3 (xwp; xapp)
-
-#hint_xapp incr => triple_incr
 
 lang_def mysucc :=
   fun n =>
@@ -1014,5 +984,5 @@ lemma triple_mysucc (n : Int) :
   { emp }
   [mysucc n]
   {v, ⌜ v = n + 1 ⌝} := by
-  sdo 4 (xwp; xapp)
+  sdo 4 (xwp; xapp);
   xwp; xval; xsimp
