@@ -592,6 +592,15 @@ lemma xsimpl_lr_cancel_htop :
   apply himpl_frame_lr=>//
   apply himpl_htop_r
 
+lemma xsimpl_lr_cancel_same_hsingle :
+  v1 = v2 →
+  XSimp (Hla, Hlw, Hlt) (Hra, Hrg, Hrt) →
+  XSimp (p ~~> v1 ∗ Hla, Hlw, Hlt) (Hra, Hrg, p ~~> v2 ∗ Hrt) := by
+  move=> ? ; subst v1
+  xsimp_lr_start=> ?
+  hstars_simp
+  sby srw (hstar_comm Hrt) (hstar_comm Hrg) ; hsimp
+
 lemma xsimp_lr_exit :
   Hla ==> Hra ∗ Hrg ->
   XSimp (Hla, emp, emp) (Hra, Hrg, emp) := by
@@ -599,6 +608,25 @@ lemma xsimp_lr_exit :
 
 lemma qstar_simp :
   (Q1 ∗∗ H) x = Q1 x ∗ H := by rfl
+
+
+/- ----- Tactic for cancelling [hsingle] assertions ----- -/
+
+def xsimp_pick_same_pointer (p hla : Term) : TacticM Unit := do
+  let p  <- Tactic.elabTerm p none
+  hstar_search hla fun i h' last? => do
+    match h' with
+      | `(hsingle $p' $_) =>
+        if p'.isMVarStx then throwError "not equal1" else
+        let p' <- Tactic.elabTerm p' none
+        let .true <-
+          withAssignableSyntheticOpaque <| isDefEq p' p | throwError "not equal2"
+      | _ => throwError "not equal3"
+    xsimp_pick i last?
+
+/- TODO: Extend this with some equality over terms -/
+macro "xsimp_lr_cancel_hsingle_post" : tactic =>
+  `(tactic| try rfl)
 
 
 /- ============ LHS xsimp step ============ -/
@@ -720,14 +748,13 @@ partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
         | _ => throwError "xsimp_step_r: @ unreachable"
       | `(@hexists $_ $_) => xsimp_r_hexists_apply_hints
       | `(protect $_) => {| apply xsimp_r_keep |}
-      /-
-      | `($x ~~> $u) =>
+      | `(hsingle $x $_) =>
         if x.isMVarStx then
           {| apply xsimp_r_keep |}
         else
-          xsimp_pick_same_pointer x xsimp.hla
-          {| apply xsimp_lr_cancel_same_hsingle |}
-      -/
+          xsimp_pick_same_pointer x xsimp.hla ;
+          {| apply xsimpl_lr_cancel_same_hsingle ;
+             xsimp_lr_cancel_hsingle_post |}
       | _ =>
         if h.isMVarStx then
           {| apply xsimp_r_keep |}
@@ -1022,6 +1049,26 @@ example :
 example :
   ((H0 ∗ emp) -∗ emp -∗ H1) ∗ H2 ==> H3 := by
   xsimp; admit
+
+example :
+  H0 ∗ H1 ∗ p1 ~~> v1 ∗ p2 ~~> v2 ==> H2 ∗ p2 ~~> v2 ∗ H3 := by
+  xsimp
+  admit
+
+example:
+  H1 ∗ p ~~> v ==> H1 ∗ p ~~> v' := by
+  xsimp
+  admit
+
+example:
+  H1 ∗ p1 ~~> v1 ∗ H2 ∗ p2 ~~> v2 ==> H1 ∗ H2 ∗  p1 ~~> v1' ∗ p2 ~~> v2' := by
+  xsimp
+  admit
+
+example :
+  H1 ∗ 2 ~~> v ==> (1 + 1) ~~> v ∗ H1 := by
+  xsimp
+
 
 set_option trace.xsimp true
 
