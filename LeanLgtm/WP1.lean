@@ -7,6 +7,7 @@ import LeanLgtm.Util
 import LeanLgtm.HProp
 import LeanLgtm.XSimp
 import LeanLgtm.SepLog
+import LeanLgtm.WPUtil
 
 open trm val prim
 
@@ -745,6 +746,8 @@ macro "xsimp_no_cancel_wand" : tactic =>
     try hsimp
   ))
 
+section xapp
+
 macro "xapp_simp" : tactic => do
   `(tactic|
       first | apply xapp_simpl_lemma
@@ -757,32 +760,71 @@ macro "xapp_pre" : tactic => do
      xtriple_if_needed
      xstruct_if_needed))
 
-macro "xapp_nosubst" e:term  : tactic =>
-  `(tactic|
-    (xapp_pre
-     eapply xapp_lemma; eapply $e
-     rotate_left; xapp_simp=>//))
-
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
 elab "xapp_try_subst" : tactic => do
   {| (unhygienic (skip=>>)
       move=>->) |}
 
-macro "xapp" e:term : tactic =>
+macro "xapp_debug" :tactic => do
   `(tactic|
-    (xapp_nosubst $e;
+    (xapp_pre
+     eapply xapp_lemma))
+
+#hint_xapp triple_get
+#hint_xapp triple_set
+#hint_xapp triple_add
+#hint_xapp triple_ref
+#hint_xapp triple_free
+
+set_option linter.unreachableTactic false in
+set_option linter.unusedTactic false in
+
+elab "xapp_pick" e:term ? : tactic => do
+  let thm <- (match e with
+    | .none => pickTripleLemma
+    | .some thm => return thm.raw.getId : TacticM Name)
+  {| eapply $(mkIdent thm) |}
+
+set_option linter.unreachableTactic false in
+set_option linter.unusedTactic false in
+-- elab "xapp_nosubst"  : tactic => do
+--   {| (xapp_pre
+--       eapply xapp_lemma; xapp_pick_debug
+--       rotate_left; xapp_simp=>//) |}
+
+macro "xapp_nosubst" e:term ? : tactic =>
+  `(tactic|
+    (xapp_pre
+     eapply xapp_lemma; xapp_pick $(e)?
+     rotate_left; xapp_simp=>//))
+
+macro "xapp" : tactic =>
+  `(tactic|
+    (xapp_nosubst;
      try xapp_try_subst
      first
        | done
        | all_goals try srw wp_equiv
          all_goals try subst_vars))
 
+macro "xapp" colGt e:term ? : tactic =>
+  `(tactic|
+    (xapp_nosubst $(e)?;
+     try xapp_try_subst
+     first
+       | done
+       | all_goals try srw wp_equiv
+         all_goals try subst_vars))
+
+end xapp
+
 macro "xwp" : tactic =>
   `(tactic|
     (intros
      first | apply xwp_lemma_fix; rfl
            | apply xwp_lemma_fun; rfl))
+
 
 end tactics
 
@@ -895,9 +937,11 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => (x + (y : Int))⟩
 instance : HAdd ℕ ℤ val := ⟨fun x y => ((x : Int) + y)⟩
 
 syntax ppGroup("{ " term " }") ppSpace ppGroup("[" lang "]") ppSpace ppGroup("{ " Lean.Parser.Term.funBinder ", " term " }") : term
+syntax ppGroup("{ " term " }") ppSpace ppGroup("[" lang "]") ppSpace ppGroup("{ " term " }") : term
 
 macro_rules
   | `({ $P }[$t:lang]{$v, $Q}) => `(triple [lang| $t] $P (fun $v => $Q))
+  | `({ $P }[$t:lang]{$Q}) => `(triple [lang| $t] $P (fun _ => $Q))
 
 @[app_unexpander triple] def unexpandTriple : Lean.PrettyPrinter.Unexpander
   | `($(_) [lang| $t] $P fun $v ↦ $Q) => `({ $P }[$t:lang]{$v, $Q})
@@ -906,10 +950,10 @@ macro_rules
 elab "xsimpr" : tactic => do
   xsimp_step_r (<- XSimpRIni)
 
+set_option linter.hashCommand false
 
 /- ################################################################# -/
 /-* * Demo Programs -/
-
 
 lang_def incr :=
   fun p =>
@@ -917,15 +961,12 @@ lang_def incr :=
     let m := n + 1 in
     p := m
 
-
+@[xapp]
 lemma triple_incr (p : loc) (n : Int) :
   {p ~~> n}
   [incr(p)]
-  {_, (p ~~> n + 1)} := by
-  /- sdo 3 xwp; xapp -/
-  xwp; xapp triple_get
-  xwp; xapp triple_add
-  xwp; xapp triple_set
+  {p ~~> n + 1} := by
+  sdo 3 (xwp; xapp)
 
 lang_def mysucc :=
   fun n =>
@@ -943,8 +984,5 @@ lemma triple_mysucc (n : Int) :
   { emp }
   [mysucc n]
   {v, ⌜ v = n + 1 ⌝} := by
-  xwp; xapp triple_ref
-  xwp; xapp triple_incr
-  xwp; xapp triple_get
-  xwp; xapp triple_free
+  sdo 4 (xwp; xapp);
   xwp; xval; xsimp

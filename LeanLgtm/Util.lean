@@ -59,12 +59,19 @@ initialize
   registerTraceClass `xsimp_step_lr
 initialize
   registerTraceClass `xsimp
+initialize
+  registerTraceClass `xchange
 
 
 abbrev HintExtState := List Syntax
 
 initialize hintExt : EnvExtension HintExtState ←
   registerEnvExtension (pure [])
+
+abbrev XAppExtState := RBMap Name Name Name.cmp
+
+initialize xappExt : EnvExtension XAppExtState ←
+  registerEnvExtension (pure RBMap.empty)
 
 syntax "{|" tacticSeq "|}" : term
 
