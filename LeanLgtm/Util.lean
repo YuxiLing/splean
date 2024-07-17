@@ -2,7 +2,7 @@ import Lean
 import Lean.Elab.Tactic
 import Batteries.Lean.Meta.UnusedNames
 import Qq
-import SSReflect.Lang
+import Ssreflect.Lang
 
 open Lean Lean.Expr Lean.Meta Qq
 open Lean Elab Command Term Meta Tactic
