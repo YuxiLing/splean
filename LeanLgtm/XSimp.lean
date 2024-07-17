@@ -454,17 +454,17 @@ lemma xsimp_l_hwand_reorder :
   XSimp (hla, (h1 ∗ h2 ∗ ... ∗ hn -∗ h) ∗ hlw, hlt) hr
 -/
 lemma xsimp_l_cancel_hwand_hstar :
-    XSimp (Hla, Hlw, (H2 -∗ H3) ∗ Hlt) HR →
-    XSimp ((H1 ∗ Hla), (((H1 ∗ H2) -∗ H3) ∗ Hlw), Hlt) HR := by
-    xsimp_l_start'
-    srw hwand_curry_eq
-    apply hwand_cancel
+  XSimp (Hla, Hlw, (H2 -∗ H3) ∗ Hlt) HR →
+  XSimp ((H1 ∗ Hla), (((H1 ∗ H2) -∗ H3) ∗ Hlw), Hlt) HR := by
+  xsimp_l_start'
+  srw hwand_curry_eq
+  apply hwand_cancel
 
 lemma xsimp_l_cancel_hwand :
-    XSimp (emp, Hlw, Hla ∗ H2 ∗ Hlt) HR →
-    XSimp ((H1 ∗ Hla), ((H1 -∗ H2) ∗ Hlw), Hlt) HR := by
-    xsimp_l_start'
-    apply hwand_cancel
+  XSimp (emp, Hlw, Hla ∗ H2 ∗ Hlt) HR →
+  XSimp ((H1 ∗ Hla), ((H1 -∗ H2) ∗ Hlw), Hlt) HR := by
+  xsimp_l_start'
+  apply hwand_cancel
 
 lemma xsimp_l_cancel_qwand :
   XSimp (emp, Hlw, (Hla ∗ Q2 x ∗ Hlt)) HR ->
@@ -491,7 +491,7 @@ lemma xsimp_r_hwand_same :
   sby srw hwand_equiv ; hsimp
 
 lemma xsimp_r_hpure :
-  p -> XSimp hl (hra, hrg, hrt) ->
+  XSimp hl (hra, hrg, hrt) -> p ->
   XSimp hl (hra, hrg, hpure p ∗ hrt) := by
   move=> ? ; xsimp_l_start'
   sby apply himpl_hempty_hpure
@@ -509,9 +509,9 @@ lemma xsimp_r_keep :
   xsimp_l_start'
 
 lemma xsimpl_r_hgc_or_htop :
-    XSimp HL (Hra, (H ∗ Hrg), Hrt) ->
-    XSimp HL (Hra, Hrg, (H ∗ Hrt)) := by
-    xsimp_l_start'
+  XSimp HL (Hra, (H ∗ Hrg), Hrt) ->
+  XSimp HL (Hra, Hrg, (H ∗ Hrt)) := by
+  xsimp_l_start'
 
 lemma xsimpl_r_htop_drop :
   XSimp HL (Hra, Hrg, Hrt) ->
@@ -551,12 +551,12 @@ lemma xsimp_lr_hwand :
   sby srw hwand_equiv
 
 lemma xsimpl_lr_qwand :
-    (forall x, XSimp (emp, emp, (Q1 x ∗ Hla)) (emp, emp, (Q2 x ∗ emp))) ->
-    XSimp (Hla, emp, emp) (((Q1 -∗∗ Q2) ∗ emp), emp, emp) := by
-    xsimp_lr_start
-    srw qwand_equiv=> ??
-    srw qstar
-    sdone
+  (forall x, XSimp (emp, emp, (Q1 x ∗ Hla)) (emp, emp, (Q2 x ∗ emp))) ->
+  XSimp (Hla, emp, emp) (((Q1 -∗∗ Q2) ∗ emp), emp, emp) := by
+  xsimp_lr_start
+  srw qwand_equiv=> ??
+  srw qstar
+  sdone
 
 lemma xsimpl_lr_qwand_unit :
   XSimp (emp, emp, (Q1 ( ) ∗ Hla)) (emp, emp, (Q2 ( ) ∗ emp)) ->
@@ -593,11 +593,11 @@ lemma xsimpl_lr_cancel_htop :
   apply himpl_htop_r
 
 lemma xsimpl_lr_cancel_same_hsingle :
-  v1 = v2 →
   XSimp (Hla, Hlw, Hlt) (Hra, Hrg, Hrt) →
+  v1 = v2 →
   XSimp (p ~~> v1 ∗ Hla, Hlw, Hlt) (Hra, Hrg, p ~~> v2 ∗ Hrt) := by
-  move=> ? ; subst v1
-  xsimp_lr_start=> ?
+  move=> ?? ; subst v1
+  xsimp_lr_start
   hstars_simp
   sby srw (hstar_comm Hrt) (hstar_comm Hrg) ; hsimp
 
@@ -617,16 +617,19 @@ def xsimp_pick_same_pointer (p hla : Term) : TacticM Unit := do
   hstar_search hla fun i h' last? => do
     match h' with
       | `(hsingle $p' $_) =>
-        if p'.isMVarStx then throwError "not equal1" else
+        if p'.isMVarStx then throwError "not equal" else
         let p' <- Tactic.elabTerm p' none
         let .true <-
-          withAssignableSyntheticOpaque <| isDefEq p' p | throwError "not equal2"
-      | _ => throwError "not equal3"
+          withAssignableSyntheticOpaque <| isDefEq p' p | throwError "not equal"
+      | _ => throwError "not equal"
     xsimp_pick i last?
 
-/- TODO: Extend this with some equality over terms -/
-macro "xsimp_lr_cancel_hsingle_post" : tactic =>
-  `(tactic| try rfl)
+/- TODO: Extend this with some equality over values -/
+macro "xsimp_hsingle_discharge" : tactic =>
+  `(tactic|
+    -- try congruence lemma
+    -- try sdone
+    try sdone )
 
 
 /- ============ LHS xsimp step ============ -/
@@ -753,8 +756,8 @@ partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
           {| apply xsimp_r_keep |}
         else
           xsimp_pick_same_pointer x xsimp.hla ;
-          {| apply xsimpl_lr_cancel_same_hsingle ;
-             xsimp_lr_cancel_hsingle_post |}
+          {| apply xsimpl_lr_cancel_same_hsingle <;>
+             xsimp_hsingle_discharge |}
       | _ =>
         if h.isMVarStx then
           {| apply xsimp_r_keep |}
@@ -856,8 +859,9 @@ macro "xpull" : tactic =>
 macro "xsimp" : tactic =>
   `(tactic| (
     xsimp_start
-    repeat' xsimp_step
+    repeat xsimp_step
     try hsimp
+    rotate_left
   ))
 
 elab "xsimp" ls:hints : tactic => do
@@ -865,8 +869,9 @@ elab "xsimp" ls:hints : tactic => do
   | `(hints| [ $[$hs],* ]) =>
     hintExt.set hs.toList
     {| xsimp_start
-       repeat' xsimp_step
-       try hsimp |}
+       repeat xsimp_step
+       try hsimp
+       rotate_left |}
   | _ => throwError "xsimp: unreachable"
 
 /- **============ Test Cases ============** -/
@@ -1050,25 +1055,25 @@ example :
   ((H0 ∗ emp) -∗ emp -∗ H1) ∗ H2 ==> H3 := by
   xsimp; admit
 
-example :
-  H0 ∗ H1 ∗ p1 ~~> v1 ∗ p2 ~~> v2 ==> H2 ∗ p2 ~~> v2 ∗ H3 := by
+example (v2 : Int) :
+  H0 ∗ H1 ∗ p1 ~~> v1 ∗ p2 ~~> val.val_int (v2 * 1) ==> H2 ∗ p2 ~~> v2 ∗ H3 := by
   xsimp
-  admit
+  any_goals admit
 
 example:
+  v = v' →
   H1 ∗ p ~~> v ==> H1 ∗ p ~~> v' := by
+  move=> ?
   xsimp
-  admit
 
 example:
-  H1 ∗ p1 ~~> v1 ∗ H2 ∗ p2 ~~> v2 ==> H1 ∗ H2 ∗  p1 ~~> v1' ∗ p2 ~~> v2' := by
+  H1 ∗ p1 ~~> v1 ∗ H2 ∗ p2 ~~> v2 ∗ H3 ==> H1 ∗ H2 ∗  p1 ~~> v1' ∗ p2 ~~> v2' := by
   xsimp
-  admit
+  all_goals admit
 
 example :
   H1 ∗ 2 ~~> v ==> (1 + 1) ~~> v ∗ H1 := by
   xsimp
-
 
 set_option trace.xsimp true
 
