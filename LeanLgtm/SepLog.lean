@@ -18,13 +18,14 @@ abbrev triple (t : trm) (H : hprop) (Q : val → hprop) : Prop :=
   forall s, H s → eval s t Q
 
 notation "funloc" p "↦" H =>
-  fun (r : val) ↦ hexists (fun p ↦ ⌜r = val_loc p⌝) ∗ H
+  fun (r : val) ↦ hexists (fun p ↦ ⌜r = val_loc p⌝ ∗ H)
 
 
 /- ---------------- Structural Properties of [eval] ---------------- -/
 
 section evalProp
 
+set_option maxHeartbeats 250000
 /- Is there a good way to automate this? The current problem is that
    [constructor] does not always infer the correct evaluation rule to use.
    Since many of the rules involve a function application, using [constructor]
@@ -44,7 +45,7 @@ by
   { sby apply eval.eval_app_fix }
   { apply eval.eval_seq =>//
     move=> * ; aesop  }
-  { sby constructor }
+  { sby constructor=>// }
   { apply eval.eval_unop=>//
     sby srw (purepostin) at * }
   { apply eval.eval_binop=>//
@@ -56,6 +57,7 @@ by
   case eval_free.a Imp x y =>
     apply Imp
     apply y
+  sby apply eval.eval_alloc
 
 /- Useful Lemmas about disjointness and state operations -/
 lemma disjoint_update_not_r (h1 h2 : state) (x : loc) (v: val) :
@@ -150,9 +152,15 @@ by
   { move=> * ; apply eval.eval_set=>//
     srw qstar Finmap.insert_union ; apply hstar_intro=>//
     sby apply disjoint_insert_l }
-  move=> * ; apply eval.eval_free=>//
-  srw remove_disjoint_union_l ; apply hstar_intro=>//
-  sby apply disjoint_remove_l
+  { move=> * ; apply eval.eval_free=>//
+    srw remove_disjoint_union_l ; apply hstar_intro=>//
+    sby apply disjoint_remove_l }
+  move=> >? ih * ; apply eval.eval_alloc=>//
+  move=> > /ih h /h hQ1 /[dup] /Finmap.disjoint_union_left [] /hQ1 *
+  srw qstar -Finmap.union_assoc
+  apply hstar_intro=>//
+  srw Finmap.disjoint_union_left at *
+  sby srw Finmap.Disjoint.symm_iff
 
 end evalProp
 
@@ -181,7 +189,8 @@ by
   srw triple=>? ![?? hs ? hDisj hU] ; srw hU
   apply eval_conseq
   { apply (eval_frame _ _ _ _ (hEval _ hs) hDisj) =>// }
-  { sorry }
+  { move=> ?
+    sby srw ?qstar ; xsimp }
 
 
 /- Extraction Rules -/
@@ -273,7 +282,7 @@ lemma triple_val_minimal v :
   triple (trm_val v) emp (fun r ↦ ⌜r = v⌝) :=
 by
   apply triple_val
-  sorry
+  xsimp
 
 lemma triple_fun x t1 H Q :
   H ==> Q (val_fun x t1) →
@@ -315,7 +324,7 @@ lemma triple_let_val x v1 t2 H Q :
 by
   move=> ?
   apply triple_let _ _ _ (fun v ↦ ⌜v = v1⌝ ∗ H)
-  { apply triple_val ; sorry }
+  { apply triple_val ; xsimp }
   move=> ?
   sby apply triple_hpure
 
@@ -409,11 +418,11 @@ by
 lemma triple_free p v:
   triple (trm_app val_free (val_loc p))
     (p ~~> v)
-    (fun r ↦ emp) :=
+    (fun _ ↦ emp) :=
 by
   apply (triple_conseq _ _ _ _ _ (triple_free' p v))
   { sdone }
-  sorry
+  move=> ? ; xsimp ; xsimp
 
 
 /- Rules for Other Primitive Operations -/
@@ -552,7 +561,7 @@ by
 
 lemma triple_ptr_add (p : loc) (n : ℤ) :
   p + n >= 0 →
-  triple (trm_app val_ptr_add (val_loc p) (val_int n))
+  triple (trm_app val_ptr_add p n)
     emp
     (fun r ↦ ⌜r = val_loc (Int.toNat (Int.natAbs (p + n)))⌝) :=
 by
@@ -566,6 +575,5 @@ lemma triple_ptr_add_nat p (f : ℕ) :
     emp
     (fun r ↦ ⌜r = p + f⌝) :=
 by
-  apply triple_conseq _ _ _ _ _ (triple_ptr_add p f _)=>//
-  move=> ?  /=
+  apply triple_conseq _ _ _ _ _ (triple_ptr_add p f _)=>// ? /=
   sby xsimp

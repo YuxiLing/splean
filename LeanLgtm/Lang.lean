@@ -44,7 +44,12 @@ mutual
     | val_fun    : var -> trm -> val
     | val_fix    : var -> var -> trm -> val
     | val_uninit : val
-    | val_error  : val
+    | val_error : val
+    | val_alloc : val
+    -- | val_array_make : val
+    -- | val_array_length : val
+    -- | val_array_get : val
+    -- | val_array_set : val
 
   inductive trm : Type where
     | trm_val   : val -> trm
@@ -320,8 +325,8 @@ inductive evalbinop : val → val → val → (val->Prop) → Prop where
   -- in the original CFML code, p2 doesn't have to be a valid pointer (it has
   -- type int and could be negative), so not sure if this is semantically
   -- equivalent to what was here before.
-  | evalbinop_ptr_add : forall p1 p2 n,
-      (p2:ℤ) = (p1:loc) + n ->
+  | evalbinop_ptr_add : forall (p1 : loc) (p2 : Int) n,
+      p2 = p1 + n ->
       evalbinop val_ptr_add (val_loc p1) (val_int n)
         (fun v => v = val_loc (Int.toNat p2))
 
@@ -340,6 +345,44 @@ def purepostin (s : state) (P : val → Prop) (Q : val → state → Prop) : Pro
   forall v, P v → Q v s
 
 variable (Q : val → state → Prop)
+
+
+/- To define the evaluation rule for arrays, it is useful to first define
+   the notion of consecutive locations -/
+
+def conseq {B : Type} (vs : List B) (l : Nat) : Finmap (fun _ : Nat ↦ B) :=
+  match vs with
+  | [] => ∅
+  | v :: vs' => (Finmap.singleton l v) ∪ (conseq vs' (l + 1))
+
+lemma conseq_nil B (l : Nat) :
+  conseq ([] : List B) l = ∅ := by
+  sdone
+
+lemma conseq_cons B (l : Nat) (v : B) (vs : List B) :
+  conseq (v :: vs) l = (Finmap.singleton l v) ∪ (conseq vs (l + 1)) := by
+  sdone
+
+lemma disjoint_single_conseq B l l' L (v : B) :
+  (l < l') ∨ (l ≥ l' + L.length) →
+  Finmap.Disjoint (Finmap.singleton l v) (conseq L l') := by
+  induction L generalizing l' with
+  | nil          =>
+      srw conseq_nil Finmap.Disjoint.symm_iff=> ?
+      apply Finmap.disjoint_empty
+  | cons h t ih =>
+      srw conseq_cons Finmap.disjoint_union_right /= => [] ? ⟨|⟩
+      { sby move=> ? ; srw Not ?Finmap.mem_singleton }
+      { sby apply ih }
+      { move=> ? ; srw Not ?Finmap.mem_singleton ; omega }
+      { apply ih ; omega }
+
+/- For initializing a list with value v -/
+def make_list {A} (n : Nat) (v : A) : List A :=
+  match n with
+  | 0      => []
+  | n' + 1 => v :: make_list n' v
+
 
 /- Big-step relation -/
 inductive eval : state → trm → (val → state → Prop) -> Prop where
@@ -413,6 +456,14 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
             else val_unit) Q ->
     eval s (trm_for x n₁ n₂ t₁) Q
 
+  | eval_alloc : forall (n : Int) (sa : state) Q,
+      n ≥ 0 →
+      ( forall (p : loc) (sb : state),
+          sb = conseq (make_list n.natAbs val_uninit) p →
+          p ≠ null →
+          Finmap.Disjoint sa sb →
+          Q (val_loc p) (sb ∪ sa) ) →
+      eval sa (trm_app val_alloc n) Q
 
 /- Not sure if the rules eval_ref and eval_set are correct. I had to add the
    condition [v = trm_val v'] to get the definition to type-check. However, this
