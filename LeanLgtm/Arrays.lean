@@ -191,15 +191,38 @@ lemma list_middle_inv (A : Type) (n : Nat) (l : List A) :
           apply ih in h=> [x' [l1 [l2]]] ?
           exists x', (x :: l1), l2 ; sdone
 
+lemma nth_app_r {A : Type} (_ : Inhabited A) n (l1 l2 : List A) :
+  n ≥ l1.length →
+  (l1 ++ l2)[n]! = l2[n - l1.length]! := by
+  elim: l1 n l2
+  { sdone }
+  sby move=> > ? []
+
 #check List.getElem_of_append
 lemma nth_middle (A : Type) (IA : Inhabited A) (n : Nat)
   (l1 l2 : List A) (x : A) :
-  n = l1.length → (l1 ++ x :: l2)[n]! = x := by sorry
+  n = l1.length → (l1 ++ x :: l2)[n]! = x := by
+  move=> ?
+  sby srw nth_app_r
+
+lemma cons_app {A : Type} (l1 l2 : List A) (x : A) :
+  x :: l1 ++ l2 = x :: (l1 ++ l2) := by
+  sdone
+
+lemma update_app_r {A : Type} (l1 l2 : List A) n v :
+  n ≥ l1.length →
+  (l1 ++ l2).set n v = l1 ++ l2.set (n - l1.length) v := by
+  elim: l1 l2 n v
+  { sdone }
+  move=> > ? >
+  sby cases n
 
 #check List.concat_eq_append
-lemma update_middle (A : Type) (IA : Inhabited A) (n : Nat)
+lemma update_middle (A : Type) (_ : Inhabited A) (n : Nat)
   (l1 l2 : List A) (x v : A) :
-  n = l1.length → (l1 ++ x :: l2).set n v = (l1.concat v) ++ l2 := by sorry
+  n = l1.length → (l1 ++ x :: l2).set n v = (l1.concat v) ++ l2 := by
+  move=> ? ; subst n=> /==
+  sby srw update_app_r
 
 lemma hseg_focus_relative (k : Nat) L p j :
   0 <= k ∧ k < L.length →
@@ -238,7 +261,11 @@ lemma harray_focus i L p :
   xsimp
 
 lemma set_nth_same (A : Type) (IA : Inhabited A) (n : Nat) (l : List A) :
-  n < l.length → l.set n l[n]! = l := by sorry
+  n < l.length → l.set n l[n]! = l := by
+  elim: l n;
+  { sdone }
+  move=> >? ; scase
+  all_goals sdone
 
 lemma harray_focus_read i L p :
   0 <= i ∧ i < L.length →
