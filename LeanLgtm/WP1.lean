@@ -356,8 +356,7 @@ by
 lemma mkstruct_erase Q F :
   F Q ==> mkstruct F Q :=
 by
-  srw mkstruct
-  sorry --xsimp
+  srw mkstruct ; xsimp
 
 lemma mkstruct_conseq F Q1 Q2 :
   Q1 ===> Q2 →
@@ -1005,9 +1004,9 @@ end
 macro "lang_def" n:ident ":=" l:lang : command => do
   `(def $n:ident : val := [lang| $l])
 
-instance : HAdd ℤ ℤ val := ⟨fun x y => val.val_int (x + y)⟩
-instance : HAdd ℤ ℕ val := ⟨fun x y => (x + (y : Int))⟩
-instance : HAdd ℕ ℤ val := ⟨fun x y => ((x : Int) + y)⟩
+local instance : HAdd ℤ ℤ val := ⟨fun x y => val.val_int (x + y)⟩
+local instance : HAdd ℤ ℕ val := ⟨fun x y => (x + (y : Int))⟩
+local instance : HAdd ℕ ℤ val := ⟨fun x y => ((x : Int) + y)⟩
 
 syntax ppGroup("{ " term " }") ppSpace ppGroup("[" lang "]") ppSpace ppGroup("{ " Lean.Parser.Term.funBinder ", " term " }") : term
 syntax ppGroup("{ " term " }") ppSpace ppGroup("[" lang "]") ppSpace ppGroup("{ " term " }") : term

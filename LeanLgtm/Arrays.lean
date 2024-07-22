@@ -2,6 +2,7 @@ import LeanLgtm.XSimp
 import LeanLgtm.XChange
 import LeanLgtm.Util
 import LeanLgtm.SepLog
+import LeanLgtm.WP1
 
 
 /- ============== Definitions for Arrays ============== -/
@@ -281,58 +282,135 @@ lemma harray_focus_read i L p :
 
 /- ========================= Triple rules for Arrays ========================= -/
 
-lemma triple_array_make n (v : val) :
-  n >= 0 →
-  triple (trm_app val_array_make (val_int n) v)
-    emp
-    (funloc p ↦ harray (make_list (Int.natAbs n) v) p) := by sorry
-
-lemma triple_array_length L (p : loc) :
-  triple (trm_app val_array_length p)
-    (harray L p)
-    (fun r ↦ ⌜r = L.length⌝ ∗ harray L p) := by sorry
-
-lemma triple_array_get L (p : loc) (i : Int) :
-   0 <= i ∧ i < L.length →
-   triple (trm_app val_array_get p i)
-    (harray L p)
-    (fun r ↦ ⌜r = L[Int.natAbs i]!⌝ ∗ harray L p) := by sorry
-
-lemma triple_array_set L (p : loc) (i : Int) (v : val) :
-  0 <= i ∧ i < L.length →
-  triple (trm_app val_array_set p i v)
-    (harray L p)
-    (fun _ ↦ harray (L.set (Int.natAbs i) v) p) := by sorry
+open eval
 
 lemma triple_array_length_hheader (n : Int) (p : loc) :
   triple (trm_app val_array_length p)
     (hheader n p)
-    (fun r ↦ ⌜r = n⌝ ∗ hheader n p) := by sorry
+    (fun r ↦ ⌜r = n⌝ ∗ hheader n p) := by
+    xwp
+    srw hheader
+    sorry
 
 lemma triple_array_get_hcell (p : loc) (i : Int) (v : val) :
   triple (trm_app val_array_get p i)
     (hcell v p i)
-    (fun r ↦ ⌜r = v⌝ ∗ hcell v p i) := by sorry
+    (fun r ↦ ⌜r = v⌝ ∗ hcell v p i) := by
+    xwp
+    srw hcell val_array_get
+    xpull
+    sorry
 
 lemma triple_array_set_hcell (p : loc) (i : Int) (v w : val) :
   triple (trm_app val_array_set p i v)
     (hcell w p i)
-    (fun _ ↦ hcell v p i) := by sorry
-
-lemma triple_array_make_hseg (n : Int) (v : val) :
-  n >= 0 →
-  triple (trm_app val_array_make n v)
-    emp
-    (funloc p ↦ hheader (Int.natAbs n) p ∗ hseg (make_list (Int.natAbs n) v) p 0) := by sorry
+    (fun _ ↦ hcell v p i) := by
+    xwp
+    srw hcell val_array_set
+    xpull
+    sorry
 
 lemma triple_array_get_hseg L (p : loc) (i j : Int) :
   0 <= i - j ∧ i - j < L.length →
   triple (trm_app val_array_get p i)
     (hseg L p j)
-    (fun r ↦ ⌜r = L[Int.natAbs (i - j)]!⌝ ∗ hseg L p j) := by sorry
+    (fun r ↦ ⌜r = L[Int.natAbs (i - j)]!⌝ ∗ hseg L p j) := by
+    move=> ?
+    xtriple
+    xchange (hseg_focus i)=>//
+    xapp triple_array_get_hcell
+    xchange (hforall_specialize)
+    srw set_nth_same ; xsimp ; omega
 
 lemma triple_array_set_hseg L (p : loc) (i j : Int) (v : val) :
   0 <= i - j ∧ i - j < L.length →
   triple (trm_app val_array_set p i v)
     (hseg L p j)
-    (fun _ ↦ hseg (L.set (Int.natAbs (i - j)) v) p j) := by sorry
+    (fun _ ↦ hseg (L.set (Int.natAbs (i - j)) v) p j) := by
+    move=> ?
+    xtriple
+    xchange (hseg_focus i)=>//
+    xapp triple_array_set_hcell
+    xchange hforall_specialize
+
+lemma hseg_eq_hrange L p (k : Nat) :
+  hseg L p k = hrange L (p + 1 + k) := by
+  elim: L p k
+  { sdone }
+  move=> > ih >
+  srw hrange hseg [2]add_assoc -ih hcell /==
+  xsimp
+  sby srw -hstar_assoc ; xsimp
+
+lemma triple_array_fill (n : Int) L (p : loc) (i : Int) (v : val) :
+  n = L.length →
+  triple (trm_app val_array_fill p i n v)
+    (hseg L p i)
+    (fun _ ↦ hseg (make_list n.natAbs v) p i) := by
+  srw val_array_fill
+  elim: n L p i v=> a
+  { elim: a=> > ? > ; xwp
+    { sorry }
+    sorry }
+  sdone
+
+lemma triple_array_make_hseg (n : Int) (v : val) :
+  n >= 0 →
+  triple (trm_app val_array_make n v)
+    emp
+    (funloc p ↦ hheader (Int.natAbs n) p ∗ hseg (make_list (Int.natAbs n) v) p 0) := by
+  srw val_array_make=> ?
+  xwp
+  sorry
+
+lemma triple_array_get L (p : loc) (i : Int) :
+   0 <= i ∧ i < L.length →
+   triple (trm_app val_array_get p i)
+    (harray L p)
+    (fun r ↦ ⌜r = L[Int.natAbs i]!⌝ ∗ harray L p) := by
+    move=> ?
+    xtriple
+    srw harray ; xapp triple_array_get_hseg => /==
+    xsimp
+
+lemma triple_array_set L (p : loc) (i : Int) (v : val) :
+  0 <= i ∧ i < L.length →
+  triple (trm_app val_array_set p i v)
+    (harray L p)
+    (fun _ ↦ harray (L.set (Int.natAbs i) v) p) := by
+    move=> ?
+    xtriple
+    srw ?harray ; xapp triple_array_set_hseg => /==
+    xsimp
+
+lemma triple_array_length L (p : loc) :
+  triple (trm_app val_array_length p)
+    (harray L p)
+    (fun r ↦ ⌜r = val_int L.length⌝ ∗ harray L p) := by
+    xtriple
+    srw harray
+    xapp triple_array_length_hheader
+    xsimp
+
+lemma make_list_len (n : Int) (v : val) :
+  (make_list n.natAbs v).length = n.natAbs := by
+  elim: n=> >
+  { elim: a=> > //
+    move=> ?
+    sby srw make_list }
+  elim: a=> > //
+  move=> ? /=
+  sby srw make_list
+
+lemma triple_array_make (n : Int) (v : val) :
+  n ≥ 0 →
+  triple (trm_app val_array_make n v)
+    emp
+    (funloc p ↦ harray (make_list n.natAbs v) p) := by
+  move=> ?
+  xtriple
+  srw harray
+  xapp triple_array_make_hseg
+  xsimp
+  { sdone }
+  sby srw make_list_len
