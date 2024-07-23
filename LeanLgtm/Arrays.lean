@@ -58,7 +58,7 @@ lemma natabs_nonneg (p : Nat) (n : Int) :
 
 lemma triple_ptr_add_nonneg (p : loc) (n : Int) :
   n >= 0 →
-  triple (trm_app prim.val_ptr_add p n)
+  triple [lang| p ++ n]
     emp
     (fun r ↦ ⌜r = val_loc (p + Int.natAbs n)⌝) := by
   move=> ?
@@ -117,15 +117,35 @@ def val_array_length : val := [lang|
 
 def val_array_get : val := [lang|
   fun p i =>
-    let p1 := (val_ptr_add p) 1 in
-    let q := (val_ptr_add p1) i in
+    let p1 := p ++ 1 in
+    let q := p1 ++ i in
     !q ]
+
+lang_def default_get :=
+  fun p i =>
+    if 0 <= i then
+      let L := val_array_length p in
+      if i < L then
+        val_array_get p i
+      else
+        { panic! "Index out of bounds" }
+    else { panic! "Index out of bounds" }
 
 def val_array_set : val := [lang|
   fun p i v =>
-    let p1 := (val_ptr_add p) 1 in
-    let q := (val_ptr_add p1) i in
+    let p1 := p ++ 1 in
+    let q := p1 ++ i in
     q := v ]
+
+lang_def default_set :=
+  fun p i v =>
+    if 0 <= i then
+      let L := val_array_length p in
+      if i < L then
+        val_array_set p i v
+      else
+        ()
+    else ()
 
 def val_array_fill : val := [lang|
   fix f p i n v =>
@@ -371,17 +391,6 @@ lemma triple_array_make_hseg (n : Int) (v : val) :
   srw val_array_make=> ?
   xwp
   sorry
-
-lang_def true_get :=
-  fun p i =>
-    if 0 <= i then
-      let L := val_array_length p in
-      if i < L then
-        val_array_get p i
-      else
-        { panic! "Index out of bounds" }
-    else { panic! "Index out of bounds" }
-
 
 lemma triple_array_get L (p : loc) (i : Int) (v : 0 <= i ∧ i < L.length) :
    triple (trm_app val_array_get p i)
