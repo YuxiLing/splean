@@ -54,7 +54,8 @@ mutual
     | trm_app : trm -> trm -> trm
     | trm_seq : trm -> trm -> trm
     | trm_let : var -> trm -> trm -> trm
-    | trm_if : trm -> trm -> trm -> trm
+    | trm_if  : trm -> trm -> trm -> trm
+    | trm_for : var -> trm -> trm -> trm -> trm
 end
 
 /- States and heaps are represented as finite maps -/
@@ -109,14 +110,15 @@ def subst (y : var) (v' : val) (t : trm) : trm :=
   -- let aux x := subst y v' x
   let if_y_eq x t1 t2 := if x = y then t1 else t2
   match t with
-  | trm_val v => trm_val v
-  | trm_var x => if_y_eq x (trm_val v') t
-  | trm_fun x t1 => trm_fun x (if_y_eq x t1 (subst y v' t1))
-  | trm_fix f x t1 => trm_fix f x (if_y_eq f t1 (if_y_eq x t1 (subst y v' t1)))
-  | trm_app t1 t2 => trm_app (subst y v' t1) (subst y v' t2)
-  | trm_seq t1 t2 => trm_seq (subst y v' t1) (subst y v' t2)
-  | trm_let x t1 t2 => trm_let x (subst y v' t1) (if_y_eq x t2 (subst y v' t2))
-  | trm_if t0 t1 t2 => trm_if (subst y v' t0) (subst y v' t1) (subst y v' t2)
+  | trm_val v          => trm_val v
+  | trm_var x          => if_y_eq x (trm_val v') t
+  | trm_fun x t1       => trm_fun x (if_y_eq x t1 (subst y v' t1))
+  | trm_fix f x t1     => trm_fix f x (if_y_eq f t1 (if_y_eq x t1 (subst y v' t1)))
+  | trm_app t1 t2      => trm_app (subst y v' t1) (subst y v' t2)
+  | trm_seq t1 t2      => trm_seq (subst y v' t1) (subst y v' t2)
+  | trm_let x t1 t2    => trm_let x (subst y v' t1) (if_y_eq x t2 (subst y v' t2))
+  | trm_if t0 t1 t2    => trm_if (subst y v' t0) (subst y v' t1) (subst y v' t2)
+  | trm_for x t1 t2 t3 => trm_for x (subst y v' t1) (subst y v' t2) (if_y_eq x t3 (subst y v' t3))
 
 noncomputable def is_true (P : Prop) : Bool :=
   if P then true else false
@@ -403,6 +405,12 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       p ∈ s ->
       Q val_unit (Finmap.erase p s) ->
       eval s (trm_app val_free (val_loc p)) Q
+  | eval_for (n₁ n₂ : Int) (Q : val -> state -> Prop) :
+    eval s (if (n₁ <= n₂) then
+               (trm_seq (subst x n₁ t₁) (trm_for x (val_int (n₁ + 1)) n₂ t₁))
+            else val_unit) Q ->
+    eval s (trm_for x n₁ n₂ t₁) Q
+
 
 /- Not sure if the rules eval_ref and eval_set are correct. I had to add the
    condition [v = trm_val v'] to get the definition to type-check. However, this
@@ -528,6 +536,7 @@ syntax lang lang:30 : lang
 syntax "if " lang "then " lang "end " : lang
 syntax ppIndent("if " lang " then") ppSpace lang ppDedent(ppSpace) ppRealFill("else " lang) : lang
 syntax "let" ident " := " lang " in" ppDedent(ppLine lang) : lang
+syntax "for" ident " in " "[" lang " : " lang "]" " {"  (ppLine lang) ppDedent(ppLine "}") : lang
 -- TODO: I suspect it should be  `withPosition(lang ";") ppDedent(ppLine lang) : lang`, but Lean parser crashes. Report a bug.
 syntax "fun" ident+ " => " lang : lang
 syntax "fix" ident ident+ " => " lang : lang
@@ -558,9 +567,9 @@ syntax "ref" : uop
 syntax "free" : uop
 syntax "not" : uop
 
-syntax "[lang|\n" lang "]" : term
-syntax "[bop|\n" bop "]" : term
-syntax "[uop|\n" uop "]" : term
+syntax "[lang| " ppGroup(lang) "]" : term
+syntax "[bop| " bop "]" : term
+syntax "[uop| " uop "]" : term
 
 
 local notation "%" x => (Lean.quote (toString (Lean.Syntax.getId x)))
@@ -606,6 +615,8 @@ macro_rules
   | `([lang| $t1 mod $t2])              => `(trm_val val_mod [lang| $t1] [lang| $t2])
   | `([lang| ($t)]) => `([lang| $t])
   | `([lang| {$t}]) => `(val_int $t)
+  | `([lang| for $x in [$n1 : $n2] { $t }]) =>
+   `(trm_for $(%x) [lang| $n1] [lang| $n2] [lang| $t])
 
 
 open Lean Elab Term
@@ -718,6 +729,13 @@ elab_rules : term
     let str := x.getString
     let name := Lean.mkIdent $ Lean.Name.mkSimple str
     `([lang| let $name := $t1 in $t2])
+  | _ => throw ( )
+
+@[app_unexpander trm_for] def unexpandFor : Lean.PrettyPrinter.Unexpander
+  | `($(_) $x:str [lang| $n1] [lang| $n2] [lang| $t]) =>
+    let str := x.getString
+    let name := Lean.mkIdent $ Lean.Name.mkSimple str
+    `([lang| for $name in [$n1 : $n2] { $t }])
   | _ => throw ( )
 
 @[app_unexpander trm_if] def unexpandIf : Lean.PrettyPrinter.Unexpander
@@ -838,3 +856,19 @@ elab_rules : term
 #check [lang|!x; y]
 instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
 #check fun n : ℤ => (([lang| ()]).trm_seq (trm_val ((n + 1))))
+
+#check fun (p : loc)  => [lang|
+  fix f y z =>
+    if F y z
+    then
+      let y := {1 + 1}in
+      let y := 1 + 1 in
+      let z := !p in
+      y + z
+    else
+      let y := 1 + 1 in
+      let z := 1 in
+      for i in [z : y] {
+        let z := ref i in
+        !z
+      }]

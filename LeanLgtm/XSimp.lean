@@ -672,14 +672,17 @@ partial def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit :=
   | `(hstar $h $_), _ =>
     match h with
     | `(hempty)         => {| apply xsimp_l_hempty |}
-    | `(hpure $_)        => {| apply xsimp_l_hpure; intro |}
+    | `(hpure $_)        =>
+      let n <- fresh `n
+      revExt.modify (n :: ·)
+      {| apply xsimp_l_hpure; intro $n:ident |}
     | `(hstar $h1 $h2)   =>
       {| erw [@hstar_assoc $h1 $h2] |}
       -- rewriteTarget (<- `(@hstar_assoc $h1 $h2)) false
       /- we know that here should be another LHS step -/
       xsimp_step_l (<- XSimpRIni) cancelWand
-    | `(@hexists $_ $t) =>
-      {| apply xsimp_l_hexists; unhygienic intro |}
+    | `(@hexists $_ fun ($x : $_) => $_) =>
+      {| apply xsimp_l_hexists; intro $x:term |}
     | `(hwand $_ $_)    => {| apply xsimp_l_acc_wand |}
     | `(@qwand $_ $_ $_)   => {| apply xsimp_l_acc_wand |}
     | _              => {| apply xsimp_l_acc_other |}
@@ -794,8 +797,8 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
           {| first | apply xsimpl_lr_qwand_unit
                    | apply xsimpl_lr_qwand; unhygienic intro
              try simp only [qstar_simp] |}
-      | `(@hforall $_ $_) => /- TODO: flip -/
-        {| xsimp_flip_acc_l xsimp.hla ; apply xsimpl_lr_hforall; unhygienic intro |}
+      | `(@hforall $_ fun ($x : $_) => $_) => /- TODO: flip -/
+        {| xsimp_flip_acc_l $xsimp.hla ; apply xsimpl_lr_hforall; intro $x:term |}
       | _ => /- TODO: flip -/ xsimp_flip_acc_lr xsimp.hla xsimp.hra ; {| apply xsimp_lr_exit |}
     | `(hempty) => {| first | apply himpl_lr_refl | apply xsimp_lr_exit |}
     | _ => /- TODO: flip -/ xsimp_flip_acc_lr xsimp.hla xsimp.hra ; {| apply xsimp_lr_exit |}
@@ -815,6 +818,12 @@ elab "xsimp_step" : tactic => do
     xsimp_step_l  xsimp <|>
     xsimp_step_r  xsimp <|>
     xsimp_step_lr xsimp
+
+elab "rev_pure" : tactic => do
+  for n in <- revExt.get do
+    withMainContext do
+    {| revert $n:ident |}
+  revExt.set []
 
 
 elab "xsimp_handle_qimpl" : tactic => do
@@ -854,6 +863,7 @@ macro "xpull" : tactic =>
     xpull_start
     repeat' xsimp_step
     hsimp
+    try rev_pure
   ))
 
 macro "xsimp" : tactic =>
@@ -861,6 +871,7 @@ macro "xsimp" : tactic =>
     xsimp_start
     repeat xsimp_step
     try hsimp
+    try rev_pure
     rotate_left
   ))
 
@@ -871,7 +882,9 @@ elab "xsimp" ls:hints : tactic => do
     {| xsimp_start
        repeat xsimp_step
        try hsimp
-       rotate_left |}
+       try rev_pure
+       rotate_left
+        |}
   | _ => throwError "xsimp: unreachable"
 
 /- **============ Test Cases ============** -/

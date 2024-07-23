@@ -339,6 +339,13 @@ abbrev formula := (val → hprop) → hprop
 def mkstruct (F : formula) :=
   fun Q ↦ h∃ Q', F Q' ∗ (Q' -∗∗ Q)
 
+def structural (F : formula) :=
+  forall Q, mkstruct F Q ==> F Q
+
+def structural_pred (S : α -> formula) :=
+  ∀ x, structural $ S x
+
+
 lemma mkstruct_ramified Q1 Q2 F :
   (mkstruct F Q1) ∗ (Q1 -∗∗ Q2) ==> (mkstruct F Q2) :=
 by
@@ -411,19 +418,30 @@ def wpgen_if_trm (F0 F1 F2 : formula) : formula :=
 def wpgen_app (t : trm) : formula :=
   fun Q ↦ h∃ H, H ∗ ⌜triple t H Q⌝
 
+def wpgen_for (v₁ v₂ : trm) (F1 : val -> formula) : formula :=
+  mkstruct fun Q =>
+    h∃ n₁ n₂ : Int, ⌜v₁ = n₁⌝ ∗ ⌜v₂ = n₂⌝ ∗
+      h∀ (S : Int -> formula),
+        (let F i :=
+          if i <= n₂ then
+            wpgen_seq (F1 (val_int i)) (S (i + 1))
+          else wpgen_val val_unit
+        ⌜structural_pred S /\ ∀ i, F i ===> S i⌝ -∗ S n₁ Q )
+
 
 /- Recursive Definition of [wpgen] -/
 
 def wpgen (t : trm) : formula :=
   mkstruct (match t with
-  | trm_val v       => wpgen_val v
-  | trm_fun x t1    => wpgen_fun (fun v ↦ wp $ subst x v t1)
-  | trm_fix f x t1  => wpgen_fix
+  | trm_val v          => wpgen_val v
+  | trm_fun x t1       => wpgen_fun (fun v ↦ wp $ subst x v t1)
+  | trm_fix f x t1     => wpgen_fix
       (fun vf v => wp $ subst x v $ subst f vf t1)
-  | trm_if t0 t1 t2 => wpgen_if t0 (wp t1) (wp t2)
-  | trm_seq t1 t2   => wpgen_seq (wp t1) (wp t2)
-  | trm_let x t1 t2 => wpgen_let (wp t1) (fun v ↦ wp $ subst x v t2)
-  | trm_app _ _   => wpgen_app t
+  | trm_if t0 t1 t2    => wpgen_if t0 (wp t1) (wp t2)
+  | trm_seq t1 t2      => wpgen_seq (wp t1) (wp t2)
+  | trm_let x t1 t2    => wpgen_let (wp t1) (fun v ↦ wp $ subst x v t2)
+  | trm_app _ _        => wpgen_app t
+  | trm_for x v1 v2 t1 => wpgen_for v1 v2 (fun v ↦ wp $ subst x v t1)
   | _ => wp t
   )
 
@@ -535,6 +553,39 @@ by
  move=> ??
  srw wpgen_app
  sorry -- xpull
+
+lemma qimpl_wp_of_triple : forall t F,
+  (forall Q, triple t (F Q) Q) ->
+  F ===> wp t := by sorry
+
+lemma triple_for_raw : forall (x:var) (n1 n2: Int) t3 H (Q:val->hprop),
+  triple (
+    if (n1 <= n2)
+      then (trm_seq (subst x n1 t3) (trm_for x (val_int $ n1+1) n2 t3))
+      else val_unit) H Q ->
+  triple (trm_for x n1 n2 t3) H Q := by sorry
+
+lemma triple_mkstruct_pre : forall t (F:formula) Q,
+  (forall Q, triple t (F Q) Q) ->
+  triple t (mkstruct F Q) Q := by sorry
+
+-- set_option pp.notation false
+
+lemma wpgen_for_sound x v1 v2 F1 :
+  (forall v, formula_sound (subst x v t1) (F1 v)) →
+  formula_sound (trm_for x v1 v2 t1) (wpgen_for v1 v2 F1) := by
+  move=> M
+  apply qimpl_wp_of_triple=> Q
+  apply triple_mkstruct_pre=> {}Q
+  srw -wp_equiv
+  xsimp; subst_vars
+  let S (i : Int) := wp (trm_for x i n₂ t1)
+  srw wp_equiv
+  apply triple_hforall _ _ S
+  apply triple_hwand_hpure_l
+  { sorry }
+  sorry
+
 
 /- Main soundness lemma -/
 
@@ -652,6 +703,32 @@ lemma xtriple_lemma : forall t H (Q:val->hprop),
   H ==> mkstruct (wpgen_app t) Q ->
   triple t H Q :=
 by sorry
+
+
+lemma xfor_inv_case_lemma (a b : Int) (I : val -> hprop)
+  (F : val -> formula)
+  (Q : val -> hprop) :
+  a <= b ->
+    (∃ H',
+      H ==> I a ∗ H' ∧
+      (∀ i, a <= i ∧ i <= b -> F i I ==> I (i + 1)) ∧
+      I (b + 1) ∗ H' ==> Q val_unit) ->
+    H ==> wpgen_for a b F Q := by
+  move=> L ![H' Ma Mb Mc]
+  unfold wpgen_for
+  apply himpl_trans; rotate_left; apply mkstruct_erase
+  unfold_let
+  xsimp[a,b]=> // [ls hs]
+  sorry
+
+
+  -- -- fix here!
+  -- xsimp
+  -- rev_pure
+
+
+
+
 
 /- ================================================================= -/
 /-* ** Tactics to Manipulate [wpgen] Formulae -/
@@ -885,6 +962,8 @@ def isubst (E : ctx) (t : trm) : trm :=
       trm_let x (isubst E t1) (isubst (erase x E) t2)
   | trm_app t1 t2 =>
       trm_app (isubst E t1) (isubst E t2)
+  | trm_for x n1 n2 t =>
+      trm_for x (isubst E n1) (isubst E n2) (isubst (erase x E) t)
 
 def _root_.List.mkAlist [DecidableEq α] (xs : List α) (vs : List β) :=
   ((xs.zip vs).map fun (x, y) => ⟨x, y⟩).toAList
