@@ -770,12 +770,6 @@ macro "xapp_debug" :tactic => do
     (xapp_pre
      eapply xapp_lemma))
 
-#hint_xapp triple_get
-#hint_xapp triple_set
-#hint_xapp triple_add
-#hint_xapp triple_ref
-#hint_xapp triple_free
-
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
 
@@ -920,7 +914,8 @@ lemma wp_of_wpgen :
 macro "xwp" : tactic =>
   `(tactic|
     (intros
-     srw ?trm_apps1 ?trm_apps2
+     try srw trm_apps1
+     srw ?trm_apps2
      first | (apply xwp_lemma_fixs; rfl; rfl; sdone; sdone; sdone)=> //
            | (apply xwp_lemma_funs; rfl; rfl; rfl; sdone)=> //
            | apply wp_of_wpgen
@@ -954,6 +949,12 @@ set_option linter.hashCommand false
 /- ################################################################# -/
 /-* * Demo Programs -/
 
+#hint_xapp triple_get
+#hint_xapp triple_set
+#hint_xapp triple_add
+#hint_xapp triple_ref
+#hint_xapp triple_free
+
 lang_def incr :=
   fun p =>
     let n := !p in
@@ -983,5 +984,5 @@ lemma triple_mysucc (n : Int) :
   { emp }
   [mysucc n]
   {v, ⌜ v = n + 1 ⌝} := by
-  sdo 4 (xwp; xapp);
+  sdo 4 (xwp; xapp)
   xwp; xval; xsimp
