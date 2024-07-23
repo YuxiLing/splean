@@ -59,6 +59,7 @@ by
     apply y
   sby apply eval.eval_alloc
 
+
 /- Useful Lemmas about disjointness and state operations -/
 lemma disjoint_update_not_r (h1 h2 : state) (x : loc) (v: val) :
   Finmap.Disjoint h1 h2 →

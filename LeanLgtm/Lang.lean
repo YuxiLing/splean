@@ -450,12 +450,6 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       p ∈ s ->
       Q val_unit (Finmap.erase p s) ->
       eval s (trm_app val_free (val_loc p)) Q
-  | eval_for (n₁ n₂ : Int) (Q : val -> state -> Prop) :
-    eval s (if (n₁ <= n₂) then
-               (trm_seq (subst x n₁ t₁) (trm_for x (val_int (n₁ + 1)) n₂ t₁))
-            else val_unit) Q ->
-    eval s (trm_for x n₁ n₂ t₁) Q
-
   | eval_alloc : forall (n : Int) (sa : state) Q,
       n ≥ 0 →
       ( forall (p : loc) (sb : state),
@@ -464,6 +458,12 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
           Finmap.Disjoint sa sb →
           Q (val_loc p) (sb ∪ sa) ) →
       eval sa (trm_app val_alloc n) Q
+  | eval_for (n₁ n₂ : Int) (Q : val -> state -> Prop) :
+    eval s (if (n₁ <= n₂) then
+               (trm_seq (subst x n₁ t₁) (trm_for x (val_int (n₁ + 1)) n₂ t₁))
+            else val_unit) Q ->
+    eval s (trm_for x n₁ n₂ t₁) Q
+
 
 /- Not sure if the rules eval_ref and eval_set are correct. I had to add the
    condition [v = trm_val v'] to get the definition to type-check. However, this
@@ -629,9 +629,9 @@ syntax lang noWs "[" lang "]" : lang
 -- syntax lang noWs "[" lang "] := " lang : lang
 -- syntax "mkarr" lang ", " lang : lang
 
-syntax "[lang|\n" lang "]" : term
-syntax "[bop|\n" bop "]" : term
-syntax "[uop|\n" uop "]" : term
+syntax "[lang| " ppGroup(lang) "]" : term
+syntax "[bop| " bop "]" : term
+syntax "[uop| " uop "]" : term
 
 
 local notation "%" x => (Lean.quote (toString (Lean.Syntax.getId x)))
@@ -1041,3 +1041,19 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
       ]
 #check [lang| 1 ++ 2]
 #check [lang| let x := 6 in alloc(x)]
+
+#check fun (p : loc)  => [lang|
+  fix f y z =>
+    if F y z
+    then
+      let y := ⟨1 + 1⟩in
+      let y := 1 + 1 in
+      let z := !p in
+      y + z
+    else
+      let y := 1 + 1 in
+      let z := 1 in
+      for i in [z : y] {
+        let z := ref i in
+        !z
+      }]
