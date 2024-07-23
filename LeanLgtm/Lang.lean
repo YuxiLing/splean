@@ -584,7 +584,7 @@ declare_syntax_cat uop
 
 syntax ident : lang
 syntax num : lang
-syntax:20 lang "; " (ppDedent(ppLine lang)) : lang
+syntax:20 lang ";" ppDedent(ppLine lang) : lang
 syntax:25 lang lang:30 : lang
 syntax "if " lang "then " lang "end " : lang
 syntax ppIndent("if " lang " then") ppSpace lang ppDedent(ppSpace) ppRealFill("else " lang) : lang
@@ -614,6 +614,7 @@ syntax " >= " : bop
 syntax " = " : bop
 syntax " != " : bop
 syntax " mod " : bop
+syntax " ++ " : bop
 
 syntax "!" : uop
 syntax "-" : uop
@@ -667,6 +668,7 @@ macro_rules
   | `([lang| $t1 = $t2])                => `(trm_val val_eq [lang| $t1] [lang| $t2])
   | `([lang| $t1 != $t2])               => `(trm_val val_neq [lang| $t1] [lang| $t2])
   | `([lang| $t1 mod $t2])              => `(trm_val val_mod [lang| $t1] [lang| $t2])
+  | `([lang| $t1 ++ $t2])               => `(trm_val val_ptr_add [lang| $t1] [lang| $t2])
   | `([lang| ($t)]) => `([lang| $t])
   | `([lang| ⟨$t⟩]) => `(val_int $t)
   | `([lang| for $x in [$n1 : $n2] { $t } ]) =>
@@ -716,6 +718,7 @@ elab_rules : term
   | `($(_) val_neq) => `([bop| !=])
   | `($(_) val_mod) => `([bop| mod])
   | `($(_) val_set) => `([bop| :=])
+  | `($(_) val_ptr_add) => `([bop| ++])
   | _ => throw ( )
 
 @[app_unexpander trm_val] def unexpandVal : Lean.PrettyPrinter.Unexpander := fun x =>
@@ -953,3 +956,4 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
         i := i + 1;
         i}
       ]
+#check [lang| 1 ++ 2]
