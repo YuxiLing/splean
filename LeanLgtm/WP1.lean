@@ -836,12 +836,6 @@ macro "xapp_debug" :tactic => do
     (xapp_pre
      eapply xapp_lemma))
 
-#hint_xapp triple_get
-#hint_xapp triple_set
-#hint_xapp triple_add
-#hint_xapp triple_ref
-#hint_xapp triple_free
-
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
 
@@ -1060,6 +1054,12 @@ lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
 lemma wp_structural : structural (wp t) := by
   move=> Q; unfold mkstruct
   xsimp=> >; apply wp_ramified
+#hint_xapp triple_get
+#hint_xapp triple_set
+#hint_xapp triple_add
+#hint_xapp triple_ref
+#hint_xapp triple_free
+
 
 elab "xseq_xlet_if_needed_xwp" : tactic => do
   match <- getGoalStxAll with
