@@ -429,6 +429,10 @@ def wpgen_for (v₁ v₂ : trm) (F1 : val -> formula) : formula :=
           else wpgen_val val_unit
         ⌜structural_pred S /\ ∀ i, F i ===> S i⌝ -∗ S n₁ Q )
 
+def wpgen_while (F1 F2 : formula) : formula := mkstruct fun Q =>
+  h∀ R : formula,
+    let F := wpgen_if_trm F1 (wpgen_seq F2 R) (wpgen_val val_unit)
+    ⌜structural R ∧ F ===> R⌝ -∗ R Q
 
 /- Recursive Definition of [wpgen] -/
 
@@ -443,6 +447,7 @@ def wpgen (t : trm) : formula :=
   | trm_let x t1 t2    => wpgen_let (wp t1) (fun v ↦ wp $ subst x v t2)
   | trm_app _ _        => wpgen_app t
   | trm_for x v1 v2 t1 => wpgen_for v1 v2 (fun v ↦ wp $ subst x v t1)
+  | trm_while t0 t1    => wpgen_while (wp t0) (wp t1)
   | _ => wp t
   )
 
@@ -947,6 +952,9 @@ def isubst (E : ctx) (t : trm) : trm :=
       trm_app (isubst E t1) (isubst E t2)
   | trm_for x n1 n2 t =>
       trm_for x (isubst E n1) (isubst E n2) (isubst (erase x E) t)
+  | trm_while c t =>
+      trm_while (isubst E c) (isubst E t)
+
 
 def _root_.List.mkAlist [DecidableEq α] (xs : List α) (vs : List β) :=
   ((xs.zip vs).map fun (x, y) => ⟨x, y⟩).toAList
@@ -1013,6 +1021,8 @@ macro_rules
 elab "xsimpr" : tactic => do
   xsimp_step_r (<- XSimpRIni)
 
+/- For loop -/
+
 set_option linter.hashCommand false
 
 lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
@@ -1034,12 +1044,12 @@ lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
   { move=> i [/[swap] iLb]
     apply (Int.le_induction_down _ _ _ iLb)
     { move=> ?
-      apply himpl_trans; rotate_left; apply hs; simp
+      xchange (hs b)=> /==
       sby xval }
     move=> i ? ih ?
-    apply himpl_trans; rotate_left; apply hs; simp
+    xchange hs
     scase_if=> // ?; rotate_left; omega; xseq
-    apply himpl_trans; apply Mb; omega
+    xchange Mb; omega
     apply himpl_trans; rotate_left; apply sF
     unfold mkstruct; simp; xsimp; apply ih; omega }
   xchange Ma; xchange P; omega
@@ -1084,3 +1094,21 @@ macro "xfor" I:term : tactic => do
       all_goals (try srw wp_equiv)
     )⟩
     ))
+
+/- While loop -/
+
+lemma xwhile_inv_lemma (I : Bool -> α -> hprop)
+  (F1 F2 : formula) :
+    WellFounded R ->
+    (H ==> h∃ b a, I b a) ->
+    (∀ (S: formula) b X, structural S ->
+        (∀ b a', R a' X -> (I b a') ==> S fun _ => h∃ a, I false a) ->
+        I b X ==> wpgen_if_trm F1 (wpgen_seq F2 S) (wpgen_val val_unit) fun _ => h∃ a, I false a) ->
+    H ==> wpgen_while F1 F2 (fun _ => h∃ a, I false a) := by
+  move=> wf hh hs; xchange hh
+  unfold wpgen_while; xchange mkstruct_erase
+  xsimp=> [rs fs]; move: b
+  apply WellFounded.induction wf a=> a' ih ?
+  xchange fs
+  apply hs=> // > /ih
+  sapply

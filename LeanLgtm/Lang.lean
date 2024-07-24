@@ -36,26 +36,27 @@ def null : loc := 0
 
 mutual
   inductive val : Type where
-    | val_unit : val
-    | val_bool : Bool → val
-    | val_int : Int → val
-    | val_loc : loc → val
-    | val_prim : prim → val
-    | val_fun : var -> trm -> val
-    | val_fix : var -> var -> trm -> val
+    | val_unit   : val
+    | val_bool   : Bool → val
+    | val_int    : Int → val
+    | val_loc    : loc → val
+    | val_prim   : prim → val
+    | val_fun    : var -> trm -> val
+    | val_fix    : var -> var -> trm -> val
     | val_uninit : val
-    | val_error : val
+    | val_error  : val
 
   inductive trm : Type where
-    | trm_val : val -> trm
-    | trm_var : var -> trm
-    | trm_fun : var -> trm -> trm
-    | trm_fix : var -> var -> trm -> trm
-    | trm_app : trm -> trm -> trm
-    | trm_seq : trm -> trm -> trm
-    | trm_let : var -> trm -> trm -> trm
-    | trm_if  : trm -> trm -> trm -> trm
-    | trm_for : var -> trm -> trm -> trm -> trm
+    | trm_val   : val -> trm
+    | trm_var   : var -> trm
+    | trm_fun   : var -> trm -> trm
+    | trm_fix   : var -> var -> trm -> trm
+    | trm_app   : trm -> trm -> trm
+    | trm_seq   : trm -> trm -> trm
+    | trm_let   : var -> trm -> trm -> trm
+    | trm_if    : trm -> trm -> trm -> trm
+    | trm_for   : var -> trm -> trm -> trm -> trm
+    | trm_while : trm -> trm -> trm
 end
 
 /- States and heaps are represented as finite maps -/
@@ -119,6 +120,7 @@ def subst (y : var) (v' : val) (t : trm) : trm :=
   | trm_let x t1 t2    => trm_let x (subst y v' t1) (if_y_eq x t2 (subst y v' t2))
   | trm_if t0 t1 t2    => trm_if (subst y v' t0) (subst y v' t1) (subst y v' t2)
   | trm_for x t1 t2 t3 => trm_for x (subst y v' t1) (subst y v' t2) (if_y_eq x t3 (subst y v' t3))
+  | trm_while t1 t2    => trm_while (subst y v' t1) (subst y v' t2)
 
 noncomputable def is_true (P : Prop) : Bool :=
   if P then true else false
@@ -531,12 +533,13 @@ declare_syntax_cat uop
 
 syntax ident : lang
 syntax num : lang
-syntax:20 lang ";" ppDedent(ppLine lang) : lang
+syntax:20 lang "; " (ppDedent(ppLine lang)) : lang
 syntax:25 lang lang:30 : lang
 syntax "if " lang "then " lang "end " : lang
 syntax ppIndent("if " lang " then") ppSpace lang ppDedent(ppSpace) ppRealFill("else " lang) : lang
 syntax "let" ident " := " lang " in" ppDedent(ppLine lang) : lang
-syntax "for" ident " in " "[" lang " : " lang "]" " {"  (ppLine lang) ppDedent(ppLine "}") : lang
+syntax "for" ident " in " "[" lang " : " lang "]" " {"  (ppLine lang) ( " }") : lang
+syntax "while" lang  " {"  (ppLine lang) ( " }") : lang
 -- TODO: I suspect it should be  `withPosition(lang ";") ppDedent(ppLine lang) : lang`, but Lean parser crashes. Report a bug.
 syntax "fun" ident+ " => " lang : lang
 syntax "fix" ident ident+ " => " lang : lang
@@ -546,7 +549,7 @@ syntax "()" : lang
 syntax uop lang:30 : lang
 syntax lang:30 bop lang:30 : lang
 syntax "(" lang ")" : lang
-syntax "{" term "}" : lang
+syntax "⟨" term "⟩" : lang
 
 syntax " := " : bop
 syntax " + " : bop
@@ -567,7 +570,7 @@ syntax "ref" : uop
 syntax "free" : uop
 syntax "not" : uop
 
-syntax "[lang| " ppGroup(lang) "]" : term
+syntax "[lang| " lang "]" : term
 syntax "[bop| " bop "]" : term
 syntax "[uop| " uop "]" : term
 
@@ -614,10 +617,11 @@ macro_rules
   | `([lang| $t1 != $t2])               => `(trm_val val_neq [lang| $t1] [lang| $t2])
   | `([lang| $t1 mod $t2])              => `(trm_val val_mod [lang| $t1] [lang| $t2])
   | `([lang| ($t)]) => `([lang| $t])
-  | `([lang| {$t}]) => `(val_int $t)
-  | `([lang| for $x in [$n1 : $n2] { $t }]) =>
-   `(trm_for $(%x) [lang| $n1] [lang| $n2] [lang| $t])
-
+  | `([lang| ⟨$t⟩]) => `(val_int $t)
+  | `([lang| for $x in [$n1 : $n2] { $t } ]) =>
+    `(trm_for $(%x) [lang| $n1] [lang| $n2] [lang| $t])
+  | `([lang| while $c:lang { $t:lang } ]) =>
+     `(trm_while [lang| $c] [lang| $t] )
 
 open Lean Elab Term
 elab_rules : term
@@ -673,11 +677,11 @@ elab_rules : term
     match x with
     | `($n:num) => `([lang| $n:num])
     | `($n:ident) => `([lang| $n:ident])
-    | `({$n:term}) => `([lang| {$n}])
+    | `({$n:term}) => `([lang| ⟨$n⟩])
     | `([lang| $_]) => return x
     | `([uop| $_]) => return x
     | `([bop| $_]) => return x
-    | t => `([lang| {$t}])
+    | t => `([lang| ⟨$t⟩])
   | _ => throw ( )
 
 @[app_unexpander trm_app] def unexpandApp : Lean.PrettyPrinter.Unexpander := fun x => do
@@ -735,7 +739,12 @@ elab_rules : term
   | `($(_) $x:str [lang| $n1] [lang| $n2] [lang| $t]) =>
     let str := x.getString
     let name := Lean.mkIdent $ Lean.Name.mkSimple str
-    `([lang| for $name in [$n1 : $n2] { $t }])
+    `([lang| for $name in [$n1 : $n2] { $t } ])
+  | _ => throw ( )
+
+@[app_unexpander trm_while] def unexpandWhile : Lean.PrettyPrinter.Unexpander
+  | `($(_) [lang| $c] [lang| $t]) => do
+    `([lang| while $c { $t:lang } ])
   | _ => throw ( )
 
 @[app_unexpander trm_if] def unexpandIf : Lean.PrettyPrinter.Unexpander
@@ -842,7 +851,7 @@ elab_rules : term
   fix f y z =>
     if F y z
     then
-      let y := {1 + 1}in
+      let y := ⟨1 + 1⟩in
       let y := 1 + 1 in
       let z := !p in
       y + z
@@ -861,14 +870,35 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
   fix f y z =>
     if F y z
     then
-      let y := {1 + 1}in
+      for i in [z : y] {
+        let z := ref i in
+        let z := ref i in
+        !z
+      }
+    else
+      for i in [z : y] {
+        let z := ref i in
+        let z := ref i in
+        i := i +1;
+        i := i +1;
+        !z
+      }; !z
+      ]
+
+-- set_option pp.notation false
+#check fun (p : loc)  => [lang|
+  fix f y z =>
+    if F y z
+    then
+      let y := ⟨1 + 1⟩in
       let y := 1 + 1 in
       let z := !p in
       y + z
     else
       let y := 1 + 1 in
       let z := 1 in
-      for i in [z : y] {
-        let z := ref i in
-        !z
-      }]
+      while (i < z) {
+        i := i + 1;
+        i := i + 1;
+        i}
+      ]
