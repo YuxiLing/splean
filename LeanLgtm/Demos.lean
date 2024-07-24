@@ -2,6 +2,8 @@ import Lean
 
 import LeanLgtm.WP1
 
+open val prim trm
+
 /- ################################################################# -/
 /-* * Demo Programs -/
 
@@ -35,4 +37,22 @@ lemma triple_mysucc (n : Int) :
   [mysucc n]
   {v, ⌜ v = n + 1 ⌝} := by
   sdo 4 (xwp; xapp);
-  xwp; xval; xsimp
+  xwp; xval; xsimp=> //
+
+lang_def addp :=
+  fun n m =>
+    let m := !m in
+    for i in [0:m] {
+      incr n
+    };
+    !n
+
+
+lemma triple_addp (p q : loc) (m n : Int) (_ : m >= 0) :
+  { p ~~> n ∗ q ~~> m }
+  [addp p q]
+  { p ~~> n + m ∗ ⊤ } := by
+  xwp; xapp
+  xfor (fun i => p ~~> n + i)
+  { move=> ? _; xapp; xsimp; omega }
+  xapp; xsimp

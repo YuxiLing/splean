@@ -6,6 +6,7 @@ import Mathlib.Data.Finmap
 import LeanLgtm.Util
 import LeanLgtm.HProp
 import LeanLgtm.XSimp
+import LeanLgtm.XChange
 import LeanLgtm.SepLog
 import LeanLgtm.WPUtil
 
@@ -423,7 +424,7 @@ def wpgen_for (v₁ v₂ : trm) (F1 : val -> formula) : formula :=
     h∃ n₁ n₂ : Int, ⌜v₁ = n₁⌝ ∗ ⌜v₂ = n₂⌝ ∗
       h∀ (S : Int -> formula),
         (let F i :=
-          if i <= n₂ then
+          if i < n₂ then
             wpgen_seq (F1 (val_int i)) (S (i + 1))
           else wpgen_val val_unit
         ⌜structural_pred S /\ ∀ i, F i ===> S i⌝ -∗ S n₁ Q )
@@ -578,7 +579,7 @@ lemma wpgen_for_sound x v1 v2 F1 :
   apply qimpl_wp_of_triple=> Q
   apply triple_mkstruct_pre=> {}Q
   srw -wp_equiv
-  xsimp; subst_vars
+  xsimp
   let S (i : Int) := wp (trm_for x i n₂ t1)
   srw wp_equiv
   apply triple_hforall _ _ S
@@ -703,24 +704,6 @@ lemma xtriple_lemma : forall t H (Q:val->hprop),
   H ==> mkstruct (wpgen_app t) Q ->
   triple t H Q :=
 by sorry
-
-
-lemma xfor_inv_case_lemma (a b : Int) (I : val -> hprop)
-  (F : val -> formula)
-  (Q : val -> hprop) :
-  a <= b ->
-    (∃ H',
-      H ==> I a ∗ H' ∧
-      (∀ i, a <= i ∧ i <= b -> F i I ==> I (i + 1)) ∧
-      I (b + 1) ∗ H' ==> Q val_unit) ->
-    H ==> wpgen_for a b F Q := by
-  move=> L ![H' Ma Mb Mc]
-  unfold wpgen_for
-  apply himpl_trans; rotate_left; apply mkstruct_erase
-  unfold_let
-  xsimp[a,b]=> // [ls hs]
-  sorry
-
 
   -- -- fix here!
   -- xsimp
@@ -1000,7 +983,8 @@ lemma wp_of_wpgen :
 macro "xwp" : tactic =>
   `(tactic|
     (intros
-     srw ?trm_apps1 ?trm_apps2
+     try srw trm_apps1
+     srw ?trm_apps2
      first | (apply xwp_lemma_fixs; rfl; rfl; sdone; sdone; sdone)=> //
            | (apply xwp_lemma_funs; rfl; rfl; rfl; sdone)=> //
            | apply wp_of_wpgen
@@ -1030,3 +1014,73 @@ elab "xsimpr" : tactic => do
   xsimp_step_r (<- XSimpRIni)
 
 set_option linter.hashCommand false
+
+lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
+  (F : val -> formula)
+  (Q : val -> hprop) :
+  structural_pred F ->
+  a <= b ->
+    (∃ H',
+      H ==> I a ∗ H' ∧
+      (∀ i, a <= i ∧ i < b -> I i ==> F i fun _ => I (i + 1)) ∧
+      (fun _ => I b ∗ H') ===> Q) ->
+    H ==> wpgen_for a b F Q := by
+  move=> sF L ![H' Ma Mb Mc]
+  unfold wpgen_for
+  apply himpl_trans; rotate_left; apply mkstruct_erase
+  unfold_let
+  xsimp[a,b]=> // [ls hs]
+  shave P: ∀ i, a <= i ∧ i <= b -> I i ==> S i fun _ => I b
+  { move=> i [/[swap] iLb]
+    apply (Int.le_induction_down _ _ _ iLb)
+    { move=> ?
+      apply himpl_trans; rotate_left; apply hs; simp
+      sby xval }
+    move=> i ? ih ?
+    apply himpl_trans; rotate_left; apply hs; simp
+    scase_if=> // ?; rotate_left; omega; xseq
+    apply himpl_trans; apply Mb; omega
+    apply himpl_trans; rotate_left; apply sF
+    unfold mkstruct; simp; xsimp; apply ih; omega }
+  xchange Ma; xchange P; omega
+  apply himpl_trans; rotate_left; apply ls
+  unfold mkstruct; xsimp; apply Mc
+
+lemma wp_structural : structural (wp t) := by
+  move=> Q; unfold mkstruct
+  xsimp; apply wp_ramified
+
+elab "xseq_xlet_if_needed_xwp" : tactic => do
+  match <- getGoalStxAll with
+  | `($_ ==> mkstruct $f $_) =>
+    match f with
+    | `(wpgen_seq $_ $_) => {| xseq; xwp |}
+    | `(wpgen_let $_ $_) => {| xlet; xwp |}
+    | _ => pure ( )
+  | _ => pure ( )
+
+open Lean.Elab.Tactic in
+
+elab "⟨" ts:tactic,* "⟩" : tactic => do
+  let l := (<- getUnsolvedGoals).length
+  let tl := ts.getElems.size
+  if tl != l then
+    throwError "invalid number of goals, expectded {l}, got {tl}"
+  idxGoal fun i => evalTactic ts.getElems[i]!
+
+-- example : True /\ 5=5 /\ False /\ (True -> False) := by
+--   (repeat' apply And.intro); ⟨ trivial, rfl, skip, move=> ? ⟩
+
+
+macro "xfor" I:term : tactic => do
+  `(tactic| (
+    xwp
+    xseq_xlet_if_needed_xwp
+    xstruct_if_needed
+    apply xfor_inv_lemma $I
+    ⟨(move=> ?; apply wp_structural), try omega, (
+      constructor; (repeat' apply And.intro)
+      all_goals (try xsimp)
+      all_goals (try srw wp_equiv)
+    )⟩
+    ))

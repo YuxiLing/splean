@@ -532,7 +532,7 @@ declare_syntax_cat uop
 syntax ident : lang
 syntax num : lang
 syntax:20 lang ";" ppDedent(ppLine lang) : lang
-syntax lang lang:30 : lang
+syntax:25 lang lang:30 : lang
 syntax "if " lang "then " lang "end " : lang
 syntax ppIndent("if " lang " then") ppSpace lang ppDedent(ppSpace) ppRealFill("else " lang) : lang
 syntax "let" ident " := " lang " in" ppDedent(ppLine lang) : lang

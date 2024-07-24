@@ -624,12 +624,24 @@ def xsimp_pick_same_pointer (p hla : Term) : TacticM Unit := do
       | _ => throwError "not equal"
     xsimp_pick i last?
 
+lemma val_int_congr :
+  n1 = n2 →
+  val.val_int n1 = val.val_int n2 := by
+  sdone
+
+lemma val_loc_congr :
+  n1 = n2 →
+  val.val_loc n1 = val.val_loc n2 := by
+  sdone
+
+
 /- TODO: Extend this with some equality over values -/
 macro "xsimp_hsingle_discharge" : tactic =>
   `(tactic|
     -- try congruence lemma
-    -- try sdone
-    try sdone )
+    (try apply val_int_congr
+     try apply val_loc_congr
+     try sdone) )
 
 
 /- ============ LHS xsimp step ============ -/
@@ -698,10 +710,11 @@ partial def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit :=
           {| apply xsimp_l_cancel_hwand |}
         catch _ => {| apply xsimp_l_keep_wand |}
     | `(@qwand $_ $q1 $_) =>
-      if cancelWand then
+      try
+        let .true := cancelWand | failure
         xsimp_pick_applied q1 xsimp.hla
         {| apply xsimp_l_cancel_qwand |}
-      else {| apply xsimp_l_keep_wand |}
+      catch _ => {| apply xsimp_l_keep_wand |}
     | _ => throwError "xsimp_step_l: @ unreachable"
   | _, _ => throwError "xsimp_step_l: @ unreachable"
 
@@ -820,9 +833,10 @@ elab "xsimp_step" : tactic => do
     xsimp_step_lr xsimp
 
 elab "rev_pure" : tactic => do
+  {| try subst_vars |}
   for n in <- revExt.get do
     withMainContext do
-    {| revert $n:ident |}
+    {| try revert $n:ident |}
   revExt.set []
 
 
