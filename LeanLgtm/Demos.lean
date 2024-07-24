@@ -2,11 +2,8 @@ import Lean
 
 import LeanLgtm.WP1
 
-<<<<<<< HEAD
 open val prim trm
 
-=======
->>>>>>> 9ec8c86 (sync xapp changes)
 /- ################################################################# -/
 /-* * Demo Programs -/
 
@@ -40,7 +37,6 @@ lemma triple_mysucc (n : Int) :
   [mysucc n]
   {v, ⌜ v = n + 1 ⌝} := by
   sdo 4 (xwp; xapp);
-<<<<<<< HEAD
   xwp; xval; xsimp=> //
 
 lang_def addp :=
@@ -110,6 +106,3 @@ lemma triple_mulp (p q : loc) (m n : Int) :
                                -- to introduce variable [a], which is needed
                                -- to instantiate the `ans`
   sby xapp; xsimp
-=======
-  xwp; xval; xsimp
->>>>>>> 9ec8c86 (sync xapp changes)
