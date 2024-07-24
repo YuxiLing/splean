@@ -5,6 +5,16 @@ import LeanLgtm.SepLog
 open Lean Meta Elab Tactic
 open val trm
 
+abbrev XAppExtState := RBMap Name Name Name.cmp
+
+initialize xappExtension :
+    SimpleScopedEnvExtension (Name × Name) XAppExtState <-
+  registerSimpleScopedEnvExtension {
+    name := `xapp
+    initial := { }
+    addEntry := fun s (n, thm) => s.insert n thm
+  }
+
 def getPrim (t :Expr) : Expr :=
   let_expr val_prim v := t | t
   v
@@ -26,8 +36,10 @@ def getTripleFun (g : Expr) : MetaM Name := do
 
 def pickTripleLemma : TacticM Name := do
   let n <- getTripleFun (<- getMainTarget)
-  let .some thm := (<- xappExt.get).find? n | throwError "no triple lemma found"
+  let .some thm := (xappExtension.getState (← getEnv)).find? n | throwError "no triple lemma found"
   return thm
+
+
 
 set_option linter.hashCommand false
 
@@ -38,21 +50,16 @@ elab "#hint_xapp" thm:ident : command => do
     let thm <- Meta.inferType thm
     let thmFun <- Meta.forallTelescope thm fun _ thm => do
       getTripleFun thm
-    xappExt.modify fun s => s.insert thmFun thmName
-
-syntax (name:= xapp) "xapp" : attr
+    xappExtension.add (thmFun, thmName)
 
 initialize registerBuiltinAttribute {
   name := `xapp
   descr := "Adds a triple lemma to the xapp database"
   add := fun thmName _ _ => do
-  --  Command.runTermElabM fun _ => do
     MetaM.run' do
       let thm : Expr <- Term.TermElabM.run' <| Term.elabTerm (mkIdent thmName) none
       let thm <- Meta.inferType thm
       let thmFun <- Meta.forallTelescope thm fun _ thm => do
         getTripleFun thm
-      xappExt.modify fun s => s.insert thmFun thmName
-    -- sorry
-    -- stsExt.modify (fun s => { s with invariants := mkConst declName :: s.invariants})
+      xappExtension.add (thmFun, thmName)
 }
