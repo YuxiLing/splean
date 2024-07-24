@@ -1019,6 +1019,7 @@ elab "xsimpr" : tactic => do
 /- For loop -/
 
 set_option linter.hashCommand false
+<<<<<<< HEAD
 
 lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
   (F : val -> formula)
@@ -1224,3 +1225,5 @@ macro "xwhile_down" I:term:max colGt Xbot:term ? : tactic => do
      skip,
      skip⟩
     ))
+=======
+>>>>>>> 9ec8c86 (sync xapp changes)

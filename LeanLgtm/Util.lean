@@ -71,10 +71,13 @@ abbrev RevExtState := List Ident
 initialize hintExt : EnvExtension HintExtState ←
   registerEnvExtension (pure [])
 
+<<<<<<< HEAD
 initialize revExt : EnvExtension RevExtState ←
   registerEnvExtension (pure [])
 
 
+=======
+>>>>>>> 9ec8c86 (sync xapp changes)
 syntax "{|" tacticSeq "|}" : term
 
 macro_rules
