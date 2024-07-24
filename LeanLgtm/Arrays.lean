@@ -101,7 +101,7 @@ lemma hrange_intro L p :
 
 lemma triple_alloc (n : Int) :
   n ≥ 0 →
-  triple (trm_app val_alloc n)
+  triple [lang| alloc n ]
     emp
     (funloc p ↦ hrange (make_list n.natAbs val_uninit) p ∗ ⌜p ≠ null⌝ ) := by
   move=> ?? [] ; apply eval.eval_alloc=>// > *
@@ -160,10 +160,38 @@ def val_array_fill : val := [lang|
 def val_array_make : val := [lang|
   fun n v =>
     let m := n + 1 in
-    let p := val_alloc m in
+    let p := alloc m in
     (val_set p) n ;
     (((val_array_fill p) 0) n) v ;
     p ]
+
+/- Syntax for array operations -/
+
+macro_rules
+  | `([lang| len $p])             => `(trm_val val_array_length [lang| $p])
+  | `([lang| $arr[$i]])           => `(trm_val default_get [lang| $arr] [lang| $i])
+  | `([lang| $arr[$i] := $v])     => `(trm_app default_set [lang| $arr] [lang| $i] [lang| $v])
+  | `([lang| mkarr $n, $v])       => `(trm_val val_array_make [lang| $n] [lang| $v])
+
+@[app_unexpander default_get] def unexpandGet : Lean.PrettyPrinter.Unexpander
+  | `($(_) [lang| $p] [lang| $i]) => `([lang| $p[$i]])
+  | _ => throw ( )
+
+@[app_unexpander default_set] def unexpandSet : Lean.PrettyPrinter.Unexpander
+  | `($(_) [lang| $p] [lang| $i] [lang| $v]) => `([lang| $p[$i] := $v])
+  | _ => throw ( )
+
+@[app_unexpander val_array_make] def unexpandArrMake : Lean.PrettyPrinter.Unexpander
+  | `($(_) [lang| $n] [lang| $v]) => `([lang| mkarr $n, $v])
+  | _ => throw ( )
+
+-- set_option pp.notation false
+#check [lang|
+  let arr := mkarr 5, 1 in
+  arr[4] := 2 ;
+  arr[3]
+  ]
+
 
 /- ==================== Properties of Arrays ==================== -/
 
@@ -262,22 +290,37 @@ lemma hseg_focus_relative (k : Nat) L p j :
 lemma add_Int.natAbs i j :
   0 <= i - j → j + Int.natAbs (i - j) = i := by omega
 
-instance : GetElem (List val) Int val (fun L i => 0 <= i ∧ i < L.length) := ⟨by sorry⟩
+lemma nonneg_eq_abs (n : Int) :
+  0 ≤ n → n = n.natAbs := by omega
+    -- unfold Int.toNat Int.natAbs=> ?
+    -- cases n <;> sdone
 
-lemma hseg_focus (i j : Int) L p (v : 0 <= i - j ∧ i - j < L.length) :
+instance : GetElem (List val) Int val (fun L i => 0 <= i ∧ i < L.length) where
+  getElem vs i _ := if i < 0 then
+                      panic! "Index out of bounds"
+                    else
+                      vs.getD (i.toNat) (default)
+
+lemma hseg_focus (i j : Int) L p  : --(v : 0 <= i - j ∧ i - j < L.length) :
+  0 <= i - j ∧ i - j < L.length →
   hseg L p j ==>
-  hcell L[i - j]! p i
-    ∗ (h∀ w, hcell w p i -∗ hseg (L.set (Int.natAbs (i - j)) w) p j) := by
-  move: v=> [] * ; xchange (hseg_focus_relative (Int.natAbs (i - j))) ; omega
-  sby srw add_Int.natAbs ; xsimp
+  hcell L[(i - j).natAbs]! p i
+    ∗ (h∀ w, hcell w p i -∗ hseg (L.set (i - j).natAbs w) p j) := by
+  -- move: v=> [] * ; xchange (hseg_focus_relative (i - j).natAbs) ; omega
+  move=> [] * ; xchange (hseg_focus_relative (i - j).natAbs) ; omega
+  srw add_Int.natAbs ; xsimp ; omega
+  -- srw (nonneg_eq_abs (i - j)) /=
+  -- sorry
 
-lemma harray_focus i L p :
+lemma harray_focus i L p : --(v : 0 <= i ∧ i < L.length) :
   0 <= i ∧ i < L.length →
   harray L p ==>
   hcell L[Int.natAbs i]! p i
     ∗ (h∀ w, hcell w p i -∗ harray (L.set (Int.natAbs i) w) p) := by
+  -- move:v => [] *
   move=> [] *
-  srw ?harray ; xchange (hseg_focus i) ; omega ; simp
+  srw ?harray ; xchange (hseg_focus i) ; omega=> /==
+  -- srw (nonneg_eq_abs i) /=
   apply himpl_frame_r ; apply himpl_hforall_r => x
   xchange (hforall_specialize _ x)
   xsimp
@@ -306,6 +349,7 @@ lemma harray_focus_read i L p :
 open eval
 
 #hint_xapp triple_get
+#hint_xapp triple_set
 
 lemma triple_array_length_hheader (n : Int) (p : loc) :
   triple (trm_app val_array_length p)
@@ -318,35 +362,48 @@ lemma triple_array_length_hheader (n : Int) (p : loc) :
 -- set_option pp.all true
 
 lemma triple_array_get_hcell (p : loc) (i : Int) (v : val) :
-  triple [lang| (val_array_get p) i]
+  triple [lang| val_array_get p i]
     (hcell v p i)
     (fun r ↦ ⌜r = v⌝ ∗ hcell v p i) := by
     /- trm_apps val_array_get [p, i] -/
     xwp
+    unfold hcell
     xpull
     xapp triple_ptr_add_nonneg
-    unfold hcell
     xwp
     xapp triple_ptr_add_nonneg
-    { xapp; xsimp=> // }
-    sorry
+    sby xapp; xsimp
 
 lemma triple_array_set_hcell (p : loc) (i : Int) (v w : val) :
   triple (trm_app val_array_set p i v)
     (hcell w p i)
     (fun _ ↦ hcell v p i) := by
     xwp
-    srw hcell val_array_set
+    srw hcell
     xpull
-    sorry
+    xapp triple_ptr_add_nonneg
+    xwp
+    xapp triple_ptr_add_nonneg
+    sby unfold hcell ; xapp ; xsimp
 
-lemma triple_array_get_hseg L (p : loc) (i j : Int) (_ : 0 <= i - j ∧ i - j < L.length) :
-  triple (trm_app val_array_get p i)
-    (hseg L p j)
-    (fun r ↦ ⌜r = L[i - j]⌝ ∗ hseg L p j) := by
-    xtriple
-    xchange (hseg_focus i)=>//
+lemma triple_array_default_get (p : loc) (i : Int) (v : val) :
+  triple [lang| p[i]]
+    (hcell v p i)
+    (fun r ↦ ⌜r = v⌝ ∗ hcell v p i) := by
+    xwp
+    xif
     xapp triple_array_get_hcell
+
+
+lemma triple_array_get_hseg L (p : loc) (i j : Int) : --(_ : 0 <= i - j ∧ i - j < L.length) :
+  triple [lang| p[i]]
+    (hseg L p j)
+    (fun r ↦ ⌜r = L[i - j]!⌝ ∗ hseg L p j) := by
+    xtriple
+    unfold default_get
+    scase: [(0 ≤ i)]=> ?
+    xchange (hseg_focus i)=>//
+    xapp triple_array_default_get
     xchange (hforall_specialize)
     srw set_nth_same ; xsimp ; omega
 
