@@ -601,6 +601,7 @@ syntax uop lang:30 : lang
 syntax lang:30 bop lang:30 : lang
 syntax "(" lang ")" : lang
 syntax "⟨" term "⟩" : lang
+syntax "alloc" lang : lang
 
 syntax " := " : bop
 syntax " + " : bop
@@ -622,9 +623,14 @@ syntax "ref" : uop
 syntax "free" : uop
 syntax "not" : uop
 
-syntax "[lang| " lang "]" : term
-syntax "[bop| " bop "]" : term
-syntax "[uop| " uop "]" : term
+syntax "len" : uop
+syntax lang noWs "[" lang "]" : lang
+-- syntax lang noWs "[" lang "] := " lang : lang
+syntax "mkarr" lang ", " lang : lang
+
+syntax "[lang|\n" lang "]" : term
+syntax "[bop|\n" bop "]" : term
+syntax "[uop|\n" uop "]" : term
 
 
 local notation "%" x => (Lean.quote (toString (Lean.Syntax.getId x)))
@@ -654,6 +660,7 @@ macro_rules
   | `([lang| ref $t])                   => `(trm_val (val_prim val_ref) [lang| $t])
   | `([lang| free $t])                  => `(trm_val (val_prim val_free) [lang| $t])
   | `([lang| not $t])                   => `(trm_val (val_prim val_not) [lang| $t])
+  | `([lang| alloc $n])                => `(trm_val (val_alloc) [lang| $n])
   | `([lang| !$t])                      => `(trm_val val_get [lang| $t])
   | `([lang| $t1 := $t2])               => `(trm_val val_set [lang| $t1] [lang| $t2])
   | `([lang| $t1 + $t2])                => `(trm_val val_add [lang| $t1] [lang| $t2])
@@ -747,6 +754,7 @@ elab_rules : term
     | `(uop| not)  => `([lang| not $t])
     | `(uop| !)    => `([lang| !$t])
     | `(uop| -)    => `([lang| -$t])
+    | `(uop| len)  => `([lang| len $t])
     | _ => throw ( )
   | `($(_) $app [lang| $t2]) =>
     -- dbg_trace app
@@ -857,6 +865,10 @@ elab_rules : term
     `([lang| fix $nameF $nameX => $t])
   | _ => throw ( )
 
+@[app_unexpander val_alloc] def unexpandVAlloc : Lean.PrettyPrinter.Unexpander
+  | `($(_) [lang| $n]) => `([lang| alloc $n])
+  | _ => throw ( )
+
 -- @[app_unexpander trm_apps] def unexpandApps : Lean.PrettyPrinter.Unexpander
 --   -- Unexpand function applications when arguments are program-variables
 --   | `($(_) [lang| $f] [ $[[lang|$xs]],* ]) => `([lang| $f  $xs )])
@@ -957,3 +969,4 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
         i}
       ]
 #check [lang| 1 ++ 2]
+#check [lang| let x := 6 in alloc(x)]
