@@ -584,7 +584,7 @@ declare_syntax_cat uop
 
 syntax ident : lang
 syntax num : lang
-syntax:20 lang ";" ppDedent(ppLine lang) : lang
+syntax:20 lang "; " (ppDedent(ppLine lang)) : lang
 syntax:25 lang lang:30 : lang
 syntax "if " lang "then " lang "end " : lang
 syntax ppIndent("if " lang " then") ppSpace lang ppDedent(ppSpace) ppRealFill("else " lang) : lang
@@ -602,6 +602,7 @@ syntax lang:30 bop lang:30 : lang
 syntax "(" lang ")" : lang
 syntax "⟨" term "⟩" : lang
 syntax "alloc" lang : lang
+syntax "⟨" term "⟩" : lang
 
 syntax " := " : bop
 syntax " + " : bop
@@ -629,7 +630,7 @@ syntax lang noWs "[" lang "]" : lang
 -- syntax lang noWs "[" lang "] := " lang : lang
 -- syntax "mkarr" lang ", " lang : lang
 
-syntax "[lang| " ppGroup(lang) "]" : term
+syntax "[lang| " lang "]" : term
 syntax "[bop| " bop "]" : term
 syntax "[uop| " uop "]" : term
 
@@ -1053,7 +1054,8 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
     else
       let y := 1 + 1 in
       let z := 1 in
-      for i in [z : y] {
-        let z := ref i in
-        !z
-      }]
+      while (i < z) {
+        i := i + 1;
+        i := i + 1;
+        i}
+      ]

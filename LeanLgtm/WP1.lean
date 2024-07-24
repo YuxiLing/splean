@@ -1106,13 +1106,18 @@ lemma xwhile_inv_lemma (I : Bool -> α -> hprop)
         (∀ b a', R a' X -> (I b a') ==> S fun _ => h∃ a, I false a) ->
         I b X ==> wpgen_if_trm F1 (wpgen_seq F2 S) (wpgen_val val_unit) fun _ => h∃ a, I false a) ->
     H ==> wpgen_while F1 F2 (fun _ => h∃ a, I false a) := by
+<<<<<<< HEAD
   move=> wf hh hs; xchange hh=> >
+=======
+  move=> wf hh hs; xchange hh
+>>>>>>> 8492d20 (progress with while loop)
   unfold wpgen_while; xchange mkstruct_erase
   xsimp=> [rs fs]; move: b
   apply WellFounded.induction wf a=> a' ih ?
   xchange fs
   apply hs=> // > /ih
   sapply
+<<<<<<< HEAD
 
 lemma structural_imp : structural F ->
   Q ===> Q' -> F Q ==> F Q' := by
@@ -1224,3 +1229,5 @@ macro "xwhile_down" I:term:max colGt Xbot:term ? : tactic => do
      skip,
      skip⟩
     ))
+=======
+>>>>>>> 8492d20 (progress with while loop)
