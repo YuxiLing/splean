@@ -119,7 +119,7 @@ open Lean Elab Command Term Meta Tactic
     -- let α := targetType.appFn!.appFn!.appArg!
     -- mvarId.assign (mkApp2 (mkConst ``Eq.refl  us) α lhs)
 
-macro_rules | `(tactic| ssr_triv ) => `(tactic| omega)
+macro_rules | `(tactic| ssr_triv ) => `(tactic| congr; omega)
 
 #hint_xapp triple_lt
 -- set_option trace.xsimp true
@@ -138,8 +138,8 @@ lemma triple_mulp (p q : loc) (m n : Int) :
     xapp; xsimp=> //
     { sby srw Int.mul_add }
     constructor=> // }
-  move=> ? /=; xsimp=> a ?
-  xapp; xsimp; congr; simp_all; omega
+  move=> ? /=; xsimp=> a /== *
+  sby xapp; xsimp
 
   -- xapp
   -- xapp; run_tac (do
