@@ -55,6 +55,17 @@ lemma triple_addp (p q : loc) (m n : Int) :
   xwp; xapp=> ?
   xfor (fun i => p ~~> n + i)
   { move=> ? _; xapp; xsimp; omega }
+  xapp_pre
+  eapply xapp_lemma; xapp_pick;
+  rotate_right;
+  xsimp_start
+  xsimp_step
+  xsimp_step
+  xsimp_step
+  xsimp_step
+  xsimp_step
+  xsimp_step
+  xsimp_step
   xapp; xsimp
 
 

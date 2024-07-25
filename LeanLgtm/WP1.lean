@@ -868,7 +868,6 @@ macro "xapp" : tactic =>
          all_goals try subst_vars))
 
 elab "xapp" colGt e:term ? : tactic => do
-
   {|
     (xapp_nosubst $(e)?;
      try xapp_try_subst
@@ -1020,6 +1019,9 @@ elab "xsimpr" : tactic => do
 
 set_option linter.hashCommand false
 
+@[simp]
+lemma oneE : OfNat.ofNat 1 = 1 := by rfl
+
 lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
   (F : val -> formula)
   (Q : val -> hprop) :
@@ -1034,7 +1036,9 @@ lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
   unfold wpgen_for
   apply himpl_trans; rotate_left; apply mkstruct_erase
   unfold_let
-  xsimp[a,b]=> // [ls hs]
+  xsimp[a,b]=> //== ls
+  srw OfNat.ofNat instOfNat instOfNatNat /== => hs
+  -- shave-> ls hs: i + (OfNat.ofNat 1) = i + 1; sdone
   shave P: ∀ i, a <= i ∧ i <= b -> I i ==> S i fun _ => I b
   { move=> i [/[swap] iLb]
     apply (Int.le_induction_down _ _ _ iLb)
@@ -1043,10 +1047,14 @@ lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
       sby xval }
     move=> i ? ih ?
     xchange hs
-    scase_if=> // ?; rotate_left; omega; xseq
-    xchange Mb; omega
+    unfold OfNat.ofNat instOfNat instOfNatNat=> /==
+    scase_if=> // ?; rotate_left; omega
+    xseq
+    xchange Mb;
+    srw OfNat.ofNat instOfNat instOfNatNat /==
+    omega
     apply himpl_trans; rotate_left; apply sF
-    unfold mkstruct; simp; xsimp; apply ih; omega }
+    unfold mkstruct; xsimp; apply ih; omega }
   xchange Ma; xchange P; omega
   apply himpl_trans; rotate_left; apply ls
   unfold mkstruct; xsimp; apply Mc
@@ -1106,18 +1114,14 @@ lemma xwhile_inv_lemma (I : Bool -> α -> hprop)
         (∀ b a', R a' X -> (I b a') ==> S fun _ => h∃ a, I false a) ->
         I b X ==> wpgen_if_trm F1 (wpgen_seq F2 S) (wpgen_val val_unit) fun _ => h∃ a, I false a) ->
     H ==> wpgen_while F1 F2 (fun _ => h∃ a, I false a) := by
-<<<<<<< HEAD
+
   move=> wf hh hs; xchange hh=> >
-=======
-  move=> wf hh hs; xchange hh
->>>>>>> 8492d20 (progress with while loop)
   unfold wpgen_while; xchange mkstruct_erase
   xsimp=> [rs fs]; move: b
   apply WellFounded.induction wf a=> a' ih ?
   xchange fs
   apply hs=> // > /ih
   sapply
-<<<<<<< HEAD
 
 lemma structural_imp : structural F ->
   Q ===> Q' -> F Q ==> F Q' := by
@@ -1229,5 +1233,3 @@ macro "xwhile_down" I:term:max colGt Xbot:term ? : tactic => do
      skip,
      skip⟩
     ))
-=======
->>>>>>> 8492d20 (progress with while loop)
