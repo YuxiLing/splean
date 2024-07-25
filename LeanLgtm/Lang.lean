@@ -640,7 +640,7 @@ elab_rules : term
 @[app_unexpander val_int] def unexpandInt : Lean.PrettyPrinter.Unexpander
   | `($(_) $n:num) => `($n:num)
   | `($(_) $n:ident) => `($n:ident)
-  | `($(_) $n:term) => `({$n:term})
+  | `($(_) $n:term) => `(⟨$n:term⟩)
   | _ => throw ( )
 
 @[app_unexpander val_loc] def unexpandLoc : Lean.PrettyPrinter.Unexpander
@@ -677,7 +677,7 @@ elab_rules : term
     match x with
     | `($n:num) => `([lang| $n:num])
     | `($n:ident) => `([lang| $n:ident])
-    | `({$n:term}) => `([lang| ⟨$n⟩])
+    | `(⟨$n:term⟩) => `([lang| ⟨$n⟩])
     | `([lang| $_]) => return x
     | `([uop| $_]) => return x
     | `([bop| $_]) => return x

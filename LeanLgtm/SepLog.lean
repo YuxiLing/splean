@@ -567,5 +567,5 @@ lemma triple_ptr_add_nat p (f : ℕ) :
     (fun r ↦ ⌜r = p + f⌝) :=
 by
   apply triple_conseq _ _ _ _ _ (triple_ptr_add p f _)=>//
-  move=> ? /=
+  move=> ?  /=
   sby xsimp

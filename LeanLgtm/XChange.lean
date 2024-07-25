@@ -85,7 +85,7 @@ example (Q : α -> hprop) :
   H1 ∗ H2 ==> h∃ x, Q x ∗ H3 := by
   intro M
   dup 2
-  { xchange M; xsimp }
+  { xchange M=> x; xsimp }
   xchanges M
 
 -- set_option pp.explicit true

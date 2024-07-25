@@ -85,7 +85,7 @@ XSimp
 -/
 
 def XSimpRIni : TacticM XSimpR := withMainContext do
-  (<- getMainGoal).setTag `xsimp
+  (<- getMainGoal).setTag `xsimp_goal
   let goal <- getGoalStxNN
   let `(XSimp $hl $hr) := goal | throwError "not a XSimp goal"
   let `(@Prod.mk hprop $_ $hla $hlwt) := hl | throwError "not a XSimp goal"
@@ -612,7 +612,7 @@ lemma qstar_simp :
 
 /- ----- Tactic for cancelling [hsingle] assertions ----- -/
 
-def xsimp_pick_same_pointer (p hla : Term) : TacticM Unit := do
+def xsimp_pick_same_pointer (p hla : Term) : TacticM Unit := withMainContext do
   let p  <- Tactic.elabTerm p none
   hstar_search hla fun i h' last? => do
     match h' with
@@ -636,12 +636,13 @@ lemma val_loc_congr :
 
 
 /- TODO: Extend this with some equality over values -/
-macro "xsimp_hsingle_discharge" : tactic =>
-  `(tactic|
+elab "xsimp_hsingle_discharge" : tactic =>
+  withAssignableSyntheticOpaque {|
     -- try congruence lemma
     (try apply val_int_congr
      try apply val_loc_congr
-     try sdone) )
+     try rfl
+     try sdone) |}
 
 
 /- ============ LHS xsimp step ============ -/
@@ -689,11 +690,12 @@ partial def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit :=
       revExt.modify (n :: ·)
       {| apply xsimp_l_hpure; intro $n:ident |}
     | `(hstar $h1 $h2)   =>
-      {| erw [@hstar_assoc $h1 $h2] |}
+      withAssignableSyntheticOpaque {| erw [@hstar_assoc $h1 $h2] |}
       -- rewriteTarget (<- `(@hstar_assoc $h1 $h2)) false
       /- we know that here should be another LHS step -/
       xsimp_step_l (<- XSimpRIni) cancelWand
-    | `(@hexists $_ fun ($x : $_) => $_) =>
+    | `(@hexists $_ fun ($x:ident : $_) => $_) =>
+      revExt.modify (x :: ·)
       {| apply xsimp_l_hexists; intro $x:term |}
     | `(hwand $_ $_)    => {| apply xsimp_l_acc_wand |}
     | `(@qwand $_ $_ $_)   => {| apply xsimp_l_acc_wand |}
@@ -727,14 +729,23 @@ syntax "?" : hint
 declare_syntax_cat hints
 syntax "[" (ppSpace colGt hint),* "]" : hints
 
-def xsimp_r_hexists_apply_hints : TacticM Unit := do
+def eApplyAndName (lem : Name) (mvarName : Name) : TacticM Unit := withMainContext do
+    let g <- getMainGoal
+    let [g, ex] <- g.applyConst lem | throwError "eApplyAndName: should be two goals"
+    let nm <- fresh mvarName
+    ex.setTag nm.getId
+    ex.setUserName nm.getId
+    setGoals [g]
+
+
+def xsimp_r_hexists_apply_hints (x : Ident) : TacticM Unit := do
   let hints <- hintExt.get
   match hints with
-  | [] => {| eapply xsimp_r_hexists |}
+  | [] => eApplyAndName `xsimp_r_hexists $ `xsimp ++ x.getId
   | h :: hs =>
     hintExt.set hs
     match h with
-    | `(hint| ?)       => {| eapply xsimp_r_hexists |}
+    | `(hint| ?)       => eApplyAndName `xsimp_r_hexists $ `xsimp ++ x.getId
     | `(hint| $t:term) => {| apply (@xsimp_r_hexists _ $t) |}
     | _ => throwError "xsimp_r_hexists_apply_hints: @ unreachable"
 
@@ -749,6 +760,7 @@ partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
       | `(hempty) => {| apply xsimp_r_hempty |}
       | `(hpure $_) => {| apply xsimp_r_hpure |}
       | `(hstar $h1 $h2) =>
+        -- dbg_trace "here: comm"
         {| erw [@hstar_assoc $h1 $h2] |}
          /- we know that here should be another RHS step -/
         xsimp_step_r (<- XSimpRIni)
@@ -765,13 +777,16 @@ partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
             {| apply xsimp_lr_cancel_same |}
         | `(hstar htop hempty) => {| apply xsimpl_r_htop_drop |}
         | _ => throwError "xsimp_step_r: @ unreachable"
-      | `(@hexists $_ $_) => xsimp_r_hexists_apply_hints
+      | `(@hexists $_ fun ($x:ident : $_) => $_) => xsimp_r_hexists_apply_hints x
       | `(protect $_) => {| apply xsimp_r_keep |}
       | `(hsingle $x $_) =>
+        -- dbg_trace "here: {x}"
         if x.isMVarStx then
           {| apply xsimp_r_keep |}
         else
-          xsimp_pick_same_pointer x xsimp.hla ;
+          xsimp_pick_same_pointer x xsimp.hla
+          -- let g <- getMainTarget
+          -- trace[xsimp] g
           {| apply xsimpl_lr_cancel_same_hsingle <;>
              xsimp_hsingle_discharge |}
       | _ =>
@@ -794,7 +809,7 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
     match xsimp.hra with
     | `(hstar $h1 hempty) =>
       if h1.isMVarStx then
-        {| hsimp; apply himpl_lr_refl |}
+        withAssignableSyntheticOpaque {| hsimp; apply himpl_lr_refl |}
         return ( )
       match h1 with
       | `(hwand $h1 $_) =>
@@ -836,7 +851,7 @@ elab "rev_pure" : tactic => do
   {| try subst_vars |}
   for n in <- revExt.get do
     withMainContext do
-    {| try revert $n:ident |}
+    {| try  revert $n:ident |}
   revExt.set []
 
 
@@ -880,13 +895,25 @@ macro "xpull" : tactic =>
     try rev_pure
   ))
 
+elab "hide_mvars" : tactic => do
+  let gs <- getUnsolvedGoals
+  let mut gs' := []
+  for g in gs do
+    let tp <- Meta.inferType (<- g.getType)
+    if tp.isProp then
+      gs' := g :: gs'
+  setGoals gs'.reverse
+
+
 macro "xsimp" : tactic =>
   `(tactic| (
     xsimp_start
     repeat xsimp_step
     try hsimp
     try rev_pure
+    try hide_mvars
     rotate_left
+
   ))
 
 elab "xsimp" ls:hints : tactic => do
@@ -997,7 +1024,7 @@ example :
 /--
 warning: declaration uses 'sorry'
 ---
-info: case xsimp.a.a.a
+info: case xsimp_goal.a.a.a
 H1 H2 H3 H4 H5 H6 H7 : hprop
 ⊢ H1 ∗ H2 ∗ H4 ==> H5 ∗ H6 ∗ H7
 -/
@@ -1118,7 +1145,14 @@ example (Q : Int -> Bool -> _) :
   Q 4 true ==> Q 3 false ->
   H1 ∗ Q 4 true ==> h∃ x b, Q x b ∗ H1 := by
   move=> ?
-  xsimp[3, ?]=> //
+  xsimp
 
+-- example :
+--   emp ==> (h∃ x, x ~~> 1) ∗ (h∃ x, x ~~> 2) := by
+--   xsimp_start
+--   xsimp_step
+--   xsimp_step
+--   xsimp_step
+--   xsimp_step
 end
 end
