@@ -714,7 +714,7 @@ set_option linter.unusedTactic false in
 elab "xwp_equiv" :tactic => do
   let_expr himpl _ wp := (<- getMainTarget) | pure ( )
   let_expr wp _ _ := wp | pure ( )
-  {| srw wp_equiv |}
+  {| rw [wp_equiv] |}
 
 
 set_option linter.unreachableTactic false in
@@ -790,7 +790,7 @@ macro "xapp_nosubst" e:term ? : tactic =>
   `(tactic|
     (xapp_pre
      eapply xapp_lemma; xapp_pick $(e)?
-     rotate_left; xapp_simp=>//))
+     rotate_right; xapp_simp=>//))
 
 macro "xapp" : tactic =>
   `(tactic|
