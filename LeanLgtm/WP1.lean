@@ -779,7 +779,7 @@ set_option linter.unusedTactic false in
 elab "xwp_equiv" :tactic => do
   let_expr himpl _ wp := (<- getMainTarget) | pure ( )
   let_expr wp _ _ := wp | pure ( )
-  {| srw wp_equiv |}
+  {| rw [wp_equiv] |}
 
 
 set_option linter.unreachableTactic false in
@@ -1019,7 +1019,6 @@ elab "xsimpr" : tactic => do
 /- For loop -/
 
 set_option linter.hashCommand false
-<<<<<<< HEAD
 
 lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
   (F : val -> formula)
@@ -1225,5 +1224,3 @@ macro "xwhile_down" I:term:max colGt Xbot:term ? : tactic => do
      skip,
      skip⟩
     ))
-=======
->>>>>>> 9ec8c86 (sync xapp changes)

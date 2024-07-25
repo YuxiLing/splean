@@ -777,6 +777,10 @@ elab_rules : term
     | `([lang| $t1]) => `([lang| $t1 $t2])
     | _ => throw ( )
   | `($(_) [bop| $bop] [lang| $t1]) => return x
+  -- | `($(_) [lang| $t] [lang| $t1]) =>
+  --   match t with
+  --   | `(lang| default_get $t2) => `([lang| $t2[$t1]])
+  --   | _ => throw ( )
   | _ => throw ( )
 
 @[app_unexpander trm_var] def unexpandVar : Lean.PrettyPrinter.Unexpander
