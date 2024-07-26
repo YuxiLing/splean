@@ -102,5 +102,7 @@ lemma triple_mulp (p q : loc) (m n : Int) :
   { move=> X; xwp; xapp=> []??
     xapp; xsimp=> //
     sby srw Int.mul_add }
-  move=> ? /=; xsimp=> a /== *
+  move=> ? /=; xsimp=> a /== * -- here we need to do [xsimp] before [xapp]
+                               -- to introduce variable [a], which is needed
+                               -- to instantiate the `ans`
   sby xapp; xsimp
