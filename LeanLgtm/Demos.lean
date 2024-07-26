@@ -55,17 +55,6 @@ lemma triple_addp (p q : loc) (m n : Int) :
   xwp; xapp=> ?
   xfor (fun i => p ~~> n + i)
   { move=> ? _; xapp; xsimp; omega }
-  xapp_pre
-  eapply xapp_lemma; xapp_pick;
-  rotate_right;
-  xsimp_start
-  xsimp_step
-  xsimp_step
-  xsimp_step
-  xsimp_step
-  xsimp_step
-  xsimp_step
-  xsimp_step
   xapp; xsimp
 
 
@@ -96,34 +85,10 @@ elab "xsimpl" : tactic => do
 open Lean Lean.Expr Lean.Meta Qq
 open Lean Elab Command Term Meta Tactic
 
-
--- def rfll (mvarId : MVarId) : TacticM Unit := do
---   mvarId.withContext do
---     mvarId.checkNotAssigned `refl
---     let targetType ← mvarId.getType'
---     unless targetType.isAppOfArity ``Eq 3 do
---       throwTacticEx `rfl mvarId m!"equality expected{indentExpr targetType}"
---     let lhs ← instantiateMVars targetType.appFn!.appArg!
---     let rhs ← instantiateMVars targetType.appArg!
---     rhs.mvarId! lhs
---     mvarId.instantiateMVars
---   let gs <- getUnsolvedGoals
---   for g in gs do g.instantiateMVars
-    -- let gs <-
-
-
-    -- let success ← withAssignableSyntheticOpaque $ isDefEq lhs rhs
-    -- unless success do
-    --   throwTacticEx `rfl mvarId m!"equality lhs{indentExpr lhs}\nis not definitionally equal to rhs{indentExpr rhs}"
-    -- let us := targetType.getAppFn.constLevels!
-    -- let α := targetType.appFn!.appFn!.appArg!
-    -- mvarId.assign (mkApp2 (mkConst ``Eq.refl  us) α lhs)
-
 macro_rules | `(tactic| ssr_triv ) => `(tactic| congr; omega)
+macro_rules | `(tactic| ssr_triv ) => `(tactic| constructor=> //)
 
 #hint_xapp triple_lt
--- set_option trace.xsimp true
--- set_option pp.all true
 lemma triple_mulp (p q : loc) (m n : Int) :
   { p ~~> n ∗ q ~~> m ∗ ⌜m > 0 ∧ n >= 0⌝ }
   [mulp p q]
@@ -132,25 +97,10 @@ lemma triple_mulp (p q : loc) (m n : Int) :
   xwp; xapp=> ans
   xwp; xapp
   xwhile_up (fun b j => p ~~> n ∗ q ~~> m ∗ i ~~> j ∗ ans ~~> n * j ∗ ⌜(b = decide (j < m)) ∧ 0 <= j ∧ j <= m⌝) m
-  { xsimp; constructor=> // }
+  { xsimp=> // }
   { sby move=>>; xwp; xapp=> ?; xapp; xsimp }
   { move=> X; xwp; xapp=> []??
     xapp; xsimp=> //
-    { sby srw Int.mul_add }
-    constructor=> // }
+    sby srw Int.mul_add }
   move=> ? /=; xsimp=> a /== *
   sby xapp; xsimp
-
-  -- xapp
-  -- xapp; run_tac (do
-  --   let g <- getMainGoal
-  --   withAssignableSyntheticOpaque $ rfll g
-  -- )
-  -- rfl
-  -- xsimp_step
-
-  -- xsimp_step
-  -- xsimp_step
-  -- xsimp_step
-  -- xsimp_step
-  -- foo=> //

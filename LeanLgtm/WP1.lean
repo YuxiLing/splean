@@ -875,7 +875,7 @@ macro "xapp" : tactic =>
          all_goals try subst_vars))
 
 elab "xapp" colGt e:term ? : tactic => do
-  (<- getMainGoal).setTag `xapp
+
   {|
     (xapp_nosubst $(e)?;
      try xapp_try_subst
