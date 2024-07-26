@@ -110,6 +110,35 @@ lemma triple_alloc (n : Int) :
   subst sb ; apply hrange_intro
 
 
+/- Implementing absolute value operator -/
+
+lang_def val_abs :=
+  fun i =>
+    let c := i < 0 in
+    let m := 0 - 1 in
+    let j := m * i in
+    if c then j else i
+
+lemma nonneg_eq_abs (n : Int) :
+  0 ≤ n → n.natAbs = n := by omega
+
+lemma neg_mul_abs (n : Int) :
+  n < 0 → -1 * n = n.natAbs := by omega
+
+lemma triple_abs (i : Int) :
+  triple [lang| val_abs i]
+    emp
+    (fun r ↦ ⌜r = val_int i.natAbs⌝) := by
+  xwp
+  xapp triple_lt ; xwp
+  xapp triple_sub ; xwp
+  xapp triple_mul ; xwp
+  xif=> /== ?
+  { xwp ; xval ; xsimp
+    sby srw neg_mul_abs }
+  xwp ; xval ; xsimp
+  sby srw nonneg_eq_abs
+
 /- Low-level Implementation of arrays -/
 
 
@@ -120,14 +149,58 @@ def val_array_get : val := [lang|
     let q := p1 ++ i in
     !q ]
 
+def default_get := [lang|
+  fun p i d =>
+    let n := val_abs i in
+    let l := val_array_length p in
+    let b := n < l in
+    if b then
+      val_array_get p n
+    else
+      d ]
+
 def val_array_set : val := [lang|
   fun p i v =>
     let p1 := p ++ 1 in
     let q := p1 ++ i in
     q := v ]
 
+lang_def default_set :=
+  fun p i v =>
+    let n := val_abs i in
+    let L := val_array_length p in
+    let b := i < L in
+    if b then
+      val_array_set p n v
+    else
+      ()
+
+def val_array_fill : val := [lang|
+  fix f p i n v =>
+    let b := n > 0 in
+    if b then
+      ((val_array_set p) i) v ;
+      let m := n - 1 in
+      let j := i + 1 in
+      f p j m v
+    end ]
+
+def val_array_make : val := [lang|
+  fun n v =>
+    let m := n + 1 in
+    let p := alloc m in
+    (val_set p) n ;
+    (((val_array_fill p) 0) n) v ;
+    p ]
+
 /- Syntax for array operations -/
 
+macro_rules
+  | `([lang| len $p])             => `(trm_val val_array_length [lang| $p])
+  | `([lang| $arr[$i]])           => `(trm_val default_get [lang| $arr] [lang| $i] [lang| ()])
+  | `([lang| $arr[$i]($d)])           => `(trm_val default_get [lang| $arr] [lang| $i] [lang| $d])
+  | `([lang| $arr[$i] := $v])     => `(trm_app default_set [lang| $arr] [lang| $i] [lang| $v])
+  | `([lang| mkarr $n, $v])       => `(trm_val val_array_make [lang| $n] [lang| $v])
 
 @[app_unexpander default_get] def unexpandGet : Lean.PrettyPrinter.Unexpander
   | `($(_) [lang| $p] [lang| $i]) => `([lang| $p[$i]])
@@ -252,11 +325,6 @@ lemma hseg_focus_relative (k : Nat) L p j (v : 0 <= k ∧ k < L.length):
 
 lemma add_Int.natAbs i j :
   0 <= i - j → j + Int.natAbs (i - j) = i := by omega
-
-lemma nonneg_eq_abs (n : Int) :
-  0 ≤ n → n.natAbs = n := by omega
-    -- unfold Int.toNat Int.natAbs=> ?
-    -- cases n <;> sdone
 
 -- set_option pp.all true
 lemma hseg_focus (i j : Int) L p (v : 0 <= i - j ∧ i - j < L.length) :
@@ -406,23 +474,24 @@ lemma triple_array_make_hseg (n : Int) (v : val) :
   sorry
   omega
 
-lemma triple_array_get L (p : loc) (i : Int) (v : 0 <= i ∧ i < L.length) :
+lemma triple_array_get L (p : loc) (i : Int) : --(v : 0 <= i ∧ i < L.length) :
+   0 <= i ∧ i < L.length →
    triple (trm_app val_array_get p i)
     (harray L p)
     (fun r ↦ ⌜r = L[i.natAbs]!⌝ ∗ harray L p) := by
-    xtriple
-    srw harray ; xapp triple_array_get_hseg => /==
-    xsimp
+  xtriple
+  srw harray ; xapp triple_array_get_hseg => /==
+  xsimp
 
 lemma triple_array_set L (p : loc) (i : Int) (v : val) :
   0 <= i ∧ i < L.length →
   triple (trm_app val_array_set p i v)
     (harray L p)
     (fun _ ↦ harray (L.set (Int.natAbs i) v) p) := by
-    move=> ?
-    xtriple
-    srw ?harray ; xapp triple_array_set_hseg => /==
-    xsimp
+  move=> ?
+  xtriple
+  srw ?harray ; xapp triple_array_set_hseg => /==
+  xsimp
 
 lemma triple_array_length L (p : loc) :
   triple (trm_app val_array_length p)
@@ -459,8 +528,41 @@ lemma triple_array_make (n : Int) (v : val) :
 
 /- Rules for [default_get] and [default_set] -/
 
-instance : GetElem (List val) Int val (fun L i => 0 <= i ∧ i < L.length) where
-    getElem vs i h := vs.get ⟨i.natAbs, by cases i <;> sdone⟩
+-- instance : GetElem (List val) Int val (fun L i => 0 <= i ∧ i < L.length) where
+--     getElem vs i h := vs.get ⟨i.natAbs, by cases i <;> sdone⟩
+--      := vs.getD i.natAbs default
+-- `a[I]`,  `a.[I]`\/ `a[I].`
+
+instance: GetElem (List α) Int α (fun L i => i.natAbs < L.length) :=
+  ⟨fun xs i _ => xs[i.natAbs]⟩
+
+example (L : List val) (i : Int) (_ : i.natAbs < L.length) :
+  L[i.natAbs]! = L[i]! := by
+  rfl
+
+example (L : List Int) (i : Int) (_ : i.natAbs < L.length) :
+  L[i.natAbs]! = L[i]! := by
+  rfl
+
+lemma int_index_eq {_ : Inhabited α} (L : List α) (i : Int) :
+  L[i.natAbs]! = L[i]! := by
+  rfl
+
+-- set_option pp.all true
+lemma get_out_of_bounds {_ : Inhabited α} (L : List α) (i : Int) :
+  L.length ≤ i.natAbs →
+  L[i]! = default := by
+  srw -int_index_eq
+  elim: L i
+  { sdone }
+  move=> > ? >
+  scase: i
+  { move=> >
+    elim: a => >?
+    sdone
+    move=> ?
+    sorry }
+  sorry
 
 -- set_option pp.all true
 lemma triple_array_default_get (p : loc) (i : Int) :
@@ -468,19 +570,15 @@ lemma triple_array_default_get (p : loc) (i : Int) :
     (harray L p)
     (fun r ↦ ⌜r = L[i]!⌝ ∗ harray L p) := by
   xwp
-  unfold harray
-  xapp triple_le ; xwp
-  xif=> /== ? ; xwp
-  { xapp triple_array_length_hheader ; xwp
-    xapp triple_lt ; xwp
-    xif=> /== ?  ; xwp
-    { srw -harray
-      xapp triple_array_get ; xsimp
-      srw -(nonneg_eq_abs i) //=
-      unfold Nat.cast NatCast.natCast
-      sorry }
-    xwp ; xval ; xsimp ; sorry }
-  xwp ; xval ; xsimp ; sorry
+  xapp triple_abs ; xwp
+  xapp triple_array_length ; xwp
+  xapp triple_lt ; xsimp ; subst x ; xwp
+  xif=> /== ?
+  { apply triple_array_get ; omega }
+  xwp
+  xval ; xsimp
+  srw get_out_of_bounds=> //
+  sorry
 
 lemma set_keep_length (L : List val) i v :
   L.length = (L.set i v).length := by
@@ -500,45 +598,38 @@ lemma triple_array_default_set L (p : loc) (i : Int) (v : val) :
     (harray L p)
     (fun _ ↦ harray (L.set (Int.natAbs i) v) p) := by
     xwp
-    unfold harray
-    xapp triple_le ; xwp
-    xif=> /== ? ; xwp
-    { xapp triple_array_length_hheader ; xwp
-      xapp triple_lt ; xwp
-      xif=> /== ? ; xwp
-      { srw [2](set_keep_length L i.natAbs v) -?harray
-        xapp triple_array_set }
-      srw set_out_of_bounds ; xwp ; xval ; xsimp ; omega }
-    xwp ; xval ; xsimp
-    srw set_out_of_bounds // ; sorry
+    xapp triple_abs ; xwp
+    xapp triple_array_length ; xwp
+    xapp triple_lt ; xwp
+    xif=> /== ?
+    all_goals sorry -- triple not true
 
 /- Rules and definitions for integer arrays -/
 
-instance: GetElem (List Int) Int Int (fun L i => i.natAbs < L.length) :=
-  ⟨fun xs i _ => xs[i.natAbs]⟩
+lemma getElem!_nil_intint (n : Int) :
+  ([] : List Int)[n]! = default := by sdone
 
-example (L : List Int) (i : Int) (_ : i.natAbs < L.length) :
-  L[i.natAbs]! = L[i]! := by
-  rfl
-
-/-
-  · We define [GetElem] instance for [Int] ideceies via [Int.natAbs]. Now this is just
-    def-equal to a regular [GetElem] instance
-  · You have only one lemma `x[i](!) = x[i.natAbs](!)` to facilitate proofs
-  · Now you can use this `[·]!` notation in your lemmas
-  · You dont proof [triple_array_default] lemma, cuz it is just does not hold. Instead you
-    proof [triple_array_int_default] directly
- -/
+lemma getElem!_nil_intval (n : Int) :
+  ([] : List val)[n]! = default := by sdone
 
 def harray_int (L : List Int) : loc → hprop :=
   harray (L.map val_int)
 
+set_option maxHeartbeats 400000
 lemma triple_array_default_get_int (p : loc) (i : Int) (L : List Int) :
-  triple [lang| p[i]]
+  triple [lang| p[i](0)]
     (harray_int L p)
     (fun r ↦ ⌜r =  val_int L[i]!⌝ ∗ harray_int L p) := by
-  unfold harray_int ; xtriple
-  xapp triple_array_default_get ; xsimp
-  elim: L
-  rw [List.map_nil]
-  all_goals sorry
+  unfold harray_int
+  xwp
+  xapp triple_abs ; xwp
+  xapp triple_array_length ; xwp
+  xapp triple_lt ; xsimp ; subst x ; xwp
+  xif=> /==
+  srw -(List.length_map L val_int)=> ?
+  { xtriple
+    -- xapp triple_array_get
+    -- xsimp
+    sorry
+  }
+  sorry

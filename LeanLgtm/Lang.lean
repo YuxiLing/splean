@@ -73,7 +73,7 @@ section
 
 /- val and term are inhabited -/
 instance : Inhabited val where
-  default := val.val_unit
+  default := val.val_int 0
 
 instance : Inhabited trm where
   default := trm.trm_val (val.val_unit)
@@ -87,7 +87,7 @@ instance : Coe Int val where
 
 /- Help Lean to treat Nat as val -/
 instance : OfNat val n where
-  ofNat := val.val_int n
+  ofNat := val.val_unit
 
 instance : Coe loc val where
   coe l := val.val_loc l
