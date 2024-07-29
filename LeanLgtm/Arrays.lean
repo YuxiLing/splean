@@ -553,16 +553,18 @@ lemma triple_array_default_get (p : loc) (i : Int) :
   xapp triple_array_length ; xwp
   xapp triple_lt ; xsimp ; subst x ; xwp
   xif=> /== ?
-  { xtriple ; srw -int_index_eq
-    (xapp_pre
-     eapply xapp_lemma; xapp_pick triple_array_get
-     rotate_right; xapp_simp=>// triple_array_get;
-     try xapp_try_subst
-     first
-       | done
-       | all_goals try srw wp_equiv
-         all_goals try subst_vars)
-    xapp triple_array_get ; omega }
+  { xtriple ; srw -int_index_eq ; sorry}
+    -- (xapp_pre
+    --  eapply xapp_lemma ;
+    --  xapp_pick triple_array_get
+    --  rotate_right; xsimp;
+    --  xapp_simp=>// triple_array_get;
+    --  try xapp_try_subst
+    --  first
+    --    | done
+    --    | all_goals try srw wp_equiv
+    --      all_goals try subst_vars)
+    -- xapp triple_array_get ; omega }
   xwp
   xval ; xsimp
   srw get_out_of_bounds=> //
@@ -581,6 +583,7 @@ lemma set_out_of_bounds (L : List val) i v :
   move=> > ? > ?
   scase: i ; all_goals sdone
 
+#check List.set
 lemma triple_array_default_set L (p : loc) (i : Int) (v : val) :
   triple [lang| p[i] := v]
     (harray L p)
@@ -590,6 +593,7 @@ lemma triple_array_default_set L (p : loc) (i : Int) (v : val) :
     xapp triple_array_length ; xwp
     xapp triple_lt ; xwp
     xif=> /== ?
+    -- { xapp triple_array_set }
     all_goals sorry -- triple not true
 
 /- Rules and definitions for integer arrays -/
