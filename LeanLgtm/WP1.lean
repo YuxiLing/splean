@@ -807,15 +807,15 @@ macro "xsimp_no_cancel_wand" : tactic =>
   `(tactic| (
     xsimp_start
     repeat' xsimp_step_no_cancel
-    try hsimp
     try rev_pure
+    try hsimp
   ))
 
 section xapp
 
 macro "xapp_simp" : tactic => do
   `(tactic|
-      first | apply xapp_simpl_lemma
+      first | apply xapp_simpl_lemma; try hsimp
             | xsimp_no_cancel_wand; try unfold protect; xapp_try_clear_unit_result)
 
 macro "xapp_pre" : tactic => do
@@ -1047,7 +1047,6 @@ lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
       sby xval }
     move=> i ? ih ?
     xchange hs
-    unfold OfNat.ofNat instOfNat instOfNatNat=> /==
     scase_if=> // ?; rotate_left; omega
     xseq
     xchange Mb;

@@ -51,7 +51,13 @@ lemma star_post_empty (Q : α -> hprop) :
 attribute [heapSimp] hstar_hempty_l hstar_hempty_r
                      hstar_assoc star_post_empty hwand_hempty_l
 
-macro "hsimp" : tactic => `(tactic| simp only [heapSimp])
+@[heapSimp]
+lemma foo : (@OfNat.ofNat ℕ n _) = (n : ℤ) := rfl
+@[heapSimp]
+lemma foo' : (@OfNat.ofNat ℤ n _) = (n : ℤ) := rfl
+
+
+macro "hsimp" : tactic => `(tactic| (simp only [heapSimp]; try dsimp))
 
 
 /- **============ `xsimp` implementation ============** -/
@@ -891,8 +897,8 @@ macro "xpull" : tactic =>
   `(tactic| (
     xpull_start
     repeat' xsimp_step
-    hsimp
     try rev_pure
+    hsimp
   ))
 
 elab "hide_mvars" : tactic => do
@@ -909,9 +915,9 @@ macro "xsimp" : tactic =>
   `(tactic| (
     xsimp_start
     repeat xsimp_step
-    try hsimp
     try rev_pure
     try hide_mvars
+    try hsimp
     rotate_left
 
   ))
@@ -922,8 +928,8 @@ elab "xsimp" ls:hints : tactic => do
     hintExt.set hs.toList
     {| xsimp_start
        repeat xsimp_step
-       try hsimp
        try rev_pure
+       try hsimp
        rotate_left
         |}
   | _ => throwError "xsimp: unreachable"

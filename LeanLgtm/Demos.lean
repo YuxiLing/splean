@@ -13,12 +13,31 @@ lang_def incr :=
     let m := n + 1 in
     p := m
 
+#hint_xapp triple_lt
+#hint_xapp triple_get
+#hint_xapp triple_ref
+#hint_xapp triple_add
+#hint_xapp triple_set
+#hint_xapp triple_free
+
+
+-- set_option pp.all true
+-- set_option pp.universes false
+-- set_option pp.fullNames false
+-- set_option pp.coercions false
 @[xapp]
 lemma triple_incr (p : loc) (n : Int) :
   {p ~~> n}
   [incr(p)]
   {p ~~> n + 1} := by
   sdo 3 (xwp; xapp)
+
+  -- xapp_nosubst
+
+
+
+  -- xwp; xapp
+  -- xwp; xapp
 
 lang_def mysucc :=
   fun n =>
@@ -53,20 +72,9 @@ lemma triple_addp (p q : loc) (m n : Int) :
   [addp p q]
   { p ~~> n + m ∗ q ~~> m } := by
   xwp; xapp=> ?
-  xfor (fun i => p ~~> n + i)
+  xfor (fun i => p ~~> n + i)=> //
   { move=> ? _; xapp; xsimp; omega }
-  xapp_pre
-  eapply xapp_lemma; xapp_pick;
-  rotate_right;
-  xsimp_start
-  xsimp_step
-  xsimp_step
-  xsimp_step
-  xsimp_step
-  xsimp_step
-  xsimp_step
-  xsimp_step
-  xapp; xsimp
+  xapp
 
 
 lang_def mulp :=
@@ -86,7 +94,6 @@ def unloc : val -> loc | val_loc v => v | _ => panic! "unloc"
 
 instance : Coe val loc := ⟨unloc⟩
 
-abbrev lock (a : α) := a
 
 -- instance : Coe Prop hprop := ⟨hpure⟩
 
@@ -99,19 +106,21 @@ open Lean Elab Command Term Meta Tactic
 macro_rules | `(tactic| ssr_triv ) => `(tactic| congr; omega)
 macro_rules | `(tactic| ssr_triv ) => `(tactic| constructor=> //)
 
-#hint_xapp triple_lt
 lemma triple_mulp (p q : loc) (m n : Int) :
   { p ~~> n ∗ q ~~> m ∗ ⌜m > 0 ∧ n >= 0⌝ }
   [mulp p q]
   {ans, ⌜ans = n * m⌝ ∗ ⊤ } := by
-  xwp; xapp=> ? i
+  xwp; xapp; hsimp=> ? i
   xwp; xapp=> ans
   xwp; xapp
   xwhile_up (fun b j => p ~~> n ∗ q ~~> m ∗ i ~~> j ∗ ans ~~> n * j ∗ ⌜(b = decide (j < m)) ∧ 0 <= j ∧ j <= m⌝) m
-  { xsimp=> // }
+  { xsimp=> //
+    sdo 4 hsimp=>// }
   { sby move=>>; xwp; xapp=> ?; xapp; xsimp }
-  { move=> X; xwp; xapp=> []??
-    xapp; xsimp=> //
+  { move=> X; xwp; xapp=> []?
+    (sdo 3 hsimp)=> ?
+    xapp; xsimp=> // <;> try (sdo 4 hsimp)=> //
+    unfold Nat.cast=> /==
     sby srw Int.mul_add }
   move=> ? /=; xsimp=> a /== * -- here we need to do [xsimp] before [xapp]
                                -- to introduce variable [a], which is needed
