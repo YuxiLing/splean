@@ -112,13 +112,6 @@ lemma triple_alloc (n : Int) :
 
 /- Implementing absolute value operator -/
 
-lang_def val_abs :=
-  fun i =>
-    let c := i < 0 in
-    let m := 0 - 1 in
-    let j := m * i in
-    if c then j else i
-
 lemma nonneg_eq_abs (n : Int) :
   0 ≤ n → n.natAbs = n := by omega
 
@@ -141,8 +134,6 @@ lemma triple_abs (i : Int) :
 
 /- Low-level Implementation of arrays -/
 
-
-
 def val_array_get : val := [lang|
   fun p i =>
     let p1 := p ++ 1 in
@@ -156,23 +147,11 @@ def val_array_set : val := [lang|
     q := v ]
 
 
-@[app_unexpander default_get] def unexpandGet : Lean.PrettyPrinter.Unexpander
-  | `($(_) [lang| $p] [lang| $i]) => `([lang| $p[$i]])
-  | `($(_) $p:ident $i:ident) => `([lang| $p:ident[$i:ident]])
-  | `($(_) $p:ident $i:num) => `([lang| $p:ident[$i:num]])
-  | _ => throw ( )
-
-@[app_unexpander default_set] def unexpandSet : Lean.PrettyPrinter.Unexpander
-  | `($(_) [lang| $p] [lang| $i] [lang| $v]) => `([lang| $p[$i] := $v])
-  | _ => throw ( )
-
-@[app_unexpander val_array_make] def unexpandArrMake : Lean.PrettyPrinter.Unexpander
-  | `($(_) [lang| $n] [lang| $v]) => `([lang| mkarr $n, $v])
-  | _ => throw ( )
+/- Syntax for array operations -/
 
 -- set_option pp.notation false
 #check [lang|
-  let arr := mkarr 5, 1 in
+  let arr := mkarr 5 1 in
   arr[4] := 2 ;
   arr[3]
   ]
@@ -528,7 +507,16 @@ lemma triple_array_default_get (p : loc) (i : Int) :
   xapp triple_array_length ; xwp
   xapp triple_lt ; xsimp ; subst x ; xwp
   xif=> /== ?
-  { apply triple_array_get ; omega }
+  { xtriple ; srw -int_index_eq
+    (xapp_pre
+     eapply xapp_lemma; xapp_pick triple_array_get
+     rotate_right; xapp_simp=>// triple_array_get;
+     try xapp_try_subst
+     first
+       | done
+       | all_goals try srw wp_equiv
+         all_goals try subst_vars)
+    xapp triple_array_get ; omega }
   xwp
   xval ; xsimp
   srw get_out_of_bounds=> //
@@ -559,6 +547,12 @@ lemma triple_array_default_set L (p : loc) (i : Int) (v : val) :
     all_goals sorry -- triple not true
 
 /- Rules and definitions for integer arrays -/
+
+lemma getElem!_nil_intint (n : Int) :
+  ([] : List Int)[n]! = default := by sdone
+
+lemma getElem!_nil_intval (n : Int) :
+  ([] : List val)[n]! = default := by sdone
 
 def harray_int (L : List Int) : loc → hprop :=
   harray (L.map val_int)
