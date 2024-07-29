@@ -181,7 +181,7 @@ by
   srw triple=>? ![?? hs ? hDisj hU] ; srw hU
   apply eval_conseq
   { apply (eval_frame _ _ _ _ (hEval _ hs) hDisj) =>// }
-  { sorry }
+  { sby unfold qstar ; xsimp ; xsimp => ? /= }
 
 
 /- Extraction Rules -/
@@ -273,7 +273,7 @@ lemma triple_val_minimal v :
   triple (trm_val v) emp (fun r ↦ ⌜r = v⌝) :=
 by
   apply triple_val
-  sorry
+  xsimp
 
 lemma triple_fun x t1 H Q :
   H ==> Q (val_fun x t1) →
@@ -315,7 +315,7 @@ lemma triple_let_val x v1 t2 H Q :
 by
   move=> ?
   apply triple_let _ _ _ (fun v ↦ ⌜v = v1⌝ ∗ H)
-  { apply triple_val ; sorry }
+  { apply triple_val ; xsimp }
   move=> ?
   sby apply triple_hpure
 
@@ -409,11 +409,11 @@ by
 lemma triple_free p v:
   triple (trm_app val_free (val_loc p))
     (p ~~> v)
-    (fun r ↦ emp) :=
+    (fun _ ↦ emp) :=
 by
   apply (triple_conseq _ _ _ _ _ (triple_free' p v))
   { sdone }
-  sorry
+  xsimp ; xsimp
 
 
 /- Rules for Other Primitive Operations -/
