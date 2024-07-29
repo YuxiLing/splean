@@ -693,22 +693,35 @@ elab_rules : term
       let x <- `(trm_var $(%x))
       elabTerm x none
 
+def val_abs : val := [lang|
+  fun i =>
+    let c := i < 0 in
+    let m := 0 - 1 in
+    let j := m * i in
+    if c then j else i ]
+
 def val_array_length : val := [lang|
   fun p => !p ]
 
 def default_get := [lang|
-  fun p i =>
-    let b := 0 <= i in
+  fun p i d =>
+    let n := val_abs i in
+    let l := val_array_length p in
+    let b := n < l in
     if b then
-      let L := val_array_length p in
-      let b2 := i < L in
-      if b2 then
-        val_array_get p i
-      else
-        { panic! "Index out of bounds" }
-    else { panic! "Index out of bounds" }]
+      val_array_get p n
+    else
+      d ]
 
-def default_set : val := sorry
+def default_set : val := [lang|
+  fun p i v =>
+      let n := val_abs i in
+      let L := val_array_length p in
+      let b := i < L in
+      if b then
+        val_array_set p n v
+      else
+        () ]
 
 def val_array_fill : val := [lang|
   fix f p i n v =>
@@ -730,7 +743,8 @@ def val_array_make : val := [lang|
 
 macro_rules
   | `([lang| len $p])                => `(trm_val val_array_length [lang| $p])
-  | `([lang| $arr[$i]])              => `(trm_val default_get [lang| $arr] [lang| $i])
+  | `([lang| $arr[$i]])              => `(trm_val default_get [lang| $arr] [lang| $i] [lang| ()])
+  | `([lang| $arr[$i]($d)])           => `(trm_val default_get [lang| $arr] [lang| $i] [lang| $d])
   | `([lang| $arr[$i] := $v])        => `(trm_app default_set [lang| $arr] [lang| $i] [lang| $v])
   | `([lang| mkarr $n:lang $v:lang]) => `(trm_val val_array_make [lang| $n] [lang| $v])
 
@@ -799,15 +813,17 @@ macro_rules
     match app with
     | `([bop| $bop].trm_app [lang| $t1]) => `([lang| $t1 $bop $t2])
     | `([lang| $t1]) => `([lang| $t1 $t2])
-
-    | `(trm_app default_get [lang| $t1]) => `([lang| $t1[$t2]])
     | `(default_get) => return x
-
+    | `(trm_app default_get [lang| $_]) => return x
     | `(default_set) => return x
     | `(trm_app default_set [lang| $_]) => return x
     | `(trm_app $app [lang| $t1]) =>
       match app with
       | `(trm_app default_set [lang| $t0]) => `([lang| $t0[$t1] := $t2])
+      | `(trm_app default_get [lang| $t0]) =>
+        match t2 with
+        | `([lang| val_unit]) => `([lang| $t0[$t1]])
+        | _ => `([lang| $t0[$t1]($t2)])
       | _ => throw ( )
     | _ => throw ( )
   | `($(_) [bop| $bop] [lang| $t1]) => return x
@@ -950,6 +966,7 @@ macro_rules
 
 -- set_option pp.notation false
 #check [lang| x[3]]
+#check [lang| x[7](0)]
 #check [lang| x[3] := 5; mkarr 5 5]
 
 #check fun (p : loc)  => [lang|
