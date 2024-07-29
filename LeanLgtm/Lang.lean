@@ -684,6 +684,18 @@ def val_abs : val := [lang|
     let j := m * i in
     if c then j else i ]
 
+def val_array_get : val := [lang|
+  fun p i =>
+    let p1 := p ++ 1 in
+    let q := p1 ++ i in
+    !q ]
+
+def val_array_set : val := [lang|
+  fun p i v =>
+    let p1 := p ++ 1 in
+    let q := p1 ++ i in
+    q := v ]
+
 def val_array_length : val := [lang|
   fun p => !p ]
 
@@ -805,8 +817,9 @@ macro_rules
       match app with
       | `(trm_app default_set [lang| $t0]) => `([lang| $t0[$t1] := $t2])
       | `(trm_app default_get [lang| $t0]) =>
+        -- dbg_trace t2
         match t2 with
-        | `([lang| val_unit]) => `([lang| $t0[$t1]])
+        | `(lang| ()) => `([lang| $t0[$t1]])
         | _ => `([lang| $t0[$t1]($t2)])
       | _ => throw ( )
     | _ => throw ( )
