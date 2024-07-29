@@ -610,11 +610,12 @@ syntax "-" : uop
 syntax "ref" : uop
 syntax "free" : uop
 syntax "not" : uop
+syntax "mkarr" : uop
 
 syntax "len" : uop
 syntax lang noWs "[" lang "]" : lang
 -- syntax lang noWs "[" lang "] := " lang : lang
-syntax "mkarr" lang ", " lang : lang
+-- syntax "mkarr" lang ", " lang : lang
 
 syntax "[lang|\n" lang "]" : term
 syntax "[bop|\n" bop "]" : term
@@ -622,7 +623,6 @@ syntax "[uop|\n" uop "]" : term
 
 
 local notation "%" x => (Lean.quote (toString (Lean.Syntax.getId x)))
-
 
 macro_rules
   | `([lang| ()])                       => `(trm_val (val_unit))
@@ -667,7 +667,6 @@ macro_rules
   | `([lang| ($t)]) => `([lang| $t])
   | `([lang| {$t}]) => `(val_int $t)
 
-
 open Lean Elab Term
 elab_rules : term
   | `([lang| $x:ident]) => do
@@ -677,6 +676,48 @@ elab_rules : term
     catch _ => do
       let x <- `(trm_var $(%x))
       elabTerm x none
+
+def val_array_length : val := [lang|
+  fun p => !p ]
+
+def default_get := [lang|
+  fun p i =>
+    let b := 0 <= i in
+    if b then
+      let L := val_array_length p in
+      let b2 := i < L in
+      if b2 then
+        val_array_get p i
+      else
+        { panic! "Index out of bounds" }
+    else { panic! "Index out of bounds" }]
+
+def default_set : val := sorry
+
+def val_array_fill : val := [lang|
+  fix f p i n v =>
+    let b := n > 0 in
+    if b then
+      ((val_array_set p) i) v ;
+      let m := n - 1 in
+      let j := i + 1 in
+      f p j m v
+    end ]
+
+def val_array_make : val := [lang|
+  fun n v =>
+    let m := n + 1 in
+    let p := alloc m in
+    (val_set p) n ;
+    (((val_array_fill p) 0) n) v ;
+    p ]
+
+macro_rules
+  | `([lang| len $p])                => `(trm_val val_array_length [lang| $p])
+  | `([lang| $arr[$i]])              => `(trm_val default_get [lang| $arr] [lang| $i])
+  | `([lang| $arr[$i] := $v])        => `(trm_app default_set [lang| $arr] [lang| $i] [lang| $v])
+  | `([lang| mkarr $n:lang $v:lang]) => `(trm_val val_array_make [lang| $n] [lang| $v])
+
 
 @[app_unexpander val_unit] def unexpandUnitL : Lean.PrettyPrinter.Unexpander
   | `($(_)) => `([lang| ()])
@@ -717,7 +758,10 @@ elab_rules : term
   match x with
   | `($(_) $x:ident) =>
     match x with
+    | `(default_get) => `($x)
+    | `(default_set) => `($x)
     | `(val_unit) => `([lang| ()])
+    | `(val_array_make) => `([uop| mkarr])
     | _ => `([lang| $x:ident])
   | `($(_) $x) =>
     match x with
@@ -731,35 +775,24 @@ elab_rules : term
   | _ => throw ( )
 
 @[app_unexpander trm_app] def unexpandApp : Lean.PrettyPrinter.Unexpander := fun x => do
+  -- dbg_trace x
   match x with
-  | `($(_) [uop|$uop] [lang| $t]) =>
-    match uop with
-    | `(uop| ref)  => `([lang| ref $t])
-    | `(uop| free) => `([lang| free $t])
-    | `(uop| not)  => `([lang| not $t])
-    | `(uop| !)    => `([lang| !$t])
-    | `(uop| -)    => `([lang| -$t])
-    | `(uop| len)  => `([lang| len $t])
-    | _ => throw ( )
+  | `($(_) [uop|$uop] [lang| $t]) => `([lang| $uop:uop$t])
   | `($(_) $app [lang| $t2]) =>
     -- dbg_trace app
     match app with
-    | `([bop| $bop].trm_app [lang| $t1]) =>
-      match bop with
-      | `(bop| :=) => `([lang| $t1 := $t2])
-      | `(bop| +) => `([lang| $t1 + $t2])
-      | `(bop| *) => `([lang| $t1 * $t2])
-      | `(bop| -) => `([lang| $t1 - $t2])
-      | `(bop| /) => `([lang| $t1 / $t2])
-      | `(bop| <) => `([lang| $t1 < $t2])
-      | `(bop| >) => `([lang| $t1 > $t2])
-      | `(bop| <=) => `([lang| $t1 <= $t2])
-      | `(bop| >=) => `([lang| $t1 >= $t2])
-      | `(bop| =) => `([lang| $t1 = $t2])
-      | `(bop| !=) => `([lang| $t1 != $t2])
-      | `(bop| mod) => `([lang| $t1 mod $t2])
-      | _ => throw ( )
+    | `([bop| $bop].trm_app [lang| $t1]) => `([lang| $t1 $bop $t2])
     | `([lang| $t1]) => `([lang| $t1 $t2])
+
+    | `(trm_app default_get [lang| $t1]) => `([lang| $t1[$t2]])
+    | `(default_get) => return x
+
+    | `(default_set) => return x
+    | `(trm_app default_set [lang| $_]) => return x
+    | `(trm_app $app [lang| $t1]) =>
+      match app with
+      | `(trm_app default_set [lang| $t0]) => `([lang| $t0[$t1] := $t2])
+      | _ => throw ( )
     | _ => throw ( )
   | `($(_) [bop| $bop] [lang| $t1]) => return x
   -- | `($(_) [lang| $t] [lang| $t1]) =>
@@ -887,8 +920,9 @@ elab_rules : term
     `([lang| fix $f $xs* => $t])
   | _ => throw ( )
 
-
--- #check [lang| 1-1]
+-- set_option pp.notation false
+#check [lang| x[3]]
+#check [lang| x[3] := 5; mkarr 5 5]
 
 #check fun (p : loc)  => [lang|
   fix f y z =>
