@@ -382,19 +382,39 @@ lemma triple_array_fill (n : Int) L (p : loc) (i : Int) (v : val) :
     sorry }
   sdone
 
+lemma of_nat_nat n :
+  OfNat.ofNat n = n := by sdone
+
+lemma nat_abs_succ (n : Int) :
+  n ≥ 0 → (n + 1).natAbs = n.natAbs + 1 := by omega
+
+lemma make_list_len (n : Int) (v : val) :
+  (make_list n.natAbs v).length = n.natAbs := by
+  elim: n=> >
+  { elim: a=> > //
+    move=> ?
+    sby srw make_list }
+  elim: a=> > //
+  move=> ? /=
+  sby srw make_list
+
 lemma triple_array_make_hseg (n : Int) (v : val) :
   n >= 0 →
   triple (trm_app val_array_make n v)
     emp
-    (funloc p ↦ hheader n p ∗ hseg (make_list (n.natAbs) v) p 0) := by
-  unfold val_array_make
+    (funloc p ↦ hheader n.natAbs p ∗ hseg (make_list (n.natAbs) v) p 0) := by
   xwp
   xapp triple_add ; xwp
-  xlet ; xwp
   xapp triple_alloc ; xwp
-  xseq ; xwp
-  sorry
-  unfold OfNat.ofNat; simp [instOfNat]
+  rw [nat_abs_succ, make_list, hrange]
+  srw ?of_nat_nat //== ; any_goals omega
+  xapp ; xwp
+  srw -hheader_eq -(hseg_eq_hrange (make_list n.natAbs val_uninit) x_1 0)
+  xapp triple_array_fill ; xwp
+  { xval ; xsimp => //
+    apply himpl_of_eq
+    sby srw nonneg_eq_abs }
+  srw make_list_len
   omega
 
 lemma triple_array_get L (p : loc) (i : Int) : --(v : 0 <= i ∧ i < L.length) :
@@ -424,16 +444,6 @@ lemma triple_array_length L (p : loc) :
     srw harray
     xapp triple_array_length_hheader
     xsimp
-
-lemma make_list_len (n : Int) (v : val) :
-  (make_list n.natAbs v).length = n.natAbs := by
-  elim: n=> >
-  { elim: a=> > //
-    move=> ?
-    sby srw make_list }
-  elim: a=> > //
-  move=> ? /=
-  sby srw make_list
 
 lemma triple_array_make (n : Int) (v : val) :
   n ≥ 0 →
@@ -503,7 +513,8 @@ lemma get_out_of_bounds {_ : Inhabited α} (L : List α) (i : Int) :
 --   { xapp triple_array_get }
 --   xwp
 --   xval ; xsimp
---   srw get_out_of_bounds=> //
+--   srw ?get_out_of_bounds=> //
+--   sorry
 
 
 lemma set_keep_length (L : List val) i v :
