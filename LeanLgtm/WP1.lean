@@ -50,7 +50,7 @@ by
   srw hU wp
   apply eval_conseq
   { sby apply eval_frame }
-  sorry
+  sby unfold qstar ; xsimp ; xsimp
 
 
 /- Corollaries -/
@@ -61,23 +61,26 @@ by
   apply himpl_trans
   { apply wp_frame }
   apply wp_conseq
-  sorry
-  -- apply qwand_cancel
+  apply qwand_cancel
 
 lemma wp_conseq_frame t H Q1 Q2 :
   Q1 ∗∗ H ===> Q2 →
   (wp t Q1) ∗ H ==> (wp t Q2) :=
 by
   srw -qwand_equiv
-  move=> ?
-  sorry
+  move=> M
+  apply himpl_trans ((wp t Q1) ∗ (Q1 -∗∗ Q2))
+  { sby apply himpl_frame_r }
+  apply wp_ramified
+
 
 lemma wp_ramified_trans t H Q1 Q2 :
   H ==> (wp t Q1) ∗ (Q1 -∗∗ Q2) →
   H ==> (wp t Q2) :=
 by
-  move=> ?
-  sorry
+  move=> M
+  xchange M
+  apply wp_ramified
 
 
 /- ---------- Weakest-Precondition Reasoning Rules for Terms ---------- -/
@@ -351,26 +354,30 @@ lemma mkstruct_ramified Q1 Q2 F :
   (mkstruct F Q1) ∗ (Q1 -∗∗ Q2) ==> (mkstruct F Q2) :=
 by
   srw []mkstruct
-  sorry --xsimp
+  xsimp
 
 lemma mkstruct_erase Q F :
   F Q ==> mkstruct F Q :=
 by
   srw mkstruct
-  sorry --xsimp
+  xsimp
 
 lemma mkstruct_conseq F Q1 Q2 :
   Q1 ===> Q2 →
   mkstruct F Q1 ==> mkstruct F Q2 :=
 by
-  srw []mkstruct => ?
-  sorry --xpull
+  srw []mkstruct => h
+  xpull=> ?
+  unfold qimpl at *
+  xsimp
+  sdone
 
 lemma mkstruct_frame F H Q :
   (mkstruct F Q) ∗ H ==> mkstruct F (Q ∗∗ H) :=
 by
   srw []mkstruct
-  sorry --xpull
+  xpull=> ?
+  xsimp
 
 lemma mkstruct_monotone F1 F2 Q :
   (forall Q, F1 Q ==> F2 Q) →
@@ -378,7 +385,9 @@ lemma mkstruct_monotone F1 F2 Q :
 by
   move=> ?
   srw []mkstruct
-  sorry --xpull
+  xpull=> ?
+  xsimp
+  sdone
 
 
 /- Auxiliary Definitions for [wpgen] -/
@@ -470,7 +479,8 @@ by
   move=> ! ?
   apply himpl_antisym
   { srw mkstruct
-    sorry /- xpull -/ }
+    xpull=> ?
+    apply wp_ramified }
   apply mkstruct_erase
 
 lemma mkstruct_sound t F :
@@ -550,26 +560,32 @@ lemma wpgen_if_sound F1 F2 t0 t1 t2 :
 by
   srw []formula_sound => ?? Q
   srw wpgen_if
-  xpull; subst_vars
-  sorry -- xpull
+  xpull=> >
+  apply himpl_trans (wp (trm_if b t1 t2) Q)=> //
+  unfold wp at *
+  scase: b=> /== ??
+  all_goals sby apply eval.eval_if
 
 lemma wpgen_app_sound t :
   formula_sound t (wpgen_app t) :=
 by
- move=> ??
+ move=> ?
  srw wpgen_app
- sorry -- xpull
+ xpull=> >?
+ sby srw wp_equiv
 
-lemma qimpl_wp_of_triple : forall t F,
-  (forall Q, triple t (F Q) Q) ->
-  F ===> wp t := by sorry
+lemma qimpl_wp_of_triple t F :
+  (forall Q, triple t (F Q) Q) →
+  F ===> wp t := by sdone
 
-lemma triple_for_raw : forall (x:var) (n1 n2: Int) t3 H (Q:val->hprop),
+lemma triple_for_raw (x:var) (n1 n2: Int) t3 H (Q:val->hprop) :
   triple (
     if (n1 <= n2)
       then (trm_seq (subst x n1 t3) (trm_for x (val_int $ n1+1) n2 t3))
       else val_unit) H Q ->
-  triple (trm_for x n1 n2 t3) H Q := by sorry
+  triple (trm_for x n1 n2 t3) H Q := by
+  unfold triple=> ?>?
+  sby constructor
 
 lemma triple_mkstruct_pre : forall t (F:formula) Q,
   (forall Q, triple t (F Q) Q) ->
@@ -633,8 +649,9 @@ lemma triple_of_wpgen t H Q :
   H ==> wpgen t Q →
   triple t H Q :=
 by
-  srw -wp_equiv=> ?
-  sorry -- xchange
+  srw -wp_equiv=> h
+  xchange h
+  apply himpl_wpgen_wp
 
 
 /- ################################################################# -/
@@ -647,54 +664,85 @@ by
 /- ================================================================= -/
 /-* ** Lemmas for Tactics to Manipulate [wpgen] Formulae -/
 
-lemma xstruct_lemma : forall F H Q,
-H ==> F Q ->
-H ==> mkstruct F Q := by sorry
+lemma xstruct_lemma F H Q :
+  H ==> F Q →
+  H ==> mkstruct F Q := by
+  move=> h
+  xchange h
+  unfold mkstruct
+  xsimp
 
-lemma xval_lemma : forall v H Q,
-H ==> Q v ->
-H ==> wpgen_val v Q := by sorry
+lemma xval_lemma v H Q :
+  H ==> Q v →
+  H ==> wpgen_val v Q := by
+  move=> h
+  xchange h
 
-lemma xlet_lemma : forall H F1 F2of Q,
-  H ==> F1 (fun v => F2of v Q) ->
+lemma xlet_lemma H F1 F2of Q :
+  H ==> F1 (fun v => F2of v Q) →
   H ==> wpgen_let F1 F2of Q :=
-by sorry
+by
+  move=> h
+  xchange h
 
-lemma xseq_lemma : forall H F1 F2 Q,
-  H ==> F1 (fun v => F2 Q) ->
+lemma xseq_lemma H F1 F2 Q :
+  H ==> F1 (fun _ => F2 Q) →
   H ==> wpgen_seq F1 F2 Q :=
-by sorry
+by
+  move=> h
+  xchange h
 
-lemma xif_lemma : forall b H F1 F2 Q,
-  (b = true -> H ==> F1 Q) ->
-  (b = false -> H ==> F2 Q) ->
+lemma xif_lemma b H F1 F2 Q :
+  (b = true -> H ==> F1 Q) →
+  (b = false -> H ==> F2 Q) →
   H ==> wpgen_if b F1 F2 Q :=
-by sorry
+by
+  scase: b
+  move=> /== h
+  sby all_goals xchange h ; unfold wpgen_if ; xsimp
 
-lemma xapp_lemma : forall t Q1 H1 H Q,
-  triple t H1 Q1 ->
-  H ==> H1 ∗ (Q1 -∗∗ protect Q) ->
+lemma xapp_lemma t Q1 H1 H Q :
+  triple t H1 Q1 →
+  H ==> H1 ∗ (Q1 -∗∗ protect Q) →
   H ==> wpgen_app t Q :=
-by sorry
+by
+  move=> T M
+  unfold wpgen_app
+  xsimp
+  apply triple_ramified_frame ; apply T
+  sdone
 
-lemma xfun_spec_lemma : forall (S:val->Prop) H Q Fof,
+lemma xfun_spec_lemma (S:val->Prop) H Q Fof :
   (forall (vf : val),
-    (forall (vx : val) H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') ->
-    S vf) ->
-  (forall vf, S vf -> (H ==> Q vf)) ->
+    (forall (vx : val) H' Q', (H' ==> Fof vx Q') → triple (trm_app vf vx) H' Q') →
+    S vf) →
+  (forall vf, S vf -> (H ==> Q vf)) →
   H ==> wpgen_fun Fof Q :=
-by sorry
+by
+  move=> h1 h2
+  unfold wpgen_fun
+  xsimp=> ?
+  apply h2 ; apply h1=> > K
+  srw -wp_equiv ; xchange K
+  sdone
 
-lemma xfun_nospec_lemma : forall H Q Fof,
+lemma xfun_nospec_lemma  H Q Fof :
 (forall (vf : val),
-    (forall (vx : val) H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') ->
-    (H ==> Q vf)) ->
+    (forall (vx : val) H' Q', (H' ==> Fof vx Q') → triple (trm_app vf vx) H' Q') →
+    (H ==> Q vf)) →
 H ==> wpgen_fun Fof Q :=
-by sorry
+by
+  move=> M
+  unfold wpgen_fun
+  xsimp=> ?
+  apply M=>  > K
+  srw -wp_equiv
+  xchange K
+  sdone
 
-lemma xwp_lemma_fun : forall v1 v2 x t H Q,
-  v1 = val_fun x t ->
-  H ==> wpgen (subst x v2 t) Q ->
+lemma xwp_lemma_fun v1 v2 x t H Q :
+  v1 = val_fun x t →
+  H ==> wpgen (subst x v2 t) Q →
   triple (trm_app v1 v2) H Q :=
 by sorry
 
@@ -705,17 +753,21 @@ lemma xwp_lemma_fix : forall v1 v2 f x t H Q,
   triple (trm_app v1 v2) H Q :=
 by sorry
 
-lemma xtriple_lemma : forall t H (Q:val->hprop),
-  H ==> mkstruct (wpgen_app t) Q ->
+lemma xtriple_lemma t H (Q:val → hprop) :
+  H ==> mkstruct (wpgen_app t) Q →
   triple t H Q :=
-by sorry
-
+by
+  move=> M
+  srw -wp_equiv
+  xchange M
+  unfold mkstruct wpgen_app
+  xpull=> >
+  srw -wp_equiv => N
+  xchange N
+  apply wp_ramified
   -- -- fix here!
   -- xsimp
   -- rev_pure
-
-
-
 
 
 /- ================================================================= -/
@@ -791,7 +843,9 @@ elab "xtriple_if_needed" : tactic => do
 
 lemma xapp_simpl_lemma (F : formula) :
   H ==> F Q ->
-  H ==> F Q ∗ (Q -∗∗ protect Q) := by sorry
+  H ==> F Q ∗ (Q -∗∗ protect Q) := by
+  move=> M
+  xchange M ; xsimp
 
 elab "xsimp_step_no_cancel" : tactic => do
   let xsimp <- XSimpRIni
@@ -986,7 +1040,7 @@ lemma xwp_lemma_fixs (xs : List _) (vs : List val) :
   triple t H Q := by sorry
 
 lemma wp_of_wpgen :
-  H ==> wpgen t Q ->
+  H ==> wpgen t Q →
   H ==> wp t Q := by sorry
 
 

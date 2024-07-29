@@ -181,7 +181,7 @@ by
   srw triple=>? ![?? hs ? hDisj hU] ; srw hU
   apply eval_conseq
   { apply (eval_frame _ _ _ _ (hEval _ hs) hDisj) =>// }
-  { sby unfold qstar ; xsimp ; xsimp => ? /= }
+  { sby unfold qstar ; xsimp ; xsimp }
 
 
 /- Extraction Rules -/
