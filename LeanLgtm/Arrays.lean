@@ -112,8 +112,7 @@ lemma triple_alloc (n : Int) :
 
 /- Low-level Implementation of arrays -/
 
-def val_array_length : val := [lang|
-  fun p => !p ]
+
 
 def val_array_get : val := [lang|
   fun p i =>
@@ -121,64 +120,19 @@ def val_array_get : val := [lang|
     let q := p1 ++ i in
     !q ]
 
-lang_def default_get :=
-  fun p i =>
-    let b := 0 <= i in
-    if b then
-      let L := val_array_length p in
-      let b2 := i < L in
-      if b2 then
-        val_array_get p i
-      else
-        { panic! "Index out of bounds" }
-    else { panic! "Index out of bounds" }
-
 def val_array_set : val := [lang|
   fun p i v =>
     let p1 := p ++ 1 in
     let q := p1 ++ i in
     q := v ]
 
-lang_def default_set :=
-  fun p i v =>
-    let b := 0 <= i in
-    if b then
-      let L := val_array_length p in
-      let b2 := i < L in
-      if b2 then
-        val_array_set p i v
-      else
-        ()
-    else ()
-
-def val_array_fill : val := [lang|
-  fix f p i n v =>
-    let b := n > 0 in
-    if b then
-      ((val_array_set p) i) v ;
-      let m := n - 1 in
-      let j := i + 1 in
-      f p j m v
-    end ]
-
-def val_array_make : val := [lang|
-  fun n v =>
-    let m := n + 1 in
-    let p := alloc m in
-    (val_set p) n ;
-    (((val_array_fill p) 0) n) v ;
-    p ]
-
 /- Syntax for array operations -/
 
-macro_rules
-  | `([lang| len $p])             => `(trm_val val_array_length [lang| $p])
-  | `([lang| $arr[$i]])           => `(trm_val default_get [lang| $arr] [lang| $i])
-  | `([lang| $arr[$i] := $v])     => `(trm_app default_set [lang| $arr] [lang| $i] [lang| $v])
-  | `([lang| mkarr $n, $v])       => `(trm_val val_array_make [lang| $n] [lang| $v])
 
 @[app_unexpander default_get] def unexpandGet : Lean.PrettyPrinter.Unexpander
   | `($(_) [lang| $p] [lang| $i]) => `([lang| $p[$i]])
+  | `($(_) $p:ident $i:ident) => `([lang| $p:ident[$i:ident]])
+  | `($(_) $p:ident $i:num) => `([lang| $p:ident[$i:num]])
   | _ => throw ( )
 
 @[app_unexpander default_set] def unexpandSet : Lean.PrettyPrinter.Unexpander
@@ -560,7 +514,21 @@ lemma triple_array_default_set L (p : loc) (i : Int) (v : val) :
 
 /- Rules and definitions for integer arrays -/
 
-instance: GetElem (List Int) Int Int (fun L i => 0 <= i ∧ i < L.length) := ⟨by sorry⟩
+instance: GetElem (List Int) Int Int (fun L i => i.natAbs < L.length) :=
+  ⟨fun xs i _ => xs[i.natAbs]⟩
+
+example (L : List Int) (i : Int) (_ : i.natAbs < L.length) :
+  L[i.natAbs]! = L[i]! := by
+  rfl
+
+/-
+  · We define [GetElem] instance for [Int] ideceies via [Int.natAbs]. Now this is just
+    def-equal to a regular [GetElem] instance
+  · You have only one lemma `x[i](!) = x[i.natAbs](!)` to facilitate proofs
+  · Now you can use this `[·]!` notation in your lemmas
+  · You dont proof [triple_array_default] lemma, cuz it is just does not hold. Instead you
+    proof [triple_array_int_default] directly
+ -/
 
 def harray_int (L : List Int) : loc → hprop :=
   harray (L.map val_int)
