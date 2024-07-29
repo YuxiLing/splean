@@ -141,8 +141,7 @@ lemma triple_abs (i : Int) :
 
 /- Low-level Implementation of arrays -/
 
-def val_array_length : val := [lang|
-  fun p => !p ]
+
 
 def val_array_get : val := [lang|
   fun p i =>
@@ -150,61 +149,17 @@ def val_array_get : val := [lang|
     let q := p1 ++ i in
     !q ]
 
-def default_get := [lang|
-  fun p i d =>
-    let n := val_abs i in
-    let l := val_array_length p in
-    let b := n < l in
-    if b then
-      val_array_get p n
-    else
-      d ]
-
 def val_array_set : val := [lang|
   fun p i v =>
     let p1 := p ++ 1 in
     let q := p1 ++ i in
     q := v ]
 
-lang_def default_set :=
-  fun p i v =>
-    let n := val_abs i in
-    let L := val_array_length p in
-    let b := i < L in
-    if b then
-      val_array_set p n v
-    else
-      ()
-
-def val_array_fill : val := [lang|
-  fix f p i n v =>
-    let b := n > 0 in
-    if b then
-      ((val_array_set p) i) v ;
-      let m := n - 1 in
-      let j := i + 1 in
-      f p j m v
-    end ]
-
-def val_array_make : val := [lang|
-  fun n v =>
-    let m := n + 1 in
-    let p := alloc m in
-    (val_set p) n ;
-    (((val_array_fill p) 0) n) v ;
-    p ]
-
-/- Syntax for array operations -/
-
-macro_rules
-  | `([lang| len $p])             => `(trm_val val_array_length [lang| $p])
-  | `([lang| $arr[$i]])           => `(trm_val default_get [lang| $arr] [lang| $i] [lang| ()])
-  | `([lang| $arr[$i]($d)])           => `(trm_val default_get [lang| $arr] [lang| $i] [lang| $d])
-  | `([lang| $arr[$i] := $v])     => `(trm_app default_set [lang| $arr] [lang| $i] [lang| $v])
-  | `([lang| mkarr $n, $v])       => `(trm_val val_array_make [lang| $n] [lang| $v])
 
 @[app_unexpander default_get] def unexpandGet : Lean.PrettyPrinter.Unexpander
   | `($(_) [lang| $p] [lang| $i]) => `([lang| $p[$i]])
+  | `($(_) $p:ident $i:ident) => `([lang| $p:ident[$i:ident]])
+  | `($(_) $p:ident $i:num) => `([lang| $p:ident[$i:num]])
   | _ => throw ( )
 
 @[app_unexpander default_set] def unexpandSet : Lean.PrettyPrinter.Unexpander
@@ -604,12 +559,6 @@ lemma triple_array_default_set L (p : loc) (i : Int) (v : val) :
     all_goals sorry -- triple not true
 
 /- Rules and definitions for integer arrays -/
-
-lemma getElem!_nil_intint (n : Int) :
-  ([] : List Int)[n]! = default := by sdone
-
-lemma getElem!_nil_intval (n : Int) :
-  ([] : List val)[n]! = default := by sdone
 
 def harray_int (L : List Int) : loc → hprop :=
   harray (L.map val_int)
