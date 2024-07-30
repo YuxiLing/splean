@@ -114,13 +114,11 @@ lemma triple_mulp (p q : loc) (m n : Int) :
   xwp; xapp=> ans
   xwp; xapp
   xwhile_up (fun b j => p ~~> n ∗ q ~~> m ∗ i ~~> j ∗ ans ~~> n * j ∗ ⌜(b = decide (j < m)) ∧ 0 <= j ∧ j <= m⌝) m
-  { xsimp=> //
-    sdo 4 hsimp=>// }
+  { xsimp=> // }
   { sby move=>>; xwp; xapp=> ?; xapp; xsimp }
   { move=> X; xwp; xapp=> []?
     (sdo 3 hsimp)=> ?
-    xapp; xsimp=> // <;> try (sdo 4 hsimp)=> //
-    unfold Nat.cast=> /==
+    xapp; xsimp=> //
     sby srw Int.mul_add }
   move=> ? /=; xsimp=> a /== * -- here we need to do [xsimp] before [xapp]
                                -- to introduce variable [a], which is needed

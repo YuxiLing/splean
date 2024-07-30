@@ -55,6 +55,9 @@ attribute [heapSimp] hstar_hempty_l hstar_hempty_r
 lemma foo : (@OfNat.ofNat ℕ n _) = (n : ℤ) := rfl
 @[heapSimp]
 lemma foo' : (@OfNat.ofNat ℤ n _) = (n : ℤ) := rfl
+@[heapSimp]
+lemma foo'' : (@OfNat.ofNat val n _) = val.val_int (n : ℤ) :=
+  by dsimp only [OfNat.ofNat]
 
 
 macro "hsimp" : tactic => `(tactic| (simp only [heapSimp]; try dsimp))
@@ -685,6 +688,9 @@ def xsimp_apply_intro_names (lem : Name) (xs : Syntax) : TacticM Unit :=
         | _ => throwError "xsimp_l_exists: @ unreachable 1"
   | _ => throwError "xsimp_l_exists: @ unreachable 3"
 
+macro "simpNums" : tactic =>
+  `(tactic| (try simp only [foo, foo', foo''] at *; try dsimp at *))
+
 partial def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit := do
   trace[xsimp] "LHS step"
   match xsimp.hlt, xsimp.hlw with
@@ -696,7 +702,7 @@ partial def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit :=
       revExt.modify (n :: ·)
       {| apply xsimp_l_hpure; intro $n:ident |}
     | `(hstar $h1 $h2)   =>
-      withAssignableSyntheticOpaque {| erw [@hstar_assoc $h1 $h2] |}
+      withAssignableSyntheticOpaque {| erw [@hstar_assoc $h1 $h2]; simpNums |}
       -- rewriteTarget (<- `(@hstar_assoc $h1 $h2)) false
       /- we know that here should be another LHS step -/
       xsimp_step_l (<- XSimpRIni) cancelWand
@@ -766,8 +772,9 @@ partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
       | `(hempty) => {| apply xsimp_r_hempty |}
       | `(hpure $_) => {| apply xsimp_r_hpure |}
       | `(hstar $h1 $h2) =>
-        -- dbg_trace "here: comm"
-        {| erw [@hstar_assoc $h1 $h2] |}
+        {| erw [@hstar_assoc $h1 $h2];
+           simpNums |} -- HACK: Numbers are printed with explicict coercions in the goal.
+                       -- Somehow rewite adds them as well. So we need to remove them
          /- we know that here should be another RHS step -/
         xsimp_step_r (<- XSimpRIni)
       | `(hwand $h1 $_) =>
@@ -1134,6 +1141,12 @@ example:
 example :
   H1 ∗ 2 ~~> v ==> (1 + 1) ~~> v ∗ H1 := by
   xsimp
+
+example :
+  x ~~> 1 ==> y ~~> 2 ∗ x ~~> 1 := by
+  xsimp; sorry
+
+
 
 set_option trace.xsimp true
 

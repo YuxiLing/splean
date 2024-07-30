@@ -1115,8 +1115,8 @@ lemma xwhile_inv_lemma (I : Bool -> α -> hprop)
     H ==> wpgen_while F1 F2 (fun _ => h∃ a, I false a) := by
 
   move=> wf hh hs; xchange hh=> >
-  unfold wpgen_while; xchange mkstruct_erase
-  xsimp=> [rs fs]; move: b
+  unfold wpgen_while; xchange mkstruct_erase=> [rs fs]
+  xsimp; move: b
   apply WellFounded.induction wf a=> a' ih ?
   xchange fs
   apply hs=> // > /ih

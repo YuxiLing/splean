@@ -87,7 +87,7 @@ instance : Coe Int val where
 
 /- Help Lean to treat Nat as val -/
 instance : OfNat val n where
-  ofNat := val.val_unit
+  ofNat := val.val_int n
 
 instance : Coe loc val where
   coe l := val.val_loc l
