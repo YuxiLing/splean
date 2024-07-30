@@ -422,8 +422,7 @@ lemma triple_free p v:
 by
   apply (triple_conseq _ _ _ _ _ (triple_free' p v))
   { sdone }
-  move=> ? ; xsimp ; xsimp
-
+  xsimp ; xsimp
 
 /- Rules for Other Primitive Operations -/
 

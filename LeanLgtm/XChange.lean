@@ -11,7 +11,7 @@ open Lean Elab Command Term Meta Tactic
 /-* *** Tactic [xchange] -/
 
 /-* [xchange] performs rewriting on the LHS of an entailment.
-  Essentially, it applies to a goal of the form [H1 \as  H2 ==> H3],
+  Essentially, it applies to a goal of the form [H1 ∗ H2 ==> H3],
   and exploits an entailment [H1 ==> H1'] to replace the goal with
   [H1' \* H2 ==> H3].
 
