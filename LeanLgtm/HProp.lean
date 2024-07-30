@@ -55,7 +55,19 @@ notation:max "emp" => hempty
 
 infixr:60 " ~~> " => hsingle
 
-infixr:55 " ∗ " => hstar
+
+-- #check HMul
+
+class HStar (α : Type u) (β : Type v) (γ : outParam (Type w)) where
+  /-- `a * b` computes the product of `a` and `b`.
+  The meaning of this notation is type-dependent. -/
+  hStar : α → β → γ
+
+infixr:55 " ∗ " => HStar.hStar
+
+@[default_instance]
+instance : HStar hprop hprop hprop where
+  hStar := hstar
 
 /- This notation sucks (`h` prefix is not uniform across other notations)
    But I dunno know what would be a better one -/
@@ -122,12 +134,23 @@ notation (priority := high) "⊤" => htop
 def qstar {A} (Q : A → hprop) (H : hprop) : A → hprop :=
   fun x => hstar (Q x) H
 
-infixr:54 " ∗∗ " => qstar
+instance (A : Type) : HStar (A → hprop) hprop (A → hprop) where
+  hStar := qstar
 
-infixr:53 " -∗ " => hwand
+-- infixr:54 " ∗ " => qstar
 
-infix:53 " -∗∗ " => qwand
+class HWand (α : Type u) (β : Type v) (γ : outParam (Type w)) where
+  /-- `a -∗ b` is the separating implication between `a` and `b`. -/
+  hWand : α → β → γ
 
+infixr:55 " -∗ " => HWand.hWand
+
+@[default_instance]
+instance : HWand hprop hprop hprop where
+  hWand := hwand
+
+instance (α : Type) : HWand (α → hprop) (α → hprop) hprop where
+  hWand := qwand
 
 /- ============ Properties of Separation Logic Operators ============ -/
 
@@ -239,7 +262,7 @@ by
   sby move=> ? [? ![]]
 
 lemma hstar_hforall A (J : A → hprop) H :
-  (hforall J) ∗ H ==> hforall (J ∗∗ H) :=
+  (hforall J) ∗ H ==> hforall (J ∗ H) :=
 by
   move=> ? [h1 ![h2 /hforall] * ?]
   sby exists h1, h2
@@ -428,10 +451,13 @@ by
 
 /- -------------------- Properties of [hwand] -------------------- -/
 
+lemma hwandE :
+  H1 -∗ H2 = hexists (fun H0 => H0 ∗ hpure ((H1 ∗ H0) ==> H2)) := rfl
+
 lemma hwand_equiv H0 H1 H2 :
   (H0 ==> H1 -∗ H2) ↔ (H1 ∗ H0 ==> H2) :=
 by
-  srw hwand ; apply Iff.intro
+  srw hwandE ; apply Iff.intro
   { srw hstar_comm=> ?
     apply himpl_hstar_trans_l=>//
     srw hstar_hexists
@@ -520,35 +546,41 @@ by
 
 /- ----------------- Properties of [qwand] ----------------- -/
 
+lemma qwandE α (Q1 Q2 : α → hprop) :
+  Q1 -∗ Q2 = hforall (fun x => (Q1 x) -∗ (Q2 x)) := rfl
+
+lemma qstarE α (Q1 : α → hprop)  (H : hprop):
+  Q1 ∗ H = fun x => Q1 x ∗ H := rfl
+
 lemma qwand_equiv H A (Q1 Q2 : A → hprop) :
-  H ==> (Q1 -∗∗ Q2) ↔ (Q1 ∗∗ H) ===> Q2 :=
+  H ==> (Q1 -∗ Q2) ↔ (Q1 ∗ H) ===> Q2 :=
 by
-  srw qwand ; apply Iff.intro
+  srw qwandE ; apply Iff.intro
   { move=> ? x
-    srw qstar hstar_comm
+    srw qstarE hstar_comm
     apply (himpl_hstar_trans_l H (hforall fun x' ↦ Q1 x' -∗ Q2 x'))=>//
     apply (himpl_trans (hforall fun x0 ↦ ((Q1 x0 -∗ Q2 x0) ∗ Q1 x)))
     apply hstar_hforall ; apply himpl_hforall_l
     rw [hstar_comm] ; apply hwand_cancel }
-  srw qimpl qstar => ?
+  srw qimpl qstarE => ?
   apply himpl_hforall_r => ?
   sby srw hwand_equiv=> ?
 
 lemma qwand_cancel A (Q1 Q2 : A → hprop) :
-  Q1 ∗∗ (Q1 -∗∗ Q2) ===> Q2 :=
+  Q1 ∗ (Q1 -∗ Q2) ===> Q2 :=
 by
   sby srw -qwand_equiv=> ?
 
 lemma himpl_qwand_r A (Q1 Q2 : A → hprop) H :
-  Q1 ∗∗ H ===> Q2 →
-  H ==> (Q1 -∗∗ Q2) :=
+  Q1 ∗ H ===> Q2 →
+  H ==> (Q1 -∗ Q2) :=
 by
   sby srw qwand_equiv
 
 lemma qwand_specialize A (x : A) (Q1 Q2 : A → hprop) :
-  (Q1 -∗∗ Q2) ==> (Q1 x -∗ Q2 x) :=
+  (Q1 -∗ Q2) ==> (Q1 x -∗ Q2 x) :=
 by
-  sby apply (himpl_hforall_l A x)=> ?
+  sby apply (himpl_hforall_l A x)=> ?; sapply
 
 
 /- --------------------- Properties of [htop] --------------------- -/
@@ -679,5 +711,7 @@ lemma hind_hstar_hempty :
 by
   move=> *
   sby apply hind_any
+
+open HStar HWand
 
 /- TODO: Add more properties -/
