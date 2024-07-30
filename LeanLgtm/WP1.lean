@@ -6,6 +6,7 @@ import Mathlib.Data.Finmap
 import LeanLgtm.Util
 import LeanLgtm.HProp
 import LeanLgtm.XSimp
+import LeanLgtm.XChange
 import LeanLgtm.SepLog
 import LeanLgtm.WPUtil
 
@@ -339,6 +340,13 @@ abbrev formula := (val → hprop) → hprop
 def mkstruct (F : formula) :=
   fun Q ↦ h∃ Q', F Q' ∗ (Q' -∗∗ Q)
 
+def structural (F : formula) :=
+  forall Q, mkstruct F Q ==> F Q
+
+def structural_pred (S : α -> formula) :=
+  ∀ x, structural $ S x
+
+
 lemma mkstruct_ramified Q1 Q2 F :
   (mkstruct F Q1) ∗ (Q1 -∗∗ Q2) ==> (mkstruct F Q2) :=
 by
@@ -410,19 +418,35 @@ def wpgen_if_trm (F0 F1 F2 : formula) : formula :=
 def wpgen_app (t : trm) : formula :=
   fun Q ↦ h∃ H, H ∗ ⌜triple t H Q⌝
 
+def wpgen_for (v₁ v₂ : trm) (F1 : val -> formula) : formula :=
+  mkstruct fun Q =>
+    h∃ n₁ n₂ : Int, ⌜v₁ = n₁⌝ ∗ ⌜v₂ = n₂⌝ ∗
+      h∀ (S : Int -> formula),
+        (let F i :=
+          if i < n₂ then
+            wpgen_seq (F1 (val_int i)) (S (i + 1))
+          else wpgen_val val_unit
+        ⌜structural_pred S /\ ∀ i, F i ===> S i⌝ -∗ S n₁ Q )
+
+def wpgen_while (F1 F2 : formula) : formula := mkstruct fun Q =>
+  h∀ R : formula,
+    let F := wpgen_if_trm F1 (wpgen_seq F2 R) (wpgen_val val_unit)
+    ⌜structural R ∧ F ===> R⌝ -∗ R Q
 
 /- Recursive Definition of [wpgen] -/
 
 def wpgen (t : trm) : formula :=
   mkstruct (match t with
-  | trm_val v       => wpgen_val v
-  | trm_fun x t1    => wpgen_fun (fun v ↦ wp $ subst x v t1)
-  | trm_fix f x t1  => wpgen_fix
+  | trm_val v          => wpgen_val v
+  | trm_fun x t1       => wpgen_fun (fun v ↦ wp $ subst x v t1)
+  | trm_fix f x t1     => wpgen_fix
       (fun vf v => wp $ subst x v $ subst f vf t1)
-  | trm_if t0 t1 t2 => wpgen_if t0 (wp t1) (wp t2)
-  | trm_seq t1 t2   => wpgen_seq (wp t1) (wp t2)
-  | trm_let x t1 t2 => wpgen_let (wp t1) (fun v ↦ wp $ subst x v t2)
-  | trm_app _ _   => wpgen_app t
+  | trm_if t0 t1 t2    => wpgen_if t0 (wp t1) (wp t2)
+  | trm_seq t1 t2      => wpgen_seq (wp t1) (wp t2)
+  | trm_let x t1 t2    => wpgen_let (wp t1) (fun v ↦ wp $ subst x v t2)
+  | trm_app _ _        => wpgen_app t
+  | trm_for x v1 v2 t1 => wpgen_for v1 v2 (fun v ↦ wp $ subst x v t1)
+  | trm_while t0 t1    => wpgen_while (wp t0) (wp t1)
   | _ => wp t
   )
 
@@ -534,6 +558,39 @@ by
  move=> ??
  srw wpgen_app
  sorry -- xpull
+
+lemma qimpl_wp_of_triple : forall t F,
+  (forall Q, triple t (F Q) Q) ->
+  F ===> wp t := by sorry
+
+lemma triple_for_raw : forall (x:var) (n1 n2: Int) t3 H (Q:val->hprop),
+  triple (
+    if (n1 <= n2)
+      then (trm_seq (subst x n1 t3) (trm_for x (val_int $ n1+1) n2 t3))
+      else val_unit) H Q ->
+  triple (trm_for x n1 n2 t3) H Q := by sorry
+
+lemma triple_mkstruct_pre : forall t (F:formula) Q,
+  (forall Q, triple t (F Q) Q) ->
+  triple t (mkstruct F Q) Q := by sorry
+
+-- set_option pp.notation false
+
+lemma wpgen_for_sound x v1 v2 F1 :
+  (forall v, formula_sound (subst x v t1) (F1 v)) →
+  formula_sound (trm_for x v1 v2 t1) (wpgen_for v1 v2 F1) := by
+  move=> M
+  apply qimpl_wp_of_triple=> Q
+  apply triple_mkstruct_pre=> {}Q
+  srw -wp_equiv
+  xsimp=> >
+  let S (i : Int) := wp (trm_for x i n₂ t1)
+  srw wp_equiv
+  apply triple_hforall _ _ S
+  apply triple_hwand_hpure_l
+  { sorry }
+  sorry
+
 
 /- Main soundness lemma -/
 
@@ -652,6 +709,14 @@ lemma xtriple_lemma : forall t H (Q:val->hprop),
   triple t H Q :=
 by sorry
 
+  -- -- fix here!
+  -- xsimp
+  -- rev_pure
+
+
+
+
+
 /- ================================================================= -/
 /-* ** Tactics to Manipulate [wpgen] Formulae -/
 
@@ -742,6 +807,7 @@ macro "xsimp_no_cancel_wand" : tactic =>
   `(tactic| (
     xsimp_start
     repeat' xsimp_step_no_cancel
+    try rev_pure
     try hsimp
   ))
 
@@ -749,7 +815,7 @@ section xapp
 
 macro "xapp_simp" : tactic => do
   `(tactic|
-      first | apply xapp_simpl_lemma
+      first | apply xapp_simpl_lemma; try hsimp
             | xsimp_no_cancel_wand; try unfold protect; xapp_try_clear_unit_result)
 
 macro "xapp_pre" : tactic => do
@@ -790,7 +856,7 @@ macro "xapp_nosubst" e:term ? : tactic =>
   `(tactic|
     (xapp_pre
      eapply xapp_lemma; xapp_pick $(e)?
-     rotate_right; xapp_simp=>//))
+     rotate_right; xapp_simp; hide_mvars=>//))
 
 macro "xapp" : tactic =>
   `(tactic|
@@ -801,14 +867,14 @@ macro "xapp" : tactic =>
        | all_goals try srw wp_equiv
          all_goals try subst_vars))
 
-macro "xapp" colGt e:term ? : tactic =>
-  `(tactic|
+elab "xapp" colGt e:term ? : tactic => do
+  {|
     (xapp_nosubst $(e)?;
      try xapp_try_subst
      first
        | done
        | all_goals try srw wp_equiv
-         all_goals try subst_vars))
+         all_goals try subst_vars) |}
 
 end xapp
 
@@ -878,6 +944,11 @@ def isubst (E : ctx) (t : trm) : trm :=
       trm_let x (isubst E t1) (isubst (erase x E) t2)
   | trm_app t1 t2 =>
       trm_app (isubst E t1) (isubst E t2)
+  | trm_for x n1 n2 t =>
+      trm_for x (isubst E n1) (isubst E n2) (isubst (erase x E) t)
+  | trm_while c t =>
+      trm_while (isubst E c) (isubst E t)
+
 
 def _root_.List.mkAlist [DecidableEq α] (xs : List α) (vs : List β) :=
   ((xs.zip vs).map fun (x, y) => ⟨x, y⟩).toAList
@@ -944,4 +1015,220 @@ macro_rules
 elab "xsimpr" : tactic => do
   xsimp_step_r (<- XSimpRIni)
 
+/- For loop -/
+
 set_option linter.hashCommand false
+
+@[simp]
+lemma oneE : OfNat.ofNat 1 = 1 := by rfl
+
+lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
+  (F : val -> formula)
+  (Q : val -> hprop) :
+  structural_pred F ->
+  a <= b ->
+    (∃ H',
+      H ==> I a ∗ H' ∧
+      (∀ i, a <= i ∧ i < b -> I i ==> F i fun _ => I (i + 1)) ∧
+      (fun _ => I b ∗ H') ===> Q) ->
+    H ==> wpgen_for a b F Q := by
+  move=> sF L ![H' Ma Mb Mc]
+  unfold wpgen_for
+  apply himpl_trans; rotate_left; apply mkstruct_erase
+  unfold_let
+  xsimp[a,b]=> //== ls
+  srw OfNat.ofNat instOfNat instOfNatNat /== => hs
+  -- shave-> ls hs: i + (OfNat.ofNat 1) = i + 1; sdone
+  shave P: ∀ i, a <= i ∧ i <= b -> I i ==> S i fun _ => I b
+  { move=> i [/[swap] iLb]
+    apply (Int.le_induction_down _ _ _ iLb)
+    { move=> ?
+      xchange (hs b)=> /==
+      sby xval }
+    move=> i ? ih ?
+    xchange hs
+    scase_if=> // ?; rotate_left; omega
+    xseq
+    xchange Mb;
+    srw OfNat.ofNat instOfNat instOfNatNat /==
+    omega
+    apply himpl_trans; rotate_left; apply sF
+    unfold mkstruct; xsimp; apply ih; omega }
+  xchange Ma; xchange P; omega
+  apply himpl_trans; rotate_left; apply ls
+  unfold mkstruct; xsimp; apply Mc
+
+lemma wp_structural : structural (wp t) := by
+  move=> Q; unfold mkstruct
+  xsimp=> >; apply wp_ramified
+#hint_xapp triple_get
+#hint_xapp triple_set
+#hint_xapp triple_add
+#hint_xapp triple_ref
+#hint_xapp triple_free
+
+
+elab "xseq_xlet_if_needed_xwp" : tactic => do
+  match <- getGoalStxAll with
+  | `($_ ==> mkstruct $f $_) =>
+    match f with
+    | `(wpgen_seq $_ $_) => {| xseq; xwp |}
+    | `(wpgen_let $_ $_) => {| xlet; xwp |}
+    | _ => pure ( )
+  | _ => pure ( )
+
+open Lean.Elab.Tactic in
+
+elab "⟨" ts:tactic,* "⟩" : tactic => do
+  let l := (<- getUnsolvedGoals).length
+  let tl := ts.getElems.size
+  if tl != l then
+    throwError "invalid number of goals, expectded {l}, got {tl}"
+  idxGoal fun i => evalTactic ts.getElems[i]!
+
+-- example : True /\ 5=5 /\ False /\ (True -> False) := by
+--   (repeat' apply And.intro); ⟨ trivial, rfl, skip, move=> ? ⟩
+
+
+macro "xfor" I:term : tactic => do
+  `(tactic| (
+    xwp
+    xseq_xlet_if_needed_xwp
+    xstruct_if_needed
+    apply xfor_inv_lemma $I
+    ⟨(move=> ?; apply wp_structural), try omega, (
+      constructor; (repeat' apply And.intro)
+      all_goals (try xsimp)
+      all_goals (try srw wp_equiv)
+    )⟩
+    ))
+
+/- While loop -/
+
+lemma xwhile_inv_lemma (I : Bool -> α -> hprop)
+  (F1 F2 : formula) :
+    WellFounded R ->
+    (H ==> h∃ b a, I b a) ->
+    (∀ (S: formula) b X, structural S ->
+        (∀ b a', R a' X -> (I b a') ==> S fun _ => h∃ a, I false a) ->
+        I b X ==> wpgen_if_trm F1 (wpgen_seq F2 S) (wpgen_val val_unit) fun _ => h∃ a, I false a) ->
+    H ==> wpgen_while F1 F2 (fun _ => h∃ a, I false a) := by
+
+  move=> wf hh hs; xchange hh=> >
+  unfold wpgen_while; xchange mkstruct_erase=> [rs fs]
+  xsimp; move: b
+  apply WellFounded.induction wf a=> a' ih ?
+  xchange fs
+  apply hs=> // > /ih
+  sapply
+
+lemma structural_imp : structural F ->
+  Q ===> Q' -> F Q ==> F Q' := by
+  move=> sF h
+  xchange sF Q'; unfold mkstruct; xsimp
+  apply h
+
+lemma xwhile_inv_basic_lemma (I : Bool -> α -> hprop) R
+  (F1 F2 : formula) :
+  WellFounded R ->
+  structural F1 ->
+  structural F2 ->
+  (H ==> H' ∗ h∃ b a, I b a) ->
+  (∀ b X, I b X ==> F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
+  (∀ X, I true X ==> F2 (fun _ => h∃ b X', ⌜R X' X⌝ ∗ I b X')) ->
+  H ==> wpgen_while F1 F2 (fun _ => H' ∗ h∃ a, I false a) := by
+  move=> wf sf1 sf2 hh hf1 hf2
+  sorry
+  -- apply xwhile_inv_lemma _ _ _ wf=> // > ls fs
+  -- xlet; xchange hf1; apply structural_imp sf1=> bv /=
+  -- xsimp; xchange mkstruct_erase; xif=> // ->
+  -- { xseq; xchange hf2; apply structural_imp sf2=> /= v /= {v}
+  --   sby xsimp=> > ?; xchange fs }
+  -- xval; xsimp
+
+lemma xwhile_inv_basic_lemmaQ (I : Bool -> α -> hprop) R
+  (F1 F2 : formula) :
+  WellFounded R ->
+  structural F1 ->
+  structural F2 ->
+  (H ==> H' ∗ h∃ b a, I b a) ->
+  (∀ b X, I b X ==> F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
+  (∀ X, I true X ==> F2 (fun _ => h∃ b X', ⌜R X' X⌝ ∗ I b X')) ->
+  ((fun _ => H' ∗ h∃ a, I false a) ===> Q) ->
+  H ==> wpgen_while F1 F2 Q := by
+  move=> *
+  sorry
+
+lemma xwhile_inv_measure_lemma_down (Xbot : Int) (I : Bool -> Int -> hprop)
+  (F1 F2 : formula) :
+  structural F1 ->
+  structural F2 ->
+  (H ==> H' ∗ h∃ b a, I b a) ->
+  (∀ b X, I b X ==> F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
+  (∀ X, I true X ==> F2 (fun _ => h∃ b X', ⌜Xbot <= X' /\ X' < X⌝ ∗ I b X')) ->
+  ((fun _ => H' ∗ h∃ a, I false a) ===> Q) ->
+  H ==> wpgen_while F1 F2 Q := by
+  apply xwhile_inv_basic_lemmaQ
+  sorry -- wf?
+
+lemma xwhile_inv_measure_lemma_up (Xtop : Int) (I : Bool -> Int -> hprop)
+  (F1 F2 : formula) :
+  structural F1 ->
+  structural F2 ->
+  (H ==> H' ∗ h∃ b a, I b a) ->
+  (∀ b X, I b X ==> F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
+  (∀ X, I true X ==> F2 (fun _ => h∃ b X', ⌜X < X' ∧ X' <= Xtop⌝ ∗ I b X')) ->
+  ((fun _ => H' ∗ h∃ a, I false a) ===> Q) ->
+  H ==> wpgen_while F1 F2 Q := by
+  apply xwhile_inv_basic_lemmaQ
+  sorry -- wf?
+
+macro "xwhile" I:term:max R:term : tactic => do
+  `(tactic| (
+    xwp
+    xseq_xlet_if_needed_xwp
+    xstruct_if_needed
+    eapply xwhile_inv_basic_lemmaQ $I $R <;> try simp only [wp_equiv]
+    ⟨try assumption,
+     try apply wp_structural,
+     try apply wp_structural,
+     skip,
+     skip,
+     skip,
+     skip,
+     skip⟩
+    ))
+
+macro "xwhile_up" I:term:max Xtop:term : tactic => do
+  `(tactic| (
+    xwp
+    xseq_xlet_if_needed_xwp
+    xstruct_if_needed
+    eapply xwhile_inv_measure_lemma_up $Xtop $I <;> try simp only [wp_equiv]
+    ⟨try apply wp_structural,
+     try apply wp_structural,
+     skip,
+     skip,
+     skip,
+     skip,
+     skip⟩
+    ))
+
+macro "xwhile_down" I:term:max colGt Xbot:term ? : tactic => do
+  let Xbot <-
+    match Xbot with
+    | .some x => pure x
+    | .none => `(term| 0)
+  `(tactic| (
+    xwp
+    xseq_xlet_if_needed_xwp
+    xstruct_if_needed
+    eapply xwhile_inv_measure_lemma_down $Xbot $I <;> try simp only [wp_equiv]
+    ⟨try apply wp_structural,
+     try apply wp_structural,
+     skip,
+     skip,
+     skip,
+     skip,
+     skip⟩
+    ))

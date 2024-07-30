@@ -37,7 +37,7 @@ lemma eval_conseq s t Q1 Q2 :
   eval s t Q2 :=
 by
   move=> heval
-  srw (qimpl) (himpl)=> ?
+  srw (qimpl) (himpl)=> Imp
   elim: heval ; move=> * ; constructor=>//
   { sby constructor }
   { sby apply eval.eval_app_arg2 }
@@ -53,7 +53,10 @@ by
   { sby apply eval.eval_ref }
   { sby apply eval.eval_get }
   { sby apply eval.eval_set }
-  { sby apply eval.eval_free }
+  apply eval.eval_free <;> try assumption
+  case eval_free.a Imp x y =>
+    apply Imp
+    apply y
   sby apply eval.eval_alloc
 
 /- Useful Lemmas about disjointness and state operations -/
@@ -570,7 +573,7 @@ by
 lemma triple_ptr_add_nat p (f : ℕ) :
   triple (trm_app val_ptr_add (val_loc p) (val_int (Int.ofNat f)))
     emp
-    (fun r ↦ ⌜r = val_loc (Int.toNat (p + f))⌝) :=
+    (fun r ↦ ⌜r = p + f⌝) :=
 by
   apply triple_conseq _ _ _ _ _ (triple_ptr_add p f _)=>// ? /=
   sby xsimp

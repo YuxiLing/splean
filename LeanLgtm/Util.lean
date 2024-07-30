@@ -65,7 +65,13 @@ initialize
 
 abbrev HintExtState := List Syntax
 
+abbrev RevExtState := List Ident
+
+
 initialize hintExt : EnvExtension HintExtState ←
+  registerEnvExtension (pure [])
+
+initialize revExt : EnvExtension RevExtState ←
   registerEnvExtension (pure [])
 
 syntax "{|" tacticSeq "|}" : term

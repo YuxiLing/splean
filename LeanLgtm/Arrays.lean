@@ -132,9 +132,6 @@ lemma triple_abs (i : Int) :
   xwp ; xval ; xsimp
   sby srw nonneg_eq_abs
 
-/- Low-level Implementation of arrays -/
-
-
 
 /- Syntax for array operations -/
 
@@ -372,7 +369,6 @@ lemma of_nat_nat n :
 lemma nat_abs_succ (n : Int) :
   n ≥ 0 → (n + 1).natAbs = n.natAbs + 1 := by omega
 
--- set_option pp.all true
 lemma triple_array_fill (n : Int) L (p : loc) (i : Int) (v : val) :
   n = L.length →
   triple (trm_app val_array_fill p i n v)
@@ -410,7 +406,7 @@ lemma make_list_len (n : Int) (v : val) :
   elim: a=> > //
   move=> ? /=
   sby srw make_list
-
+  
 lemma triple_array_make_hseg (n : Int) (v : val) :
   n >= 0 →
   triple (trm_app val_array_make n v)
@@ -532,7 +528,6 @@ lemma get_out_of_bounds {_ : Inhabited α} (L : List α) (i : Int) :
 --   xval ; xsimp
 --   srw ?get_out_of_bounds=> //
 --   sorry
-
 
 lemma set_keep_length (L : List val) i v :
   L.length = (L.set i v).length := by

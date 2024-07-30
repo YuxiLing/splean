@@ -11,7 +11,7 @@ open Lean Elab Command Term Meta Tactic
 /-* *** Tactic [xchange] -/
 
 /-* [xchange] performs rewriting on the LHS of an entailment.
-  Essentially, it applies to a goal of the form [H1 \* H2 ==> H3],
+  Essentially, it applies to a goal of the form [H1 \as  H2 ==> H3],
   and exploits an entailment [H1 ==> H1'] to replace the goal with
   [H1' \* H2 ==> H3].
 
@@ -37,7 +37,7 @@ def toHimp (e : Expr) : MetaM Expr := do
   forallTelescope eTy fun xs eTy => do
     let himpl <- match_expr eTy with
       | himpl _ _ => return e
-      | qimpl _ _ => return e
+      | qimpl _ _ _ => return e
       | Eq _ _ _  =>
         mkAppOptM `himpl_of_eq #[.none, .none, eTy]
       | _        => throwError "Expected a heap entailment or an equality"
@@ -85,7 +85,7 @@ example (Q : α -> hprop) :
   H1 ∗ H2 ==> h∃ x, Q x ∗ H3 := by
   intro M
   dup 2
-  { xchange M; xsimp }
+  { xchange M=> x; xsimp }
   xchanges M
 
 -- set_option pp.explicit true
