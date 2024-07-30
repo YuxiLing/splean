@@ -968,13 +968,13 @@ lemma xwp_lemma_funs (xs : List _) (vs : List val) :
   H ==> wpgen (isubst (xs.mkAlist vs) t1) Q ->
   triple t H Q := by sorry
 
-lemma xwp_lemma_fixs (xs : List _) (vs : List val) :
+lemma xwp_lemma_fixs (xs : List _) (v0 : val) (vs : List val) :
   t = trm_apps v0 ts ->
   v0 = val_fixs f xs t1 ->
   trms_to_vals ts = vs ->
   var_funs xs vs.length ->
   f ∉ xs ->
-  H ==> wpgen (isubst (xs.mkAlist vs) t1) Q ->
+  H ==> wpgen (isubst ((f :: xs).mkAlist (v0 :: vs)) t1) Q ->
   triple t H Q := by sorry
 
 lemma wp_of_wpgen :

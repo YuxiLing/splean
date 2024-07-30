@@ -2,8 +2,6 @@ import Lean
 
 import LeanLgtm.WP1
 
-open val prim trm
-
 /- ################################################################# -/
 /-* * Demo Programs -/
 
@@ -13,31 +11,12 @@ lang_def incr :=
     let m := n + 1 in
     p := m
 
-#hint_xapp triple_lt
-#hint_xapp triple_get
-#hint_xapp triple_ref
-#hint_xapp triple_add
-#hint_xapp triple_set
-#hint_xapp triple_free
-
-
--- set_option pp.all true
--- set_option pp.universes false
--- set_option pp.fullNames false
--- set_option pp.coercions false
 @[xapp]
 lemma triple_incr (p : loc) (n : Int) :
   {p ~~> n}
   [incr(p)]
   {p ~~> n + 1} := by
   sdo 3 (xwp; xapp)
-
-  -- xapp_nosubst
-
-
-
-  -- xwp; xapp
-  -- xwp; xapp
 
 lang_def mysucc :=
   fun n =>
