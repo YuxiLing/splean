@@ -366,27 +366,40 @@ lemma hseg_eq_hrange L p (k : Nat) :
   xsimp
   sby srw -hstar_assoc ; xsimp
 
-lemma triple_array_fill (n : Int) L (p : loc) (i : Int) (v : val) :
-  n = L.length →
-  triple (trm_app val_array_fill p i n v)
-    (hseg L p i)
-    (fun _ ↦ hseg (make_list n.natAbs v) p i) := by
-  srw val_array_fill
-  elim: n L p i v=> a
-  { elim: a=> > ? > ; xwp
-    { xapp triple_gt ; xwp
-      xif=> ? //
-      xwp ; xval
-      unfold make_list
-      sorry }
-    sorry }
-  sdone
-
 lemma of_nat_nat n :
   OfNat.ofNat n = n := by sdone
 
 lemma nat_abs_succ (n : Int) :
   n ≥ 0 → (n + 1).natAbs = n.natAbs + 1 := by omega
+
+-- set_option pp.all true
+lemma triple_array_fill (n : Int) L (p : loc) (i : Int) (v : val) :
+  n = L.length →
+  triple (trm_app val_array_fill p i n v)
+    (hseg L p i)
+    (fun _ ↦ hseg (make_list n.natAbs v) p i) := by
+  scase: n=> >
+  { elim: a L p i v=> > /== ih > ; xwp
+    { xapp triple_gt ; xwp
+      xif=> ? //
+      xwp ; xval
+      unfold make_list
+      have h : L = [] := by
+        apply List.eq_nil_of_length_eq_zero ; omega
+      srw h ; sdone }
+    move=> ? ; xwp
+    xapp triple_gt ; xwp
+    xif=> /== ; xwp
+    xapp triple_array_set_hseg ; srw ?of_nat_nat=> //== ; any_goals omega
+    scase: L
+    { move=> /== ? ; omega }
+    move=> /== >? ; xwp
+    xapp triple_sub=> /== ; xwp
+    xapp triple_add ; srw ?of_nat_nat ; xtriple
+    srw nat_abs_succ //==
+    srw make_list ?hseg_cons
+    xapp ih ; xsimp }
+  sdone
 
 lemma make_list_len (n : Int) (v : val) :
   (make_list n.natAbs v).length = n.natAbs := by
@@ -481,6 +494,9 @@ lemma int_index_eq {_ : Inhabited α} (L : List α) (i : Int) :
   L[i.natAbs]! = L[i]! := by
   rfl
 
+lemma natabs_eq (a : Nat) :
+  a = (Int.ofNat a).natAbs := by rfl
+
 -- set_option pp.all true
 lemma get_out_of_bounds {_ : Inhabited α} (L : List α) (i : Int) :
   L.length ≤ i.natAbs →
@@ -488,14 +504,15 @@ lemma get_out_of_bounds {_ : Inhabited α} (L : List α) (i : Int) :
   srw -int_index_eq
   elim: L i
   { sdone }
-  move=> > ? >
+  move=> > ih >
   scase: i
-  { move=> >
+  { move=> /= >
     elim: a => >?
     sdone
-    move=> ?
-    sorry }
-  sorry
+    move=> /==
+    sby srw (natabs_eq n)=> /ih }
+  move=> /== >
+  sby srw (natabs_eq a) => /ih
 
 -- set_option pp.all true
 -- set_option pp.fullNames false
