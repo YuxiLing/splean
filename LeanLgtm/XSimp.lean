@@ -710,21 +710,21 @@ partial def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit :=
     | `(@hexists $_ fun ($x:ident : $_) => $_) =>
       revExt.modify (x :: ·)
       {| apply xsimp_l_hexists; intro $x:term |}
-    | `(@HWand.hWand hprop hprop $_ $_ $_)    => {| apply xsimp_l_acc_wand |}
-    | `(@HWand.hWand $_    $_    $_ $_ $_)   => {| apply xsimp_l_acc_wand |}
+    | `(@HWand.hWand hprop hprop $_ $_ $_ $_)    => {| apply xsimp_l_acc_wand |}
+    | `(@HWand.hWand $_    $_    $_ $_ $_ $_)   => {| apply xsimp_l_acc_wand |}
     | _              => {| apply xsimp_l_acc_other |}
   | `(hempty), `(@HStar.hStar hprop hprop $_ $_ $h1 $_) =>
     match h1 with
-    | `(@HWand.hWand hprop hprop $_ $h1 $_) =>
+    | `(@HWand.hWand hprop hprop $_ $_ $h1 $_) =>
       match h1 with
       | `(hempty) => {| apply xsimp_l_cancel_hwand_hempty |}
-      | `(@HStar.hStar hprop hprop $_ $_ $_) => xsimp_hwand_hstars_l xsimp.hla h1
+      | `(@HStar.hStar hprop hprop $_ $_ $_ $_) => xsimp_hwand_hstars_l xsimp.hla h1
       | _ => try
           let .true := cancelWand | failure
           xsimp_pick_same h1 xsimp.hla
           {| apply xsimp_l_cancel_hwand |}
         catch _ => {| apply xsimp_l_keep_wand |}
-    | `(@HWand.hWand $_ $_ $_ $q1 $_) =>
+    | `(@HWand.hWand $_ $_ $_ $_ $q1 $_) =>
       try
         let .true := cancelWand | failure
         xsimp_pick_applied q1 xsimp.hla
@@ -764,21 +764,22 @@ def xsimp_r_hexists_apply_hints (x : Ident) : TacticM Unit := do
 
 partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
   trace[xsimp] "RHS step"
+  trace[xsimp] "hrt: {xsimp.hrt}"
   match xsimp.hlw, xsimp.hlt, xsimp.hrt with
-  | `(hempty), `(hempty), `(@HStar.hStar hprop hprop $_ $h $_) =>
+  | `(hempty), `(hempty), `(@HStar.hStar hprop hprop $_ $_ $h $_) =>
     /- TODO: implement hook -/
     try
       trace[xsimp] "xsimp_r deals with: {h}"
       match h with
       | `(hempty) => {| apply xsimp_r_hempty |}
       | `(hpure $_) => {| apply xsimp_r_hpure |}
-      | `(@HStar.hStar hprop hprop $_ $h1 $h2) =>
+      | `(@HStar.hStar hprop hprop $_ $_ $h1 $h2) =>
         {| erw [@hstar_assoc $h1 $h2];
            simpNums |} -- HACK: Numbers are printed with explicict coercions in the goal.
                        -- Somehow rewite adds them as well. So we need to remove them
          /- we know that here should be another RHS step -/
         xsimp_step_r (<- XSimpRIni)
-      | `(@HWand.hWand hprop hprop $_ $h1 $_) =>
+      | `(@HWand.hWand hprop hprop $_ $_ $h1 $_) =>
         match h1 with
         | `(hpure $_) => {| apply xsimp_r_keep |}
         | _ => {| apply xsimp_r_hwand_same |}
@@ -789,7 +790,7 @@ partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
           repeat'' do
             xsimp_pick_same h xsimp.hla
             {| apply xsimp_lr_cancel_same |}
-        | `(@HStar.hStar hprop hprop $_ htop hempty) => {| apply xsimpl_r_htop_drop |}
+        | `(@HStar.hStar hprop hprop $_ $_ htop hempty) => {| apply xsimpl_r_htop_drop |}
         | _ => throwError "xsimp_step_r: @ unreachable"
       | `(@hexists $_ fun ($x:ident : $_) => $_) => xsimp_r_hexists_apply_hints x
       | `(protect $_) => {| apply xsimp_r_keep |}
@@ -821,12 +822,12 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
   match xsimp.hrg with
   | `(hempty) =>
     match xsimp.hra with
-    | `(@HStar.hStar hprop hprop $_ $h1 hempty) =>
+    | `(@HStar.hStar hprop hprop $_ $_ $h1 hempty) =>
       if h1.isMVarStx then
         withAssignableSyntheticOpaque {| hsimp; apply himpl_lr_refl |}
         return ( )
       match h1 with
-      | `(@HWand.hWand hprop hprop $_ $h1 $_) =>
+      | `(@HWand.hWand hprop hprop $_ $_ $h1 $_) =>
         match h1 with
         | `(hpure False) => {| apply xsimp_lr_hwand_hfalse |}
         | _ => /- TODO: flip -/ xsimp_flip_acc_lr xsimp.hla xsimp.hra ; {| apply xsimp_lr_hwand |}
@@ -844,7 +845,7 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
       | _ => /- TODO: flip -/ xsimp_flip_acc_lr xsimp.hla xsimp.hra ; {| apply xsimp_lr_exit |}
     | `(hempty) => {| first | apply himpl_lr_refl | apply xsimp_lr_exit |}
     | _ => /- TODO: flip -/ xsimp_flip_acc_lr xsimp.hla xsimp.hra ; {| apply xsimp_lr_exit |}
-  | `(@HStar.hStar hprop hprop $_ htop hempty) => {| first | apply himpl_lr_htop | apply xsimp_lr_exit |}
+  | `(@HStar.hStar hprop hprop $_ $_ htop hempty) => {| first | apply himpl_lr_htop | apply xsimp_lr_exit |}
   | _ => /- TODO: flip -/ xsimp_flip_acc_lr xsimp.hla xsimp.hra ; {| apply xsimp_lr_exit |}
 
 
@@ -1031,7 +1032,14 @@ example :
   by
     dup 3
     { xpull; admit }
-    { xsimp0; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1
+    { xsimp0
+      xsimp1
+      xsimp1
+      xsimp1
+      xsimp1
+      xsimp1
+      xsimp1
+      xsimp1
       xsimp1; xsimp1; admit }
     xsimp; admit
 
@@ -1085,7 +1093,7 @@ example :
       xsimp1; xsimp1  }
     { xsimp }
 
-example :
+example (Q1 Q2 : α -> hprop) :
   H1 ∗ (H1 -∗ (Q1 -∗ Q2)) ∗ (Q1 x) ==> (Q2 x) := by
   xsimp
 
@@ -1093,7 +1101,7 @@ example :
   H1 ∗ H2 ==> H1 ∗ (H3 -∗ (H2 ∗ H3)) := by
   xsimp
 
-example :
+example (Q1 Q2 : α -> hprop) :
    H1 ∗ (H1 -∗ (Q1 -∗ Q2)) ∗ (Q1 x) ==> (Q2 x) := by
   xsimp
 
