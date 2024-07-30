@@ -110,7 +110,7 @@ lemma triple_mulp (p q : loc) (m n : Int) :
   { p ~~> n ∗ q ~~> m ∗ ⌜m > 0 ∧ n >= 0⌝ }
   [mulp p q]
   {ans, ⌜ans = n * m⌝ ∗ ⊤ } := by
-  xwp; xapp; hsimp=> ? i
+  xwp; xapp=> ? i
   xwp; xapp=> ans
   xwp; xapp
   xwhile_up (fun b j => p ~~> n ∗ q ~~> m ∗ i ~~> j ∗ ans ~~> n * j ∗ ⌜(b = decide (j < m)) ∧ 0 <= j ∧ j <= m⌝) m
