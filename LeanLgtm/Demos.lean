@@ -2,8 +2,6 @@ import Lean
 
 import LeanLgtm.WP1
 
-open val prim trm
-
 /- ################################################################# -/
 /-* * Demo Programs -/
 
@@ -53,9 +51,9 @@ lemma triple_addp (p q : loc) (m n : Int) :
   [addp p q]
   { p ~~> n + m ∗ q ~~> m } := by
   xwp; xapp=> ?
-  xfor (fun i => p ~~> n + i)
+  xfor (fun i => p ~~> n + i)=> //
   { move=> ? _; xapp; xsimp; omega }
-  xapp; xsimp
+  xapp
 
 
 lang_def mulp :=
@@ -75,7 +73,6 @@ def unloc : val -> loc | val_loc v => v | _ => panic! "unloc"
 
 instance : Coe val loc := ⟨unloc⟩
 
-abbrev lock (a : α) := a
 
 -- instance : Coe Prop hprop := ⟨hpure⟩
 
@@ -88,7 +85,6 @@ open Lean Elab Command Term Meta Tactic
 macro_rules | `(tactic| ssr_triv ) => `(tactic| congr; omega)
 macro_rules | `(tactic| ssr_triv ) => `(tactic| constructor=> //)
 
-#hint_xapp triple_lt
 lemma triple_mulp (p q : loc) (m n : Int) :
   { p ~~> n ∗ q ~~> m ∗ ⌜m > 0 ∧ n >= 0⌝ }
   [mulp p q]

@@ -359,8 +359,7 @@ by
 lemma mkstruct_erase Q F :
   F Q ==> mkstruct F Q :=
 by
-  srw mkstruct
-  xsimp
+  srw mkstruct ; xsimp
 
 lemma mkstruct_conseq F Q1 Q2 :
   Q1 ===> Q2 →
@@ -832,7 +831,7 @@ set_option linter.unusedTactic false in
 elab "xwp_equiv" :tactic => do
   let_expr himpl _ wp := (<- getMainTarget) | pure ( )
   let_expr wp _ _ := wp | pure ( )
-  {| srw wp_equiv |}
+  {| rw [wp_equiv] |}
 
 
 set_option linter.unreachableTactic false in
@@ -862,15 +861,15 @@ macro "xsimp_no_cancel_wand" : tactic =>
   `(tactic| (
     xsimp_start
     repeat' xsimp_step_no_cancel
-    try hsimp
     try rev_pure
+    try hsimp
   ))
 
 section xapp
 
 macro "xapp_simp" : tactic => do
   `(tactic|
-      first | apply xapp_simpl_lemma
+      first | apply xapp_simpl_lemma; try hsimp
             | xsimp_no_cancel_wand; try unfold protect; xapp_try_clear_unit_result)
 
 macro "xapp_pre" : tactic => do
@@ -890,12 +889,6 @@ macro "xapp_debug" :tactic => do
   `(tactic|
     (xapp_pre
      eapply xapp_lemma))
-
-#hint_xapp triple_get
-#hint_xapp triple_set
-#hint_xapp triple_add
-#hint_xapp triple_ref
-#hint_xapp triple_free
 
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
@@ -929,7 +922,6 @@ macro "xapp" : tactic =>
          all_goals try subst_vars))
 
 elab "xapp" colGt e:term ? : tactic => do
-
   {|
     (xapp_nosubst $(e)?;
      try xapp_try_subst
@@ -1030,13 +1022,13 @@ lemma xwp_lemma_funs (xs : List _) (vs : List val) :
   H ==> wpgen (isubst (xs.mkAlist vs) t1) Q ->
   triple t H Q := by sorry
 
-lemma xwp_lemma_fixs (xs : List _) (vs : List val) :
+lemma xwp_lemma_fixs (xs : List _) (v0 : val) (vs : List val) :
   t = trm_apps v0 ts ->
   v0 = val_fixs f xs t1 ->
   trms_to_vals ts = vs ->
   var_funs xs vs.length ->
   f ∉ xs ->
-  H ==> wpgen (isubst (xs.mkAlist vs) t1) Q ->
+  H ==> wpgen (isubst ((f :: xs).mkAlist (v0 :: vs)) t1) Q ->
   triple t H Q := by sorry
 
 lemma wp_of_wpgen :
@@ -1059,9 +1051,9 @@ end
 macro "lang_def" n:ident ":=" l:lang : command => do
   `(def $n:ident : val := [lang| $l])
 
-instance : HAdd ℤ ℤ val := ⟨fun x y => val.val_int (x + y)⟩
-instance : HAdd ℤ ℕ val := ⟨fun x y => (x + (y : Int))⟩
-instance : HAdd ℕ ℤ val := ⟨fun x y => ((x : Int) + y)⟩
+local instance : HAdd ℤ ℤ val := ⟨fun x y => val.val_int (x + y)⟩
+local instance : HAdd ℤ ℕ val := ⟨fun x y => (x + (y : Int))⟩
+local instance : HAdd ℕ ℤ val := ⟨fun x y => ((x : Int) + y)⟩
 
 syntax ppGroup("{ " term " }") ppSpace ppGroup("[" lang "]") ppSpace ppGroup("{ " Lean.Parser.Term.funBinder ", " term " }") : term
 syntax ppGroup("{ " term " }") ppSpace ppGroup("[" lang "]") ppSpace ppGroup("{ " term " }") : term
@@ -1081,6 +1073,9 @@ elab "xsimpr" : tactic => do
 
 set_option linter.hashCommand false
 
+@[simp]
+lemma oneE : OfNat.ofNat 1 = 1 := by rfl
+
 lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
   (F : val -> formula)
   (Q : val -> hprop) :
@@ -1095,7 +1090,9 @@ lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
   unfold wpgen_for
   apply himpl_trans; rotate_left; apply mkstruct_erase
   unfold_let
-  xsimp[a,b]=> // [ls hs]
+  xsimp[a,b]=> //== ls
+  srw OfNat.ofNat instOfNat instOfNatNat /== => hs
+  -- shave-> ls hs: i + (OfNat.ofNat 1) = i + 1; sdone
   shave P: ∀ i, a <= i ∧ i <= b -> I i ==> S i fun _ => I b
   { move=> i [/[swap] iLb]
     apply (Int.le_induction_down _ _ _ iLb)
@@ -1104,10 +1101,13 @@ lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
       sby xval }
     move=> i ? ih ?
     xchange hs
-    scase_if=> // ?; rotate_left; omega; xseq
-    xchange Mb; omega
+    scase_if=> // ?; rotate_left; omega
+    xseq
+    xchange Mb;
+    srw OfNat.ofNat instOfNat instOfNatNat /==
+    omega
     apply himpl_trans; rotate_left; apply sF
-    unfold mkstruct; simp; xsimp; apply ih; omega }
+    unfold mkstruct; xsimp; apply ih; omega }
   xchange Ma; xchange P; omega
   apply himpl_trans; rotate_left; apply ls
   unfold mkstruct; xsimp; apply Mc
@@ -1115,6 +1115,12 @@ lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
 lemma wp_structural : structural (wp t) := by
   move=> Q; unfold mkstruct
   xsimp=> >; apply wp_ramified
+#hint_xapp triple_get
+#hint_xapp triple_set
+#hint_xapp triple_add
+#hint_xapp triple_ref
+#hint_xapp triple_free
+
 
 elab "xseq_xlet_if_needed_xwp" : tactic => do
   match <- getGoalStxAll with
@@ -1161,9 +1167,10 @@ lemma xwhile_inv_lemma (I : Bool -> α -> hprop)
         (∀ b a', R a' X -> (I b a') ==> S fun _ => h∃ a, I false a) ->
         I b X ==> wpgen_if_trm F1 (wpgen_seq F2 S) (wpgen_val val_unit) fun _ => h∃ a, I false a) ->
     H ==> wpgen_while F1 F2 (fun _ => h∃ a, I false a) := by
+
   move=> wf hh hs; xchange hh=> >
-  unfold wpgen_while; xchange mkstruct_erase
-  xsimp=> [rs fs]; move: b
+  unfold wpgen_while; xchange mkstruct_erase=> [rs fs]
+  xsimp; move: b
   apply WellFounded.induction wf a=> a' ih ?
   xchange fs
   apply hs=> // > /ih

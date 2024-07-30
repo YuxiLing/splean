@@ -43,9 +43,9 @@ def delabPpAll :=
 def delabNoNotations :=
   (withOptions (fun _ =>
     ((KVMap.empty.insert
-      `pp.notation false).insert
-      `pp.funBinderTypes true).insert
-      `pp.explicit true) $ PrettyPrinter.delab ·)
+      `pp.all true).insert
+      `pp.universes false).insert
+      `pp.fullNames true) $ PrettyPrinter.delab ·)
 
 def getGoalStxAll : Lean.Elab.Tactic.TacticM Syntax := do
   delabAll $ <- getMainTarget
@@ -73,7 +73,6 @@ initialize hintExt : EnvExtension HintExtState ←
 
 initialize revExt : EnvExtension RevExtState ←
   registerEnvExtension (pure [])
-
 
 syntax "{|" tacticSeq "|}" : term
 

@@ -44,7 +44,12 @@ mutual
     | val_fun    : var -> trm -> val
     | val_fix    : var -> var -> trm -> val
     | val_uninit : val
-    | val_error  : val
+    | val_error : val
+    | val_alloc : val
+    -- | val_array_make : val
+    -- | val_array_length : val
+    -- | val_array_get : val
+    -- | val_array_set : val
 
   inductive trm : Type where
     | trm_val   : val -> trm
@@ -82,7 +87,7 @@ instance : Coe Int val where
 
 /- Help Lean to treat Nat as val -/
 instance : OfNat val n where
-  ofNat := val.val_int n
+  ofNat := val.val_unit
 
 instance : Coe loc val where
   coe l := val.val_loc l
@@ -320,8 +325,8 @@ inductive evalbinop : val → val → val → (val->Prop) → Prop where
   -- in the original CFML code, p2 doesn't have to be a valid pointer (it has
   -- type int and could be negative), so not sure if this is semantically
   -- equivalent to what was here before.
-  | evalbinop_ptr_add : forall p1 p2 n,
-      (p2:ℤ) = (p1:loc) + n ->
+  | evalbinop_ptr_add : forall (p1 : loc) (p2 : Int) n,
+      p2 = p1 + n ->
       evalbinop val_ptr_add (val_loc p1) (val_int n)
         (fun v => v = val_loc (Int.toNat p2))
 
@@ -340,6 +345,44 @@ def purepostin (s : state) (P : val → Prop) (Q : val → state → Prop) : Pro
   forall v, P v → Q v s
 
 variable (Q : val → state → Prop)
+
+
+/- To define the evaluation rule for arrays, it is useful to first define
+   the notion of consecutive locations -/
+
+def conseq {B : Type} (vs : List B) (l : Nat) : Finmap (fun _ : Nat ↦ B) :=
+  match vs with
+  | [] => ∅
+  | v :: vs' => (Finmap.singleton l v) ∪ (conseq vs' (l + 1))
+
+lemma conseq_nil B (l : Nat) :
+  conseq ([] : List B) l = ∅ := by
+  sdone
+
+lemma conseq_cons B (l : Nat) (v : B) (vs : List B) :
+  conseq (v :: vs) l = (Finmap.singleton l v) ∪ (conseq vs (l + 1)) := by
+  sdone
+
+lemma disjoint_single_conseq B l l' L (v : B) :
+  (l < l') ∨ (l ≥ l' + L.length) →
+  Finmap.Disjoint (Finmap.singleton l v) (conseq L l') := by
+  induction L generalizing l' with
+  | nil          =>
+      srw conseq_nil Finmap.Disjoint.symm_iff=> ?
+      apply Finmap.disjoint_empty
+  | cons h t ih =>
+      srw conseq_cons Finmap.disjoint_union_right /= => [] ? ⟨|⟩
+      { sby move=> ? ; srw Not ?Finmap.mem_singleton }
+      { sby apply ih }
+      { move=> ? ; srw Not ?Finmap.mem_singleton ; omega }
+      { apply ih ; omega }
+
+/- For initializing a list with value v -/
+def make_list {A} (n : Nat) (v : A) : List A :=
+  match n with
+  | 0      => []
+  | n' + 1 => v :: make_list n' v
+
 
 /- Big-step relation -/
 inductive eval : state → trm → (val → state → Prop) -> Prop where
@@ -407,6 +450,14 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       p ∈ s ->
       Q val_unit (Finmap.erase p s) ->
       eval s (trm_app val_free (val_loc p)) Q
+  | eval_alloc : forall (n : Int) (sa : state) Q,
+      n ≥ 0 →
+      ( forall (p : loc) (sb : state),
+          sb = conseq (make_list n.natAbs val_uninit) p →
+          p ≠ null →
+          Finmap.Disjoint sa sb →
+          Q (val_loc p) (sb ∪ sa) ) →
+      eval sa (trm_app val_alloc n) Q
   | eval_for (n₁ n₂ : Int) (Q : val -> state -> Prop) :
     eval s (if (n₁ <= n₂) then
                (trm_seq (subst x n₁ t₁) (trm_for x (val_int (n₁ + 1)) n₂ t₁))
@@ -550,6 +601,8 @@ syntax uop lang:30 : lang
 syntax lang:30 bop lang:30 : lang
 syntax "(" lang ")" : lang
 syntax "⟨" term "⟩" : lang
+syntax "alloc" lang : lang
+syntax "⟨" term "⟩" : lang
 
 syntax " := " : bop
 syntax " + " : bop
@@ -563,20 +616,27 @@ syntax " >= " : bop
 syntax " = " : bop
 syntax " != " : bop
 syntax " mod " : bop
+syntax " ++ " : bop
 
 syntax "!" : uop
 syntax "-" : uop
 syntax "ref" : uop
 syntax "free" : uop
 syntax "not" : uop
+syntax "mkarr" : uop
+
+syntax "len" : uop
+syntax lang noWs "[" lang "]" : lang
+-- syntax lang noWs "[" lang "] := " lang : lang
+-- syntax "mkarr" lang ", " lang : lang
 
 syntax "[lang| " lang "]" : term
 syntax "[bop| " bop "]" : term
 syntax "[uop| " uop "]" : term
 
 
-local notation "%" x => (Lean.quote (toString (Lean.Syntax.getId x)))
 
+local notation "%" x => (Lean.quote (toString (Lean.Syntax.getId x)))
 
 macro_rules
   | `([lang| ()])                       => `(trm_val (val_unit))
@@ -602,6 +662,7 @@ macro_rules
   | `([lang| ref $t])                   => `(trm_val (val_prim val_ref) [lang| $t])
   | `([lang| free $t])                  => `(trm_val (val_prim val_free) [lang| $t])
   | `([lang| not $t])                   => `(trm_val (val_prim val_not) [lang| $t])
+  | `([lang| alloc $n])                => `(trm_val (val_alloc) [lang| $n])
   | `([lang| !$t])                      => `(trm_val val_get [lang| $t])
   | `([lang| $t1 := $t2])               => `(trm_val val_set [lang| $t1] [lang| $t2])
   | `([lang| $t1 + $t2])                => `(trm_val val_add [lang| $t1] [lang| $t2])
@@ -616,6 +677,7 @@ macro_rules
   | `([lang| $t1 = $t2])                => `(trm_val val_eq [lang| $t1] [lang| $t2])
   | `([lang| $t1 != $t2])               => `(trm_val val_neq [lang| $t1] [lang| $t2])
   | `([lang| $t1 mod $t2])              => `(trm_val val_mod [lang| $t1] [lang| $t2])
+  | `([lang| $t1 ++ $t2])               => `(trm_val val_ptr_add [lang| $t1] [lang| $t2])
   | `([lang| ($t)]) => `([lang| $t])
   | `([lang| ⟨$t⟩]) => `(val_int $t)
   | `([lang| for $x in [$n1 : $n2] { $t } ]) =>
@@ -632,6 +694,76 @@ elab_rules : term
     catch _ => do
       let x <- `(trm_var $(%x))
       elabTerm x none
+
+def val_abs : val := [lang|
+  fun i =>
+    let c := i < 0 in
+    let m := 0 - 1 in
+    let j := m * i in
+    if c then j else i ]
+
+def val_array_get : val := [lang|
+  fun p i =>
+    let p1 := p ++ 1 in
+    let q := p1 ++ i in
+    !q ]
+
+def val_array_set : val := [lang|
+  fun p i v =>
+    let p1 := p ++ 1 in
+    let q := p1 ++ i in
+    q := v ]
+
+def val_array_length : val := [lang|
+  fun p => !p ]
+
+def default_get d := [lang|
+  fun p i =>
+    let n := val_abs i in
+    let l := val_array_length p in
+    let b := n < l in
+    if b then
+      val_array_get p n
+    else
+      d ]
+
+def default_set : val := [lang|
+  fun p i v =>
+      let i := val_abs i in
+      let L := val_array_length p in
+      let b := i < L in
+      if b then
+        val_array_set p i v
+      else
+        () ]
+
+def val_array_fill : val := [lang|
+  fix f p i n v =>
+    let b := n > 0 in
+    if b then
+      ((val_array_set p) i) v ;
+      let m := n - 1 in
+      let j := i + 1 in
+      f p j m v
+    end ]
+
+def val_array_make : val := [lang|
+  fun n v =>
+    let m := n + 1 in
+    let p := alloc m in
+    (val_set p) n ;
+    (((val_array_fill p) 0) n) v ;
+    p ]
+
+abbrev default_get' := default_get (val_int 0)
+
+macro_rules
+  | `([lang| len $p])                => `(trm_val val_array_length [lang| $p])
+  | `([lang| $arr[$i]])              => `(trm_val default_get' [lang| $arr] [lang| $i])
+  -- | `([lang| $arr[$i]($d)])           => `(trm_val default_get [lang| $arr] [lang| $i] [lang| $d])
+  | `([lang| $arr[$i] := $v])        => `(trm_app default_set [lang| $arr] [lang| $i] [lang| $v])
+  | `([lang| mkarr $n:lang $v:lang]) => `(trm_val val_array_make [lang| $n] [lang| $v])
+
 
 @[app_unexpander val_unit] def unexpandUnitL : Lean.PrettyPrinter.Unexpander
   | `($(_)) => `([lang| ()])
@@ -665,13 +797,17 @@ elab_rules : term
   | `($(_) val_neq) => `([bop| !=])
   | `($(_) val_mod) => `([bop| mod])
   | `($(_) val_set) => `([bop| :=])
+  | `($(_) val_ptr_add) => `([bop| ++])
   | _ => throw ( )
 
 @[app_unexpander trm_val] def unexpandVal : Lean.PrettyPrinter.Unexpander := fun x =>
   match x with
   | `($(_) $x:ident) =>
     match x with
+    | `(default_get') => `($x)
+    | `(default_set) => `($x)
     | `(val_unit) => `([lang| ()])
+    | `(val_array_make) => `([uop| mkarr])
     | _ => `([lang| $x:ident])
   | `($(_) $x) =>
     match x with
@@ -685,36 +821,33 @@ elab_rules : term
   | _ => throw ( )
 
 @[app_unexpander trm_app] def unexpandApp : Lean.PrettyPrinter.Unexpander := fun x => do
+  -- dbg_trace x
   match x with
-  | `($(_) [uop|$uop] [lang| $t]) =>
-    match uop with
-    | `(uop| ref)  => `([lang| ref $t])
-    | `(uop| free) => `([lang| free $t])
-    | `(uop| not)  => `([lang| not $t])
-    | `(uop| !)    => `([lang| !$t])
-    | `(uop| -)    => `([lang| -$t])
-    | _ => throw ( )
+  | `($(_) [uop|$uop] [lang| $t]) => `([lang| $uop:uop$t])
   | `($(_) $app [lang| $t2]) =>
     -- dbg_trace app
     match app with
-    | `([bop| $bop].trm_app [lang| $t1]) =>
-      match bop with
-      | `(bop| :=) => `([lang| $t1 := $t2])
-      | `(bop| +) => `([lang| $t1 + $t2])
-      | `(bop| *) => `([lang| $t1 * $t2])
-      | `(bop| -) => `([lang| $t1 - $t2])
-      | `(bop| /) => `([lang| $t1 / $t2])
-      | `(bop| <) => `([lang| $t1 < $t2])
-      | `(bop| >) => `([lang| $t1 > $t2])
-      | `(bop| <=) => `([lang| $t1 <= $t2])
-      | `(bop| >=) => `([lang| $t1 >= $t2])
-      | `(bop| =) => `([lang| $t1 = $t2])
-      | `(bop| !=) => `([lang| $t1 != $t2])
-      | `(bop| mod) => `([lang| $t1 mod $t2])
-      | _ => throw ( )
+    | `([bop| $bop].trm_app [lang| $t1]) => `([lang| $t1 $bop $t2])
     | `([lang| $t1]) => `([lang| $t1 $t2])
+    | `(default_get') => return x
+    | `(trm_app default_get' [lang| $t1]) => `([lang| $t1[$t2]])
+    | `(default_set) => return x
+    | `(trm_app default_set [lang| $_]) => return x
+    | `(trm_app $app [lang| $t1]) =>
+      match app with
+      | `(trm_app default_set [lang| $t0]) => `([lang| $t0[$t1] := $t2])
+      -- | `(trm_app default_get [lang| $t0]) =>
+      --   -- dbg_trace t2
+      --   match t2 with
+      --   | `(lang| ()) => `([lang| $t0[$t1]])
+      --   | _ => `([lang| $t0[$t1]($t2)])
+      | _ => throw ( )
     | _ => throw ( )
   | `($(_) [bop| $bop] [lang| $t1]) => return x
+  -- | `($(_) [lang| $t] [lang| $t1]) =>
+  --   match t with
+  --   | `(lang| default_get $t2) => `([lang| $t2[$t1]])
+  --   | _ => throw ( )
   | _ => throw ( )
 
 @[app_unexpander trm_var] def unexpandVar : Lean.PrettyPrinter.Unexpander
@@ -803,6 +936,10 @@ elab_rules : term
     `([lang| fix $nameF $nameX => $t])
   | _ => throw ( )
 
+@[app_unexpander val_alloc] def unexpandVAlloc : Lean.PrettyPrinter.Unexpander
+  | `($(_) [lang| $n]) => `([lang| alloc $n])
+  | _ => throw ( )
+
 -- @[app_unexpander trm_apps] def unexpandApps : Lean.PrettyPrinter.Unexpander
 --   -- Unexpand function applications when arguments are program-variables
 --   | `($(_) [lang| $f] [ $[[lang|$xs]],* ]) => `([lang| $f  $xs )])
@@ -844,8 +981,10 @@ elab_rules : term
     `([lang| fix $f $xs* => $t])
   | _ => throw ( )
 
-
--- #check [lang| 1-1]
+-- set_option pp.notation false
+#check [lang| x[3]]
+#check [lang| x[7](0)]
+#check [lang| x[3] := 5; mkarr 5 5]
 
 #check fun (p : loc)  => [lang|
   fix f y z =>
@@ -865,6 +1004,8 @@ elab_rules : term
 #check [lang|!x; y]
 instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
 #check fun n : ℤ => (([lang| ()]).trm_seq (trm_val ((n + 1))))
+#check [lang| 1 ++ 2]
+#check [lang| let x := 6 in alloc(x)]
 
 #check fun (p : loc)  => [lang|
   fix f y z =>
@@ -886,6 +1027,25 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
       ]
 
 -- set_option pp.notation false
+#check fun (p : loc)  => [lang|
+  fix f y z =>
+    if F y z
+    then
+      let y := ⟨1 + 1⟩in
+      let y := 1 + 1 in
+      let z := !p in
+      y + z
+    else
+      let y := 1 + 1 in
+      let z := 1 in
+      while (i < z) {
+        i := i + 1;
+        i := i + 1;
+        i}
+      ]
+#check [lang| 1 ++ 2]
+#check [lang| let x := 6 in alloc(x)]
+
 #check fun (p : loc)  => [lang|
   fix f y z =>
     if F y z

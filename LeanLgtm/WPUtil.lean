@@ -7,7 +7,6 @@ open val trm
 
 abbrev XAppExtState := RBMap Name Name Name.cmp
 
-
 initialize xappExtension :
     SimpleScopedEnvExtension (Name × Name) XAppExtState <-
   registerSimpleScopedEnvExtension {
@@ -52,8 +51,6 @@ elab "#hint_xapp" thm:ident : command => do
     let thmFun <- Meta.forallTelescope thm fun _ thm => do
       getTripleFun thm
     xappExtension.add (thmFun, thmName)
-
-
 
 initialize registerBuiltinAttribute {
   name := `xapp
