@@ -2,8 +2,17 @@ import Lean
 
 import LeanLgtm.WP1
 
+open val prim trm
+
 /- ################################################################# -/
 /-* * Demo Programs -/
+
+#hint_xapp triple_lt
+#hint_xapp triple_get
+#hint_xapp triple_ref
+#hint_xapp triple_add
+#hint_xapp triple_set
+#hint_xapp triple_free
 
 lang_def incr :=
   fun p =>
