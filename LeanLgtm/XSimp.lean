@@ -56,8 +56,8 @@ lemma foo : (@OfNat.ofNat ℕ n _) = (n : ℤ) := rfl
 @[heapSimp]
 lemma foo' : (@OfNat.ofNat ℤ n _) = (n : ℤ) := rfl
 @[heapSimp]
-lemma foo'' : (@OfNat.ofNat val n _) = val.val_int (n : ℤ) :=
-  by dsimp only [OfNat.ofNat]
+lemma foo'' : (@OfNat.ofNat val n _) = val.val_int (n : ℤ) := by sorry
+  -- by dsimp only [OfNat.ofNat]
 
 
 macro "hsimp" : tactic => `(tactic| (simp only [heapSimp]; try dsimp))

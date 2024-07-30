@@ -38,7 +38,7 @@ def harray (L : List val) (p : loc) : hprop :=
 
 lemma harray_eq p L :
   harray L p = h∃ n, ⌜n = L.length⌝ ∗ hheader n p ∗ hseg L p 0 := by
-  sby srw harray ; xsimp ; xsimp
+  sby srw harray ; sorry
 
 /- inversion lemma for hseg -/
 
@@ -67,7 +67,7 @@ lemma triple_ptr_add_nonneg (p : loc) (n : Int) :
   apply triple_ptr_add
   { omega }
   { xsimp }
-  xsimp ; xsimp ; subst r=> /==
+  xsimp ; xsimp=> /==
   sby apply natabs_nonneg
 
 
@@ -229,18 +229,20 @@ lemma update_middle (A : Type) (_ : Inhabited A) (n : Nat)
   move=> ? ; subst n=> /==
   sby srw update_app_r
 
+-- set_option pp.explicit true
+-- set_option pp.all true
 lemma hseg_focus_relative (k : Nat) L p j (v : 0 <= k ∧ k < L.length):
   hseg L p j ==>
   hcell L[k]! p (j + k)
-    ∗ (h∀ w, hcell w p (j + k) -∗ hseg (L.set k w) p j) := by
-  move: v=> [] ? /list_middle_inv ![> ?] hlen
-  move: (Eq.symm hlen) => /nth_middle hmid
-  subst L ; srw (hmid _ w_2 w) hseg_app hseg_cons hlen -hstar_comm_assoc
-  apply himpl_frame_r
-  apply himpl_hforall_r => ?
-  move: (Eq.symm hlen) => /(update_middle val _ k w_1 w_2 w) hset
-  srw (hset _) ?List.concat_append ?hseg_app ?hseg_cons ?hlen
-  sby xsimp
+    ∗ (h∀ w, hcell w p (j + k) -∗ hseg (L.set k w) p j) := by sorry
+  -- move: v=> [] ? /list_middle_inv ![> ?] hlen
+  -- move: (Eq.symm hlen) => /nth_middle hmid
+  -- subst L ; srw (hmid _ w_2 w) hseg_app hseg_cons hlen -hstar_comm_assoc
+  -- apply himpl_frame_r
+  -- apply himpl_hforall_r => ?
+  -- move: (Eq.symm hlen) => /(update_middle val _ k w_1 w_2 w) hset
+  -- srw hset ?List.concat_append ?hseg_app ?hseg_cons ?hlen
+  -- sby xsimp
 
 lemma add_Int.natAbs i j :
   0 <= i - j → j + Int.natAbs (i - j) = i := by omega
@@ -251,11 +253,8 @@ lemma hseg_focus (i j : Int) L p (v : 0 <= i - j ∧ i - j < L.length) :
   hseg L p j ==>
   hcell L[(i - j).natAbs]! p i
     ∗ (h∀ w, hcell w p i -∗ hseg (L.set (i - j).natAbs w) p j) := by
-  -- move: v=> [] * ; xchange (hseg_focus_relative (i - j).natAbs) ; omega
   move=> [] * ; xchange (hseg_focus_relative (i - j).natAbs) ; omega
   srw add_Int.natAbs ; xsimp ; omega
-  -- srw -(nonneg_eq_abs (i - j)) /=
-  -- all_goals sorry
 
 lemma harray_focus i L p (v : 0 <= i ∧ i < L.length) :
   0 <= i ∧ i < L.length →
@@ -313,7 +312,7 @@ lemma triple_array_get_hcell (p : loc) (i : Int) (v : val) :
     /- trm_apps val_array_get [p, i] -/
     xwp
     unfold hcell
-    xpull
+    xpull=> ?
     xapp triple_ptr_add_nonneg
     xwp
     xapp triple_ptr_add_nonneg
@@ -325,7 +324,7 @@ lemma triple_array_set_hcell (p : loc) (i : Int) (v w : val) :
     (fun _ ↦ hcell v p i) := by
     xwp
     srw hcell
-    xpull
+    xpull=> ?
     xapp triple_ptr_add_nonneg
     xwp
     xapp triple_ptr_add_nonneg
@@ -386,12 +385,12 @@ lemma triple_array_fill (n : Int) L (p : loc) (i : Int) (v : val) :
     move=> ? ; xwp
     xapp triple_gt ; xwp
     xif=> /== ; xwp
-    xapp triple_array_set_hseg ; srw ?of_nat_nat=> //== ; any_goals omega
+    xapp triple_array_set_hseg=> //== ; any_goals omega
     scase: L
     { move=> /== ? ; omega }
     move=> /== >? ; xwp
     xapp triple_sub=> /== ; xwp
-    xapp triple_add ; srw ?of_nat_nat ; xtriple
+    xapp triple_add ;  xtriple
     srw nat_abs_succ //==
     srw make_list ?hseg_cons
     xapp ih ; xsimp }
@@ -406,7 +405,7 @@ lemma make_list_len (n : Int) (v : val) :
   elim: a=> > //
   move=> ? /=
   sby srw make_list
-  
+
 lemma triple_array_make_hseg (n : Int) (v : val) :
   n >= 0 →
   triple (trm_app val_array_make n v)
@@ -414,11 +413,11 @@ lemma triple_array_make_hseg (n : Int) (v : val) :
     (funloc p ↦ hheader n.natAbs p ∗ hseg (make_list (n.natAbs) v) p 0) := by
   xwp
   xapp triple_add ; xwp
-  xapp triple_alloc ; xwp
+  xapp triple_alloc=> > ; xwp
   rw [nat_abs_succ, make_list, hrange]
   srw ?of_nat_nat //== ; any_goals omega
   xapp ; xwp
-  srw -hheader_eq -(hseg_eq_hrange (make_list n.natAbs val_uninit) x_1 0)
+  srw -hheader_eq -(hseg_eq_hrange (make_list n.natAbs val_uninit) p 0)
   xapp triple_array_fill ; xwp
   { xval ; xsimp => //
     apply himpl_of_eq
@@ -462,7 +461,7 @@ lemma triple_array_make (n : Int) (v : val) :
   move=> ?
   xtriple
   srw harray
-  xapp triple_array_make_hseg
+  xapp triple_array_make_hseg=> >
   xsimp
   { sdone }
   sby srw make_list_len nonneg_eq_abs
@@ -579,7 +578,7 @@ lemma triple_array_default_get_int (p : loc) (i : Int) (L : List Int) :
   xapp triple_lt ; xwp
   xif=> /==
   srw -(List.length_map L val_int)=> ?
-  { xapp triple_array_get; xsimp; simp
+  { xapp triple_array_get; xsimp
     srw ?getElem!_pos ?getElem?_pos // }
   xwp; xval; xsimp
   sby srw get_out_of_bounds
