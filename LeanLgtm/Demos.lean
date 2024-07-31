@@ -23,9 +23,9 @@ lang_def incr :=
 @[xapp]
 lemma triple_incr (p : loc) (n : Int) :
   {p ~~> n}
-  [incr(p)]
+  [incr p]
   {p ~~> n + 1} := by
-  sdo 3 (xwp; xapp)
+  repeat (xwp; xapp)
 
 lang_def mysucc :=
   fun n =>
@@ -34,10 +34,6 @@ lang_def mysucc :=
     let x := !r in
     free r;
     x
--- set_option pp.notation false
--- set_option pp.explicit true
--- set_option pp.funBinderTypes true
--- set_option trace.xsimp true
 
 lemma triple_mysucc (n : Int) :
   { emp }
@@ -48,8 +44,8 @@ lemma triple_mysucc (n : Int) :
 
 lang_def addp :=
   fun n m =>
-    let m := !m in
-    for i in [0:m] {
+    let k := !m in
+    for i in [0:k] {
       incr n
     };
     !n
@@ -72,9 +68,9 @@ lang_def mulp :=
     let m := !m in
     while (
       let i := !i in
-       i < m) {
-      (addp ans n);
-      (incr i)
+      i < m) {
+      addp ans n;
+      incr i
     };
     !ans
 
@@ -102,7 +98,7 @@ lemma triple_mulp (p q : loc) (m n : Int) :
   xwp; xapp=> ans
   xwp; xapp
   xwhile_up (fun b j => p ~~> n ∗ q ~~> m ∗ i ~~> j ∗ ans ~~> n * j ∗ ⌜(b = decide (j < m)) ∧ 0 <= j ∧ j <= m⌝) m
-  { sby xsimp }
+  { xsimp=> // }
   { sby move=>>; xwp; xapp=> ?; xapp; xsimp }
   { move=> X; xwp; xapp=> []??
     xapp; xsimp=> //
