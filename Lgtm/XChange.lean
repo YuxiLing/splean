@@ -80,7 +80,7 @@ example :
   { xchange M; sorry }
   xchanges M; sorry
 
-example (Q : α -> hprop) :
+example (Q : α -> hProp) :
   H1 ==> (h∃ x, Q x ∗ (H2 -∗ H3)) ->
   H1 ∗ H2 ==> h∃ x, Q x ∗ H3 := by
   intro M
@@ -91,8 +91,8 @@ example (Q : α -> hprop) :
 -- set_option pp.explicit true
 -- set_option pp.notation false
 
-example (Q : Int -> hprop) :
-  (∀ {α :Type} (x:α) (J:α->hprop), (hforall J) ==> (J x)) ->
+example (Q : Int -> hProp) :
+  (∀ {α :Type} (x:α) (J:α->hProp), (hforall J) ==> (J x)) ->
   (h∀ x, Q x) ∗ H ==> Q 2 ∗ ⊤ := by
   intro M
   xchange M (2 : Int)

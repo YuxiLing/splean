@@ -29,21 +29,21 @@ lemma himpl_refl_resolve  H : (H ==> H) = True := by
 --   eapply himpl_trans=> //
 --   apply himpl_frame_lr=> //
 
-lemma qimpl_refl (Q : α -> hprop) : Q ===> Q := by
+lemma qimpl_refl (Q : α -> hProp) : Q ===> Q := by
   sby move=> ?; apply himpl_refl
 
 /- Hack to solve `Q ===> Q` automatically. What is a better way?  -/
 @[simp]
-lemma qimpl_refl_resolve (Q : α -> hprop) : (Q ===> Q) = True := by
+lemma qimpl_refl_resolve (Q : α -> hProp) : (Q ===> Q) = True := by
   sby simp=> ??
 
 
-lemma hstar_comm_assoc (H1 H2 H3 : hprop) :
+lemma hstar_comm_assoc (H1 H2 H3 : hProp) :
   H1 ∗ H2 ∗ H3 = H2 ∗ H1 ∗ H3 := by
   sby srw -hstar_assoc [2]hstar_comm hstar_assoc
 
 @[simp]
-lemma star_post_empty (Q : α -> hprop) :
+lemma star_post_empty (Q : α -> hProp) :
   Q ∗ emp = Q := by
   move=> !?; srw qstarE hstar_hempty_r
 
@@ -65,7 +65,7 @@ macro "hsimp" : tactic => `(tactic| (simp only [heapSimp]; try dsimp))
 
 /- **============ `xsimp` implementation ============** -/
 
-def XSimp (hl hr : hprop × hprop × hprop) :=
+def XSimp (hl hr : hProp × hProp × hProp) :=
   let (hla, hlw, hlt) := hl
   let (hra, hrg, hrt) := hr
   hla ∗ hlw ∗ hlt ==> hra ∗ hrg ∗ hrt
@@ -87,20 +87,20 @@ def getGoalStxNN : Lean.Elab.Tactic.TacticM Syntax := do
 
 /-
 XSimp
-      (@Prod.mk hprop (Prod hprop hprop)
-        (@HStar.hStar hprop hprop $_ H1 (@HStar.hStar hprop hprop $_ H2 (@HStar.hStar hprop hprop $_ H3 (@HStar.hStar hprop hprop $_ (Q true) (@HStar.hStar hprop hprop $_ (@HWand.hWand hprop hprop $_ (hpure P) HX) (@HStar.hStar hprop hprop $_ HY hempty))))))
-        (@Prod.mk hprop hprop Hlw Hlt))
-      (@Prod.mk hprop (Prod hprop hprop) Hra (@Prod.mk hprop hprop Hrg Hrt))
+      (@Prod.mk hProp (Prod hProp hProp)
+        (@HStar.hStar hProp hProp $_ H1 (@HStar.hStar hProp hProp $_ H2 (@HStar.hStar hProp hProp $_ H3 (@HStar.hStar hProp hProp $_ (Q true) (@HStar.hStar hProp hProp $_ (@HWand.hWand hProp hProp $_ (hpure P) HX) (@HStar.hStar hProp hProp $_ HY hempty))))))
+        (@Prod.mk hProp hProp Hlw Hlt))
+      (@Prod.mk hProp (Prod hProp hProp) Hra (@Prod.mk hProp hProp Hrg Hrt))
 -/
 
 def XSimpRIni : TacticM XSimpR := withMainContext do
   (<- getMainGoal).setTag `xsimp_goal
   let goal <- getGoalStxNN
   let `(XSimp $hl $hr) := goal | throwError "not a XSimp goal"
-  let `(@Prod.mk hprop $_ $hla $hlwt) := hl | throwError "not a XSimp goal"
-  let `(@Prod.mk hprop hprop $hlw $hlt) := hlwt | throwError "not a XSimp goal"
-  let `(@Prod.mk hprop $_ $hra $hrgt) := hr | throwError "not a XSimp goal"
-  let `(@Prod.mk hprop hprop $hrg $hrt) := hrgt | throwError "not a XSimp goal"
+  let `(@Prod.mk hProp $_ $hla $hlwt) := hl | throwError "not a XSimp goal"
+  let `(@Prod.mk hProp hProp $hlw $hlt) := hlwt | throwError "not a XSimp goal"
+  let `(@Prod.mk hProp $_ $hra $hrgt) := hr | throwError "not a XSimp goal"
+  let `(@Prod.mk hProp hProp $hrg $hrt) := hrgt | throwError "not a XSimp goal"
   return { hla := hla, hlw := hlw, hlt := hlt, hra := hra, hrg := hrg, hrt := hrt }
 
 
@@ -161,7 +161,7 @@ def hstar_flip_lemma (i : Nat) : Ident :=
 partial def hstar_arity (hs : Term) : TacticM Nat :=
   match hs with
   | `(hempty)      => return (0)
-  | `(@HStar.hStar hprop hprop $_ $_ $_ $h2) => do
+  | `(@HStar.hStar hProp hProp $_ $_ $_ $h2) => do
       let n <- hstar_arity h2
       return (1 + n)
   | _           => throwError "cannot get arity"
@@ -296,7 +296,7 @@ def xsimp_pick (i : Nat) (last? : Bool) : TacticM Unit :=
 partial def hstar_search (hs : Term) (test : Nat -> Term -> optParam Bool false -> TacticM Unit) :=
   let rec loop (i : Nat) (hs : Term)  : TacticM Unit := do
     match hs with
-    | `(@HStar.hStar hprop hprop $_ $_ $h1 $h2) => do
+    | `(@HStar.hStar hProp hProp $_ $_ $h1 $h2) => do
       try
         test i h1
       catch _ => loop (i+1) h2
@@ -368,9 +368,9 @@ def hstars_simp_step : TacticM Unit := withMainContext do
   match goal with
     | `(himpl $Hl $Hr) =>
         match Hr with
-          | `(@HStar.hStar hprop hprop $_ $_ $_ $hs) =>
+          | `(@HStar.hStar hProp hProp $_ $_ $_ $hs) =>
               match hs with
-              | `(@HStar.hStar hprop hprop $_ $_ $H $_) =>
+              | `(@HStar.hStar hProp hProp $_ $_ $H $_) =>
                     try
                       xsimp_pick_same H Hl hstars_simp_pick ;
                       {| apply hstars_simp_cancel_lemma |}
@@ -476,7 +476,7 @@ lemma xsimp_l_cancel_hwand :
   xsimp_l_start'
   apply hwand_cancel
 
-lemma xsimp_l_cancel_qwand α (Q1 Q2 : α -> hprop) x :
+lemma xsimp_l_cancel_qwand α (Q1 Q2 : α -> hProp) x :
   XSimp (emp, Hlw, (Hla ∗ Q2 x ∗ Hlt)) HR ->
   XSimp ((Q1 x ∗ Hla), ((Q1 -∗ Q2) ∗ Hlw), Hlt) HR := by
   xsimp_l_start'
@@ -560,7 +560,7 @@ lemma xsimp_lr_hwand :
   srw ?XSimp ; hsimp
   sby srw hwand_equiv
 
-lemma xsimpl_lr_qwand α (Q1 Q2 : α -> hprop) :
+lemma xsimpl_lr_qwand α (Q1 Q2 : α -> hProp) :
   (forall x, XSimp (emp, emp, (Q1 x ∗ Hla)) (emp, emp, (Q2 x ∗ emp))) ->
   XSimp (Hla, emp, emp) (((Q1 -∗ Q2) ∗ emp), emp, emp) := by
   xsimp_lr_start
@@ -568,13 +568,13 @@ lemma xsimpl_lr_qwand α (Q1 Q2 : α -> hprop) :
   srw qstarE
   sdone
 
-lemma xsimpl_lr_qwand_unit (Q1 Q2 : Unit -> hprop) :
+lemma xsimpl_lr_qwand_unit (Q1 Q2 : Unit -> hProp) :
   XSimp (emp, emp, (Q1 ( ) ∗ Hla)) (emp, emp, (Q2 ( ) ∗ emp)) ->
   XSimp (Hla, emp, emp) ((Q1 -∗ Q2) ∗ emp, emp, emp) := by
   move=> ?
   sby apply xsimpl_lr_qwand=> ?
 
-lemma himpl_lr_qwand_unify (Q : α -> hprop):
+lemma himpl_lr_qwand_unify (Q : α -> hProp):
   XSimp (Hla, emp, emp) ((Q -∗ (Q ∗ Hla)) ∗ emp, emp, emp) := by
   srw ?XSimp ; hsimp
   sby srw qwand_equiv
@@ -616,7 +616,7 @@ lemma xsimp_lr_exit :
   XSimp (Hla, emp, emp) (Hra, Hrg, emp) := by
   sby srw ?XSimp ; hsimp
 
-lemma qstar_simp (Q1 : α -> hprop) :
+lemma qstar_simp (Q1 : α -> hProp) :
   (Q1 ∗ H) x = Q1 x ∗ H := by rfl
 
 
@@ -695,14 +695,14 @@ macro "simpNums" : tactic =>
 partial def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit := do
   trace[xsimp] "LHS step"
   match xsimp.hlt, xsimp.hlw with
-  | `(@HStar.hStar hprop hprop $_ $_ $h $_), _ =>
+  | `(@HStar.hStar hProp hProp $_ $_ $h $_), _ =>
     match h with
     | `(hempty)         => {| apply xsimp_l_hempty |}
     | `(hpure $_)        =>
       let n <- fresh `n
       revExt.modify (n :: ·)
       {| apply xsimp_l_hpure; intro $n:ident |}
-    | `(@HStar.hStar hprop hprop $_ $_ $h1 $h2)   =>
+    | `(@HStar.hStar hProp hProp $_ $_ $h1 $h2)   =>
       withAssignableSyntheticOpaque {| erw [@hstar_assoc $h1 $h2]; simpNums |}
       -- rewriteTarget (<- `(@hstar_assoc $h1 $h2)) false
       /- we know that here should be another LHS step -/
@@ -710,15 +710,15 @@ partial def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit :=
     | `(@hexists $_ fun ($x:ident : $_) => $_) =>
       revExt.modify (x :: ·)
       {| apply xsimp_l_hexists; intro $x:term |}
-    | `(@HWand.hWand hprop hprop $_ $_ $_ $_)    => {| apply xsimp_l_acc_wand |}
+    | `(@HWand.hWand hProp hProp $_ $_ $_ $_)    => {| apply xsimp_l_acc_wand |}
     | `(@HWand.hWand $_    $_    $_ $_ $_ $_)   => {| apply xsimp_l_acc_wand |}
     | _              => {| apply xsimp_l_acc_other |}
-  | `(hempty), `(@HStar.hStar hprop hprop $_ $_ $h1 $_) =>
+  | `(hempty), `(@HStar.hStar hProp hProp $_ $_ $h1 $_) =>
     match h1 with
-    | `(@HWand.hWand hprop hprop $_ $_ $h1 $_) =>
+    | `(@HWand.hWand hProp hProp $_ $_ $h1 $_) =>
       match h1 with
       | `(hempty) => {| apply xsimp_l_cancel_hwand_hempty |}
-      | `(@HStar.hStar hprop hprop $_ $_ $_ $_) => xsimp_hwand_hstars_l xsimp.hla h1
+      | `(@HStar.hStar hProp hProp $_ $_ $_ $_) => xsimp_hwand_hstars_l xsimp.hla h1
       | _ => try
           let .true := cancelWand | failure
           xsimp_pick_same h1 xsimp.hla
@@ -766,20 +766,20 @@ partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
   trace[xsimp] "RHS step"
   trace[xsimp] "hrt: {xsimp.hrt}"
   match xsimp.hlw, xsimp.hlt, xsimp.hrt with
-  | `(hempty), `(hempty), `(@HStar.hStar hprop hprop $_ $_ $h $_) =>
+  | `(hempty), `(hempty), `(@HStar.hStar hProp hProp $_ $_ $h $_) =>
     /- TODO: implement hook -/
     try
       trace[xsimp] "xsimp_r deals with: {h}"
       match h with
       | `(hempty) => {| apply xsimp_r_hempty |}
       | `(hpure $_) => {| apply xsimp_r_hpure |}
-      | `(@HStar.hStar hprop hprop $_ $_ $h1 $h2) =>
+      | `(@HStar.hStar hProp hProp $_ $_ $h1 $h2) =>
         {| erw [@hstar_assoc $h1 $h2];
            simpNums |} -- HACK: Numbers are printed with explicict coercions in the goal.
                        -- Somehow rewite adds them as well. So we need to remove them
          /- we know that here should be another RHS step -/
         xsimp_step_r (<- XSimpRIni)
-      | `(@HWand.hWand hprop hprop $_ $_ $h1 $_) =>
+      | `(@HWand.hWand hProp hProp $_ $_ $h1 $_) =>
         match h1 with
         | `(hpure $_) => {| apply xsimp_r_keep |}
         | _ => {| apply xsimp_r_hwand_same |}
@@ -790,7 +790,7 @@ partial def xsimp_step_r (xsimp : XSimpR) : TacticM Unit := do
           repeat'' do
             xsimp_pick_same h xsimp.hla
             {| apply xsimp_lr_cancel_same |}
-        | `(@HStar.hStar hprop hprop $_ $_ htop hempty) => {| apply xsimpl_r_htop_drop |}
+        | `(@HStar.hStar hProp hProp $_ $_ htop hempty) => {| apply xsimpl_r_htop_drop |}
         | _ => throwError "xsimp_step_r: @ unreachable"
       | `(@hexists $_ fun ($x:ident : $_) => $_) => xsimp_r_hexists_apply_hints x
       | `(protect $_) => {| apply xsimp_r_keep |}
@@ -822,12 +822,12 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
   match xsimp.hrg with
   | `(hempty) =>
     match xsimp.hra with
-    | `(@HStar.hStar hprop hprop $_ $_ $h1 hempty) =>
+    | `(@HStar.hStar hProp hProp $_ $_ $h1 hempty) =>
       if h1.isMVarStx then
         withAssignableSyntheticOpaque {| hsimp; apply himpl_lr_refl |}
         return ( )
       match h1 with
-      | `(@HWand.hWand hprop hprop $_ $_ $h1 $_) =>
+      | `(@HWand.hWand hProp hProp $_ $_ $h1 $_) =>
         match h1 with
         | `(hpure False) => {| apply xsimp_lr_hwand_hfalse |}
         | _ => /- TODO: flip -/ xsimp_flip_acc_lr xsimp.hla xsimp.hra ; {| apply xsimp_lr_hwand |}
@@ -845,7 +845,7 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
       | _ => /- TODO: flip -/ xsimp_flip_acc_lr xsimp.hla xsimp.hra ; {| apply xsimp_lr_exit |}
     | `(hempty) => {| first | apply himpl_lr_refl | apply xsimp_lr_exit |}
     | _ => /- TODO: flip -/ xsimp_flip_acc_lr xsimp.hla xsimp.hra ; {| apply xsimp_lr_exit |}
-  | `(@HStar.hStar hprop hprop $_ $_ htop hempty) => {| first | apply himpl_lr_htop | apply xsimp_lr_exit |}
+  | `(@HStar.hStar hProp hProp $_ $_ htop hempty) => {| first | apply himpl_lr_htop | apply xsimp_lr_exit |}
   | _ => /- TODO: flip -/ xsimp_flip_acc_lr xsimp.hla xsimp.hra ; {| apply xsimp_lr_exit |}
 
 
@@ -883,11 +883,11 @@ elab "xsimp_handle_qimpl" : tactic => do
       {| apply himpl_refl |}
      else return ( )
   | Eq tp _ _ =>
-    let_expr hprop := tp | throwError "not a goal for xsimp/xpull"
+    let_expr hProp := tp | throwError "not a goal for xsimp/xpull"
     {| apply himpl_antisym |}
   | Eq tp _ _ =>
     let .some (_, tp) := tp.arrow? | throwError "not a goal for xsimp/xpull"
-    let_expr hprop := tp | throwError "not a goal for xsimp/xpull"
+    let_expr hProp := tp | throwError "not a goal for xsimp/xpull"
     {| ext; apply himpl_antisym |}
   | _ => throwError "not a goal for xsimp/xpull"
 
@@ -1047,7 +1047,7 @@ example :
 warning: declaration uses 'sorry'
 ---
 info: case xsimp_goal.a.a.a
-H1 H2 H3 H4 H5 H6 H7 : hprop
+H1 H2 H3 H4 H5 H6 H7 : hProp
 ⊢ H1 ∗ H2 ∗ H4 ==> H5 ∗ H6 ∗ H7
 -/
 #guard_msgs in
@@ -1093,7 +1093,7 @@ example :
       xsimp1; xsimp1  }
     { xsimp }
 
-example (Q1 Q2 : α -> hprop) :
+example (Q1 Q2 : α -> hProp) :
   H1 ∗ (H1 -∗ (Q1 -∗ Q2)) ∗ (Q1 x) ==> (Q2 x) := by
   xsimp
 
@@ -1101,7 +1101,7 @@ example :
   H1 ∗ H2 ==> H1 ∗ (H3 -∗ (H2 ∗ H3)) := by
   xsimp
 
-example (Q1 Q2 : α -> hprop) :
+example (Q1 Q2 : α -> hProp) :
    H1 ∗ (H1 -∗ (Q1 -∗ Q2)) ∗ (Q1 x) ==> (Q2 x) := by
   xsimp
 

@@ -21,7 +21,7 @@ local instance : Coe val trm where
 
 /- Definition of [wp] -/
 
-def wp (t : trm) (Q : val → hprop) : hprop :=
+def wp (t : trm) (Q : val → hProp) : hProp :=
   fun s ↦ eval s t Q
 
 /- Equivalence b/w [wp] and [triple] -/
@@ -55,7 +55,7 @@ by
 
 /- Corollaries -/
 
-lemma wp_ramified t (Q1 Q2 : val -> hprop) :
+lemma wp_ramified t (Q1 Q2 : val -> hProp) :
   (wp t Q1) ∗ (Q1 -∗ Q2) ==> (wp t Q2) :=
 by
   apply himpl_trans
@@ -63,7 +63,7 @@ by
   apply wp_conseq
   apply qwand_cancel
 
-lemma wp_conseq_frame t H (Q1 Q2 : val -> hprop) :
+lemma wp_conseq_frame t H (Q1 Q2 : val -> hProp) :
   Q1 ∗ H ===> Q2 →
   (wp t Q1) ∗ H ==> (wp t Q2) :=
 by
@@ -335,13 +335,13 @@ by
 
 /- Defining [mkstruct] -/
 
-abbrev formula := (val → hprop) → hprop
+abbrev formula := (val → hProp) → hProp
 
 /- [mkstruct F] transforms a formula [F] into one satisfying structural
    rules of Separation Logic. -/
 
 def mkstruct (F : formula) :=
-  fun (Q : val -> hprop) ↦ h∃ Q', F Q' ∗ (Q' -∗ Q)
+  fun (Q : val -> hProp) ↦ h∃ Q', F Q' ∗ (Q' -∗ Q)
 
 def structural (F : formula) :=
   forall Q, mkstruct F Q ==> F Q
@@ -577,7 +577,7 @@ lemma qimpl_wp_of_triple t F :
   (forall Q, triple t (F Q) Q) →
   F ===> wp t := by sdone
 
-lemma triple_for_raw (x:var) (n1 n2: Int) t3 H (Q:val->hprop) :
+lemma triple_for_raw (x:var) (n1 n2: Int) t3 H (Q:val->hProp) :
   triple (
     if (n1 <= n2)
       then (trm_seq (subst x n1 t3) (trm_for x (val_int $ n1+1) n2 t3))
@@ -751,7 +751,7 @@ lemma xwp_lemma_fix : forall v1 v2 f x t H Q,
   triple (trm_app v1 v2) H Q :=
 by sorry
 
-lemma xtriple_lemma t H (Q:val → hprop) :
+lemma xtriple_lemma t H (Q:val → hProp) :
   H ==> mkstruct (wpgen_app t) Q →
   triple t H Q :=
 by
@@ -1073,9 +1073,9 @@ set_option linter.hashCommand false
 @[simp]
 lemma oneE : OfNat.ofNat 1 = 1 := by rfl
 
-lemma xfor_inv_lemma (I : Int -> hprop) (a b : Int)
+lemma xfor_inv_lemma (I : Int -> hProp) (a b : Int)
   (F : val -> formula)
-  (Q : val -> hprop) :
+  (Q : val -> hProp) :
   structural_pred F ->
   a <= b ->
     (∃ H',
@@ -1156,7 +1156,7 @@ macro "xfor" I:term : tactic => do
 
 /- While loop -/
 
-lemma xwhile_inv_lemma (I : Bool -> α -> hprop)
+lemma xwhile_inv_lemma (I : Bool -> α -> hProp)
   (F1 F2 : formula) :
     WellFounded R ->
     (H ==> h∃ b a, I b a) ->
@@ -1179,7 +1179,7 @@ lemma structural_imp : structural F ->
   xchange sF Q'; unfold mkstruct; xsimp
   apply h
 
-lemma xwhile_inv_basic_lemma (I : Bool -> α -> hprop) R
+lemma xwhile_inv_basic_lemma (I : Bool -> α -> hProp) R
   (F1 F2 : formula) :
   WellFounded R ->
   structural F1 ->
@@ -1197,7 +1197,7 @@ lemma xwhile_inv_basic_lemma (I : Bool -> α -> hprop) R
   --   sby xsimp=> > ?; xchange fs }
   -- xval; xsimp
 
-lemma xwhile_inv_basic_lemmaQ (I : Bool -> α -> hprop) R
+lemma xwhile_inv_basic_lemmaQ (I : Bool -> α -> hProp) R
   (F1 F2 : formula) :
   WellFounded R ->
   structural F1 ->
@@ -1210,7 +1210,7 @@ lemma xwhile_inv_basic_lemmaQ (I : Bool -> α -> hprop) R
   move=> *
   sorry
 
-lemma xwhile_inv_measure_lemma_down (Xbot : Int) (I : Bool -> Int -> hprop)
+lemma xwhile_inv_measure_lemma_down (Xbot : Int) (I : Bool -> Int -> hProp)
   (F1 F2 : formula) :
   structural F1 ->
   structural F2 ->
@@ -1222,7 +1222,7 @@ lemma xwhile_inv_measure_lemma_down (Xbot : Int) (I : Bool -> Int -> hprop)
   apply xwhile_inv_basic_lemmaQ
   sorry -- wf?
 
-lemma xwhile_inv_measure_lemma_up (Xtop : Int) (I : Bool -> Int -> hprop)
+lemma xwhile_inv_measure_lemma_up (Xtop : Int) (I : Bool -> Int -> hProp)
   (F1 F2 : formula) :
   structural F1 ->
   structural F2 ->

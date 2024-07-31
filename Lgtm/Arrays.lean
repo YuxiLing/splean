@@ -10,14 +10,14 @@ import Lgtm.Lang
 
 open val trm prim
 
-def hheader (n : Int) (p : loc) : hprop :=
+def hheader (n : Int) (p : loc) : hProp :=
   p ~~> (val_int n)
 
 lemma hheader_eq p n :
   (hheader n p) = (p ~~> (val_int n)) := by
   sdone
 
-def hcell (v : val) (p : loc) (i : Int) : hprop :=
+def hcell (v : val) (p : loc) (i : Int) : hProp :=
   ((p + 1 + (Int.natAbs i)) ~~> v) ∗ ⌜i >= 0⌝
 
 lemma hcell_eq v p i :
@@ -28,12 +28,12 @@ lemma hcell_nonneg v p i :
   hcell v p i ==> hcell v p i ∗ ⌜i >= 0⌝ := by
   sby srw hcell_eq ; xsimp
 
-def hseg (L : List val) (p : loc) (j : Int) : hprop :=
+def hseg (L : List val) (p : loc) (j : Int) : hProp :=
   match L with
   | []      => emp
   | x :: L' => (hcell x p j) ∗ (hseg L' p (j + 1))
 
-def harray (L : List val) (p : loc) : hprop :=
+def harray (L : List val) (p : loc) : hProp :=
   hheader (L.length) p ∗ hseg L p 0
 
 lemma harray_eq p L :
@@ -88,7 +88,7 @@ lemma triple_ptr_add_nonneg (p : loc) (n : Int) :
 
 /- Heap predicate for describing a range of cells -/
 
-def hrange (L : List val) (p : loc) : hprop :=
+def hrange (L : List val) (p : loc) : hProp :=
   match L with
   | []      => emp
   | x :: L' => (p ~~> x) ∗ (hrange L' (p + 1))
@@ -563,7 +563,7 @@ lemma getElem!_nil_intint (n : Int) :
 lemma getElem!_nil_intval (n : Int) :
   ([] : List val)[n]! = default := by sdone
 
-def harray_int (L : List Int) : loc → hprop :=
+def harray_int (L : List Int) : loc → hProp :=
   harray (L.map val_int)
 
 -- set_option maxHeartbeats 400000

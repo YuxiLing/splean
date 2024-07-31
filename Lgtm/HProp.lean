@@ -13,41 +13,41 @@ open Classical
 -- namespace hprop_scope
 -- open hprop_scope
 
-/- The type of heap predicates is named [hprop]. -/
+/- The type of heap predicates is named [hProp]. -/
 
-abbrev hprop := heap -> Prop
+abbrev hProp := heap -> Prop
 
 /- Entailment for heap predicates, written [H1 ==> H2]. This entailment
     is linear. -/
 
-abbrev himpl (H1 H2 : hprop) : Prop :=
+abbrev himpl (H1 H2 : hProp) : Prop :=
   forall h, H1 h -> H2 h
 
 infixr:51 " ==> " => himpl
 
 /- Entailment between postconditions, written [Q1 ===> Q2]. -/
 
-def qimpl {A} (Q1 Q2 : A → hprop) : Prop :=
+def qimpl {A} (Q1 Q2 : A → hProp) : Prop :=
   forall (v:A), Q1 v ==> Q2 v
 
 infixr:51 " ===> " => qimpl
 
 /- --------- Definitions of Heap predicates --------- -/
 
-def hempty : hprop :=
+def hempty : hProp :=
   fun h => (h = ∅)
 
-def hsingle (p : loc) (v : val) : hprop :=
+def hsingle (p : loc) (v : val) : hProp :=
   fun h => (h = Finmap.singleton p v)
 
-def hstar (H1 H2 : hprop) : hprop :=
+def hstar (H1 H2 : hProp) : hProp :=
   fun h => exists h1 h2,
     H1 h1 ∧ H2 h2 ∧ Finmap.Disjoint h1 h2 ∧ h = h1 ∪ h2
 
-def hexists {A} (J : A → hprop) : hprop :=
+def hexists {A} (J : A → hProp) : hProp :=
   fun h => exists x, J x h
 
-def hforall {A} (J : A → hprop) : hprop :=
+def hforall {A} (J : A → hProp) : hProp :=
   fun h => forall x, J x h
 
 notation:max "emp" => hempty
@@ -65,8 +65,10 @@ class HStar (α : Type u) (β : Type v) (γ : outParam (Type w)) where
 
 infixr:55 " ∗ " => HStar.hStar
 
+macro_rules | `($x ∗ $y)   => `(binop% HStar.hStar $x $y)
+
 @[default_instance]
-instance : HStar hprop hprop hprop where
+instance : HStar hProp hProp hProp where
   hStar := hstar
 
 /- This notation sucks (`h` prefix is not uniform across other notations)
@@ -113,16 +115,16 @@ Notation "'\forall' x1 .. xn , H" :=
 
 /- Derived operators -/
 
-def hpure (P : Prop) : hprop :=
+def hpure (P : Prop) : hProp :=
   hexists (fun (_ : P) => emp)
 
-def htop : hprop :=
-  hexists (fun (H : hprop) => H)
+def htop : hProp :=
+  hexists (fun (H : hProp) => H)
 
-def hwand (H1 H2 : hprop) : hprop :=
-  hexists (fun (H0 : hprop) => H0 ∗ hpure ((H1 ∗ H0) ==> H2))
+def hwand (H1 H2 : hProp) : hProp :=
+  hexists (fun (H0 : hProp) => H0 ∗ hpure ((H1 ∗ H0) ==> H2))
 
-def qwand {A} (Q1 Q2 : A → hprop) : hprop :=
+def qwand {A} (Q1 Q2 : A → hProp) : hProp :=
   hforall (fun (x : A) => hwand (Q1 x) (Q2 x))
 
 /- this a better notation as for me -/
@@ -131,10 +133,10 @@ notation:max "⌜" P "⌝" => hpure P
 /- ⊤⊤ is very annoynig, let's just overwrite lean's ⊤ -/
 notation (priority := high) "⊤" => htop
 
-def qstar {A} (Q : A → hprop) (H : hprop) : A → hprop :=
+def qstar {A} (Q : A → hProp) (H : hProp) : A → hProp :=
   fun x => hstar (Q x) H
 
-instance (A : Type) : HStar (A → hprop) hprop (A → hprop) where
+instance (A : Type) : HStar (A → hProp) hProp (A → hProp) where
   hStar := qstar
 
 -- infixr:54 " ∗ " => qstar
@@ -146,10 +148,10 @@ class HWand (α : Type u) (β : Type v) (γ : outParam (Type w)) where
 infixr:55 " -∗ " => HWand.hWand
 
 @[default_instance]
-instance : HWand hprop hprop hprop where
+instance : HWand hProp hProp hProp where
   hWand := hwand
 
-instance (α : Type) : HWand (α → hprop) (α → hprop) hprop where
+instance (α : Type) : HWand (α → hProp) (α → hProp) hProp where
   hWand := qwand
 
 /- ============ Properties of Separation Logic Operators ============ -/
@@ -180,7 +182,7 @@ by
   { sby srw (himpl) at h1imp2 }
   { sby srw (himpl) at h2imp1 }
 
-lemma hprop_op_comm (op : hprop → hprop → hprop) :
+lemma hprop_op_comm (op : hProp → hProp → hProp) :
   (forall H1 H2, op H1 H2 ==> op H2 H1) →
   (forall H1 H2, op H1 H2 = op H2 H1) :=
 by
@@ -199,7 +201,7 @@ by sapply
 
 /- ---------------- Properties of [hstar] ---------------- -/
 
-lemma hstar_intro H1 H2 h1 h2 :
+lemma hstar_intro (H1 H2 : hProp) h1 h2 :
   H1 h1 →
   H2 h2 →
   Finmap.Disjoint h1 h2 →
@@ -207,7 +209,7 @@ lemma hstar_intro H1 H2 h1 h2 :
 by
   sby move=> *
 
-lemma hstar_inv H1 H2 h:
+lemma hstar_inv (H1 H2 : hProp) h:
   (H1 ∗ H2) h →
   exists h1 h2, H1 h1 ∧ H2 h2 ∧ Finmap.Disjoint h1 h2 ∧ h = h1 ∪ h2 :=
 by
@@ -254,14 +256,14 @@ by
   srw (hstar_comm)
   apply hstar_hempty_l
 
-lemma hstar_hexists A (J : A → hprop) H :
+lemma hstar_hexists A (J : A → hProp) H :
   (hexists J) ∗ H = hexists (fun x => (J x) ∗ H) :=
 by
   apply himpl_antisym
   { sby move=> ? ![?? []] }
   sby move=> ? [? ![]]
 
-lemma hstar_hforall A (J : A → hprop) H :
+lemma hstar_hforall A (J : A → hProp) H :
   (hforall J) ∗ H ==> hforall (J ∗ H) :=
 by
   move=> ? [h1 ![h2 /hforall] * ?]
@@ -380,29 +382,29 @@ by
 
 /- ----------------- Properties of [hexists] ----------------- -/
 
-lemma hexists_intro A (x : A) (J : A → hprop) h :
+lemma hexists_intro A (x : A) (J : A → hProp) h :
   J x h → (hexists J) h :=
 by sdone
 
-lemma hexists_inv A (J : A → hprop) h :
+lemma hexists_inv A (J : A → hProp) h :
   (hexists J) h → exists x, J x h :=
 by
   sby srw hexists
 
-lemma himpl_hexists_l A H (J : A → hprop) :
+lemma himpl_hexists_l A H (J : A → hProp) :
   (forall x, J x ==> H) → (hexists J) ==> H :=
 by
   srw [0](himpl)=> hJx ? [?]
   sby apply hJx
 
-lemma himpl_hexists_r A (x : A) H (J : A → hprop) :
+lemma himpl_hexists_r A (x : A) H (J : A → hProp) :
   (H ==> J x) →
   H ==> (hexists J) :=
 by
   srw himpl=> * ??
   sby exists x
 
-lemma himpl_hexists A (J1 J2 : A → hprop) :
+lemma himpl_hexists A (J1 J2 : A → hProp) :
   J1 ===> J2 →
   hexists J1 ==> hexists J2 :=
 by
@@ -412,34 +414,34 @@ by
 
 /- ------------------- Properties of [hforall] ------------------- -/
 
-lemma hforall_intro A (J : A → hprop) h :
+lemma hforall_intro A (J : A → hProp) h :
   (forall x, J x h) → (hforall J) h :=
 by sdone
 
-lemma hforall_inv A (J : A → hprop) h :
+lemma hforall_inv A (J : A → hProp) h :
   (hforall J) h → forall x, J x h :=
 by
   sby srw hforall
 
-lemma himpl_hforall_r A (J : A → hprop) H :
+lemma himpl_hforall_r A (J : A → hProp) H :
   (forall x, H ==> J x) →
   H ==> (hforall J) :=
 by
   sby srw [0]himpl=> * ?
 
-lemma himpl_hforall_l A (x : A) (J : A → hprop) H :
+lemma himpl_hforall_l A (x : A) (J : A → hProp) H :
   (J x ==> H) →
   (hforall J) ==> H :=
 by
   srw himpl=> ??
   sby srw hforall
 
-lemma hforall_specialize A (x : A) (J : A → hprop) :
+lemma hforall_specialize A (x : A) (J : A → hProp) :
   (hforall J) ==> (J x) :=
 by
   move=> ? ; sapply
 
-lemma himpl_hforall A (J1 J2 : A → hprop) :
+lemma himpl_hforall A (J1 J2 : A → hProp) :
   J1 ===> J2 →
   hforall J1 ==> hforall J2 :=
 by
@@ -546,13 +548,13 @@ by
 
 /- ----------------- Properties of [qwand] ----------------- -/
 
-lemma qwandE α (Q1 Q2 : α → hprop) :
+lemma qwandE α (Q1 Q2 : α → hProp) :
   Q1 -∗ Q2 = hforall (fun x => (Q1 x) -∗ (Q2 x)) := rfl
 
-lemma qstarE α (Q1 : α → hprop)  (H : hprop):
+lemma qstarE α (Q1 : α → hProp)  (H : hProp):
   Q1 ∗ H = fun x => Q1 x ∗ H := rfl
 
-lemma qwand_equiv H A (Q1 Q2 : A → hprop) :
+lemma qwand_equiv H A (Q1 Q2 : A → hProp) :
   H ==> (Q1 -∗ Q2) ↔ (Q1 ∗ H) ===> Q2 :=
 by
   srw qwandE ; apply Iff.intro
@@ -566,18 +568,18 @@ by
   apply himpl_hforall_r => ?
   sby srw hwand_equiv=> ?
 
-lemma qwand_cancel A (Q1 Q2 : A → hprop) :
+lemma qwand_cancel A (Q1 Q2 : A → hProp) :
   Q1 ∗ (Q1 -∗ Q2) ===> Q2 :=
 by
   sby srw -qwand_equiv=> ?
 
-lemma himpl_qwand_r A (Q1 Q2 : A → hprop) H :
+lemma himpl_qwand_r A (Q1 Q2 : A → hProp) H :
   Q1 ∗ H ===> Q2 →
   H ==> (Q1 -∗ Q2) :=
 by
   sby srw qwand_equiv
 
-lemma qwand_specialize A (x : A) (Q1 Q2 : A → hprop) :
+lemma qwand_specialize A (x : A) (Q1 Q2 : A → hProp) :
   (Q1 -∗ Q2) ==> (Q1 x -∗ Q2 x) :=
 by
   sby apply (himpl_hforall_l A x)=> ?; sapply
@@ -637,7 +639,7 @@ by
 
 /- -------- Definitions and Properties of [haffine] and [hgc] -------- -/
 
-def haffine (_ : hprop) :=
+def haffine (_ : hProp) :=
   True
 
 lemma haffine_hany : forall H,
@@ -676,13 +678,13 @@ lemma haffine_hstar H1 H2 :
 by
   move=> * ; apply haffine_hany
 
-lemma haffine_hexists A (J : A → hprop) :
+lemma haffine_hexists A (J : A → hProp) :
   (forall x, haffine (J x)) →
   haffine (hexists J) :=
 by
   move=> * ; apply haffine_hany
 
-lemma haffine_hforall A {_ : Inhabited A} (J : A → hprop) :
+lemma haffine_hforall A {_ : Inhabited A} (J : A → hProp) :
   (forall x, haffine (J x)) →
   haffine (hforall J) :=
 by
@@ -697,7 +699,7 @@ by
 
 /- ------------- Definition and properties of [placeholder] ------------- -/
 
-def hind : hprop :=
+def hind : hProp :=
   hexists (fun b ↦ if b then emp else ⊤)
 
 notation:max "⊤⊤" => hind

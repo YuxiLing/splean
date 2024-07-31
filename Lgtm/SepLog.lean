@@ -14,7 +14,7 @@ local instance : Coe val trm where
 
 /- -------------- Definition of Separation Logic Triples -------------- -/
 
-abbrev triple (t : trm) (H : hprop) (Q : val → hprop) : Prop :=
+abbrev triple (t : trm) (H : hProp) (Q : val → hProp) : Prop :=
   forall s, H s → eval s t Q
 
 notation "funloc" p "↦" H =>
@@ -181,7 +181,7 @@ by
   srw triple => ??
   sby apply (eval_conseq _ _ Q' _)
 
-lemma triple_frame t H (Q : val -> hprop) H' :
+lemma triple_frame t H (Q : val -> hProp) H' :
   triple t H Q →
   triple t (H ∗ H') (Q ∗ H') :=
 by
@@ -203,13 +203,13 @@ by
   srw triple=> ? ![?? [? /hempty_inv hEmp] ?? hU]
   sby srw hU hEmp Finmap.empty_union
 
-lemma triple_hexists t A (J : A → hprop) Q :
+lemma triple_hexists t A (J : A → hProp) Q :
   (forall x, triple t (J x) Q) →
   triple t (hexists J) Q :=
 by
   sby srw []triple => hJ ? [] ? /hJ
 
-lemma triple_hforall t A (x : A) (J : A → hprop) Q:
+lemma triple_hforall t A (x : A) (J : A → hProp) Q:
   triple t (J x) Q →
   triple t (hforall J) Q :=
 by

@@ -79,7 +79,7 @@ def unloc : val -> loc | val_loc v => v | _ => panic! "unloc"
 instance : Coe val loc := ⟨unloc⟩
 
 
--- instance : Coe Prop hprop := ⟨hpure⟩
+-- instance : Coe Prop hProp := ⟨hpure⟩
 
 elab "xsimpl" : tactic => do
   xsimp_step_l (<- XSimpRIni)

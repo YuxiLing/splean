@@ -12,7 +12,7 @@
 
 -- /- Definition of [wp] -/
 
--- def wp (t : trm) (Q : val → hprop) : hprop :=
+-- def wp (t : trm) (Q : val → hProp) : hProp :=
 --   fun s ↦ eval s t Q
 
 -- /- Equivalence b/w [wp] and [triple] -/
@@ -322,7 +322,7 @@
 
 -- /- Defining [mkstruct] -/
 
--- abbrev formula := (val → hprop) → hprop
+-- abbrev formula := (val → hProp) → hProp
 
 -- /- [mkstruct F] transforms a formula [F] into one satisfying structural
 --    rules of Separation Logic. -/
