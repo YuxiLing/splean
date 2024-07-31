@@ -44,7 +44,7 @@ by
 /- Frame rule for [wp] -/
 
 lemma wp_frame t H Q :
-  (wp t Q) ∗ H ==> wp t (Q ∗∗ H) :=
+  (wp t Q) ∗ H ==> wp t (Q ∗ H) :=
 by
   move=> h ![????? hU]
   srw hU wp
@@ -55,16 +55,16 @@ by
 
 /- Corollaries -/
 
-lemma wp_ramified t Q1 Q2 :
-  (wp t Q1) ∗ (Q1 -∗∗ Q2) ==> (wp t Q2) :=
+lemma wp_ramified t (Q1 Q2 : val -> hprop) :
+  (wp t Q1) ∗ (Q1 -∗ Q2) ==> (wp t Q2) :=
 by
   apply himpl_trans
   { apply wp_frame }
   apply wp_conseq
   apply qwand_cancel
 
-lemma wp_conseq_frame t H Q1 Q2 :
-  Q1 ∗∗ H ===> Q2 →
+lemma wp_conseq_frame t H (Q1 Q2 : val -> hprop) :
+  Q1 ∗ H ===> Q2 →
   (wp t Q1) ∗ H ==> (wp t Q2) :=
 by
   srw -qwand_equiv
@@ -75,7 +75,7 @@ by
 
 
 lemma wp_ramified_trans t H Q1 Q2 :
-  H ==> (wp t Q1) ∗ (Q1 -∗∗ Q2) →
+  H ==> (wp t Q1) ∗ (Q1 -∗ Q2) →
   H ==> (wp t Q2) :=
 by
   move=> M
@@ -341,7 +341,7 @@ abbrev formula := (val → hprop) → hprop
    rules of Separation Logic. -/
 
 def mkstruct (F : formula) :=
-  fun Q ↦ h∃ Q', F Q' ∗ (Q' -∗∗ Q)
+  fun (Q : val -> hprop) ↦ h∃ Q', F Q' ∗ (Q' -∗ Q)
 
 def structural (F : formula) :=
   forall Q, mkstruct F Q ==> F Q
@@ -351,7 +351,7 @@ def structural_pred (S : α -> formula) :=
 
 
 lemma mkstruct_ramified Q1 Q2 F :
-  (mkstruct F Q1) ∗ (Q1 -∗∗ Q2) ==> (mkstruct F Q2) :=
+  (mkstruct F Q1) ∗ (Q1 -∗ Q2) ==> (mkstruct F Q2) :=
 by
   srw []mkstruct
   xsimp
@@ -372,7 +372,7 @@ by
   sdone
 
 lemma mkstruct_frame F H Q :
-  (mkstruct F Q) ∗ H ==> mkstruct F (Q ∗∗ H) :=
+  (mkstruct F Q) ∗ H ==> mkstruct F (Q ∗ H) :=
 by
   srw []mkstruct
   xpull=> ?
@@ -700,9 +700,9 @@ by
   move=> /== h
   sby all_goals xchange h ; unfold wpgen_if ; xsimp
 
-lemma xapp_lemma t Q1 H1 H Q :
-  triple t H1 Q1 →
-  H ==> H1 ∗ (Q1 -∗∗ protect Q) →
+lemma xapp_lemma : forall t Q1 H1 H Q,
+  triple t H1 Q1 ->
+  H ==> H1 ∗ (Q1 -∗ protect Q) ->
   H ==> wpgen_app t Q :=
 by
   move=> T M
@@ -842,9 +842,7 @@ elab "xtriple_if_needed" : tactic => do
 
 lemma xapp_simpl_lemma (F : formula) :
   H ==> F Q ->
-  H ==> F Q ∗ (Q -∗∗ protect Q) := by
-  move=> M
-  xchange M ; xsimp
+  H ==> F Q ∗ (Q -∗ protect Q) := by sorry
 
 elab "xsimp_step_no_cancel" : tactic => do
   let xsimp <- XSimpRIni

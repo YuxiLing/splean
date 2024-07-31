@@ -831,7 +831,7 @@ def xsimp_step_lr (xsimp : XSimpR) : TacticM Unit := do
         match h1 with
         | `(hpure False) => {| apply xsimp_lr_hwand_hfalse |}
         | _ => /- TODO: flip -/ xsimp_flip_acc_lr xsimp.hla xsimp.hra ; {| apply xsimp_lr_hwand |}
-      | `(@@HWand.hWand $_ $_ $_ $_ $h1 $_) =>
+      | `(@HWand.hWand $_   $_    $_ $_ $h1 $_) =>
         xsimp_flip_acc_lr xsimp.hla xsimp.hra ;
         try
           let .true := h1.isMVarStx | failure

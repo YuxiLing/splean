@@ -117,7 +117,7 @@ by
 lemma eval_frame (h1 h2 : state) t Q :
   eval h1 t Q →
   Finmap.Disjoint h1 h2 →
-  eval (h1 ∪ h2) t (Q ∗∗ (fun h ↦ h = h2)) :=
+  eval (h1 ∪ h2) t (Q ∗ (fun h ↦ h = h2)) :=
 by
   move=> heval
   elim: heval h2
@@ -150,14 +150,14 @@ by
   { move=> * ; apply eval.eval_get=>//
     srw in_read_union_l ; sby apply hstar_intro }
   { move=> * ; apply eval.eval_set=>//
-    srw qstar Finmap.insert_union ; apply hstar_intro=>//
+    srw qstarE Finmap.insert_union ; apply hstar_intro=>//
     sby apply disjoint_insert_l }
   { move=> * ; apply eval.eval_free=>//
     srw remove_disjoint_union_l ; apply hstar_intro=>//
     sby apply disjoint_remove_l }
   move=> >? ih * ; apply eval.eval_alloc=>//
   move=> > /ih h /h hQ1 /[dup] /Finmap.disjoint_union_left [] /hQ1 *
-  srw qstar -Finmap.union_assoc
+  srw qstarE -Finmap.union_assoc
   apply hstar_intro=>//
   srw Finmap.disjoint_union_left at *
   sby srw Finmap.Disjoint.symm_iff
@@ -181,16 +181,16 @@ by
   srw triple => ??
   sby apply (eval_conseq _ _ Q' _)
 
-lemma triple_frame t H Q H' :
+lemma triple_frame t H (Q : val -> hprop) H' :
   triple t H Q →
-  triple t (H ∗ H') (Q ∗∗ H') :=
+  triple t (H ∗ H') (Q ∗ H') :=
 by
   move=> /triple hEval
   srw triple=>? ![?? hs ? hDisj hU] ; srw hU
   apply eval_conseq
   { apply (eval_frame _ _ _ _ (hEval _ hs) hDisj) =>// }
   { move=> ?
-    sby srw ?qstar ; xsimp }
+    sby srw ?qstarE ; xsimp }
 
 
 /- Extraction Rules -/
@@ -245,7 +245,7 @@ by
 lemma triple_conseq_frame H2 H1 Q1 t H Q :
   triple t H1 Q1 →
   H ==> H1 ∗ H2 →
-  Q1 ∗∗ H2 ===> Q →
+  Q1 ∗ H2 ===> Q →
   triple t H Q :=
 by
   move=> /triple_frame hFra /triple_conseq hCons /hCons
@@ -253,7 +253,7 @@ by
 
 lemma triple_ramified_frame H1 Q1 t H Q :
   triple t H1 Q1 →
-  H ==> H1 ∗ (Q1 -∗∗ Q) →
+  H ==> H1 ∗ (Q1 -∗ Q) →
   triple t H Q :=
 by
   move=> ??;
