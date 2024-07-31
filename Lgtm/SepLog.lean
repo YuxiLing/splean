@@ -1,9 +1,9 @@
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
-import LeanLgtm.Util
-import LeanLgtm.HProp
-import LeanLgtm.XSimp
+import Lgtm.Util
+import Lgtm.HProp
+import Lgtm.XSimp
 
 open trm val prim
 

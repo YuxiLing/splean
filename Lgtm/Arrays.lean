@@ -1,9 +1,9 @@
-import LeanLgtm.XSimp
-import LeanLgtm.XChange
-import LeanLgtm.Util
-import LeanLgtm.SepLog
-import LeanLgtm.WP1
-import LeanLgtm.Lang
+import Lgtm.XSimp
+import Lgtm.XChange
+import Lgtm.Util
+import Lgtm.SepLog
+import Lgtm.WP1
+import Lgtm.Lang
 
 
 /- ============== Definitions for Arrays ============== -/

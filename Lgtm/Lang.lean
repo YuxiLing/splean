@@ -1,7 +1,7 @@
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
-import LeanLgtm.Util
+import Lgtm.Util
 
 
 open Classical
@@ -87,7 +87,7 @@ instance : Coe Int val where
 
 /- Help Lean to treat Nat as val -/
 instance : OfNat val n where
-  ofNat := val.val_unit
+  ofNat := val.val_int n
 
 instance : Coe loc val where
   coe l := val.val_loc l
@@ -581,6 +581,11 @@ declare_syntax_cat bop
 declare_syntax_cat uop
 
 -- #check let x := (); let y := (); y
+-- x; y
+/-
+  x;
+  y
+-/
 
 syntax ident : lang
 syntax num : lang
@@ -633,7 +638,6 @@ syntax lang noWs "[" lang "]" : lang
 syntax "[lang| " lang "]" : term
 syntax "[bop| " bop "]" : term
 syntax "[uop| " uop "]" : term
-
 
 
 local notation "%" x => (Lean.quote (toString (Lean.Syntax.getId x)))
@@ -895,6 +899,10 @@ macro_rules
     `([lang| fun $name => $t])
   | _ => throw ( )
 
+/-
+  trm_for "x" n1 n2 t
+-/
+
 @[app_unexpander val_fun] def unexpandVFun : Lean.PrettyPrinter.Unexpander
   | `($(_) $x:str [lang| fun $xs* => $t]) =>
     let str := x.getString
@@ -1004,8 +1012,6 @@ macro_rules
 #check [lang|!x; y]
 instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
 #check fun n : ℤ => (([lang| ()]).trm_seq (trm_val ((n + 1))))
-#check [lang| 1 ++ 2]
-#check [lang| let x := 6 in alloc(x)]
 
 #check fun (p : loc)  => [lang|
   fix f y z =>

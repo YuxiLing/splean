@@ -1,10 +1,10 @@
 -- -- import Ssreflect.Lang
 -- import Mathlib.Data.Finmap
--- import LeanLgtm.Util
+-- import Lgtm.Util
 
--- import LeanLgtm.HProp
--- import LeanLgtm.XSimp
--- import LeanLgtm.SepLog
+-- import Lgtm.HProp
+-- import Lgtm.XSimp
+-- import Lgtm.SepLog
 
 -- open trm val prim
 

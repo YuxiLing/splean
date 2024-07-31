@@ -1,8 +1,8 @@
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
-import LeanLgtm.Lang
-import LeanLgtm.Util
+import Lgtm.Lang
+import Lgtm.Util
 
 
 open Classical

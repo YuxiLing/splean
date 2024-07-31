@@ -1,6 +1,6 @@
 import Lean
-import LeanLgtm.Lang
-import LeanLgtm.SepLog
+import Lgtm.Lang
+import Lgtm.SepLog
 
 open Lean Meta Elab Tactic
 open val trm

@@ -3,12 +3,12 @@ import Lean
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
-import LeanLgtm.Util
-import LeanLgtm.HProp
-import LeanLgtm.XSimp
-import LeanLgtm.XChange
-import LeanLgtm.SepLog
-import LeanLgtm.WPUtil
+import Lgtm.Util
+import Lgtm.HProp
+import Lgtm.XSimp
+import Lgtm.XChange
+import Lgtm.SepLog
+import Lgtm.WPUtil
 
 open trm val prim
 

@@ -1,6 +1,6 @@
 import Lean
 
-import LeanLgtm.WP1
+import Lgtm.WP1
 
 open val prim trm
 
