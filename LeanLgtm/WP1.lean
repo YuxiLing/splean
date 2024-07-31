@@ -50,7 +50,7 @@ by
   srw hU wp
   apply eval_conseq
   { sby apply eval_frame }
-  sby unfold qstar ; xsimp ; xsimp
+  sby srw ?qstarE ; xsimp ; xsimp
 
 
 /- Corollaries -/
@@ -69,7 +69,7 @@ lemma wp_conseq_frame t H (Q1 Q2 : val -> hprop) :
 by
   srw -qwand_equiv
   move=> M
-  apply himpl_trans ((wp t Q1) ∗ (Q1 -∗∗ Q2))
+  apply himpl_trans ((wp t Q1) ∗ (Q1 -∗ Q2))
   { sby apply himpl_frame_r }
   apply wp_ramified
 
@@ -706,10 +706,9 @@ lemma xapp_lemma : forall t Q1 H1 H Q,
   H ==> wpgen_app t Q :=
 by
   move=> T M
-  unfold wpgen_app
+  unfold wpgen_app=> ?????
   xsimp
-  apply triple_ramified_frame ; apply T
-  sdone
+  apply triple_ramified_frame=> //
 
 lemma xfun_spec_lemma (S:val->Prop) H Q Fof :
   (forall (vf : val),
