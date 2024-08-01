@@ -214,63 +214,43 @@ lemma union0 (f₁ f₂ : heap) :  f₁ ∪ f₂ = ∅ <-> f₁ = ∅ ∧ f₂ =
 -- lemma ex_hheap (hH : hProp) {s : Set α} [DecidablePred (· ∈ s)] :
 --   [in s | hH] h -> ∃ h : hheap, fora
 
-lemma choose_fun {α β : Type} (b₀ : β) (p : α -> β -> Prop) (s : Set α) :
-  (∀ a ∈ s, ∃ b : β, p a b) -> (∃ f : α -> β, ∀ a ∈ s, p a (f a)) := by sorry
 
-
--- lemma choose_fun2 (α β : Type) (p : α -> β -> β -> Prop) :
---   (∀ a : α, ∃ b₁ b₂ : β, p a b₁ b₂) -> (∃ f₁ f₂ : α -> β , ∀ a : α, p a (f₁ a) (f₂ a)) := by
---   move=> /choose_fun [f₁] /choose_fun [f₂] ?
---   exists f₁; exists f₂
+lemma choose_fun {α β : Type} (b₀ : β)  (p : α -> β -> Prop) (s : Set α) :
+  (∀ a ∈ s, ∃ b : β, p a b) -> (∃ f : α -> β, (∀ a ∈ s, p a (f a))) := by
+  move=> pH
+  exists (fun a => if h : a ∈ s then choose (pH a h) else b₀)=> /=
+  move=> a inS
+  srw dif_pos //; apply choose_spec
 
 lemma hextend_split {s : Set α} :
   [in s| Hh] h ->
-    (∀ a ∈ s, Hh (h a)) ∧ (∀ a ∉ s, h a = ∅) := by sorry
+    (∀ a ∈ s, Hh (h a)) ∧ (∀ a ∉ s, h a = ∅) := by
+    sby move=> H ⟨|⟩ a inS <;> move: (H a) <;> scase_if
 
-macro_rules | `(tactic| ssr_triv ) => `(tactic| solve_by_elim)
+macro_rules | `(tactic| ssr_triv) => `(tactic| solve_by_elim)
 lemma hexted_hstar
    {hH₁ hH₂ : hProp} {s : Set α} :
     [in s | hH₁] ∗ [in s | hH₂] = [in s | hH₁ ∗ hH₂] := by
     scase: (Set.eq_empty_or_nonempty s)=> [->|]
     { sby srw ?hhempty_hextend0 hhstar_hempty_l }
-    move=> exS ! hh /== ⟨![h₁ h₂ h₁H h₂H->dij a]|H⟩
+    move=> exS ! hh /== ⟨![> h₁H h₂H ->? a]|H⟩
     { scase_if=> /== ?
       { (sdo 5 econstructor)=> //
         { sby move: (h₁H a); scase_if }
         sby move: (h₂H a); scase_if }
-      rw [union0]; constructor
+      srw union0; constructor
       { sby move: (h₁H a); scase_if }
       sby move: (h₂H a); scase_if }
     scase: exS=> x ?
     scase: (hextend_split H)=> /(choose_fun (hh x))[f₁]
-    move=> /(choose_fun (hh x))[f₂] H
-    sorry
-
-
-    -- case h.mpr _ inst =>
-    --   let hh₁ : hheap := fun a =>
-    --     let H := H a
-    --     match iE : inst a with
-    --     | isTrue h => by
-    --       rw [iE] at H
-    --       dsimp at H
-    --       apply hstar_inv at H
-    --       exact choose H
-    --     | isFalse h => ∅
-    --   exists hh₁; exists ?_
-    --   repeat' constructor
-    --   { move=> a; scase_if=> inS
-    --     { simp [hh₁]
-    --       cases iE :(inst a) } }
-
-
-
-
-
-
-
-
-
-
+    move=> /(choose_fun (hh x))[f₂] H ?
+    let h₁ := fun a => if a ∈ s then f₁ a else ∅
+    let h₂ := fun a => if a ∈ s then f₂ a else ∅
+    exists h₁; exists h₂
+    repeat' constructor; simp [h₁, h₂]
+    { sby move=> ?; simp [h₁]; scase_if }
+    { sby move=> ?; simp [h₂]; scase_if }
+    { sby ext1=> /=; scase_if }
+    sby move=> ?; simp [h₁, h₂]; scase_if
 
 end HHProp
