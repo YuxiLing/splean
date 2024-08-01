@@ -23,8 +23,8 @@ instance : EmptyCollection hheap := ⟨hEmpty⟩
 def hSingle (a : α) (p : loc) (v : val) : hheap :=
   λ a' => if a = a' then Finmap.singleton p v else ∅
 
-def hextend (s : Set α) [DecidablePred (· ∈ s)]  (h : heap) : hheap :=
-  λ a => if a ∈ s then h else ∅
+-- def hextend (s : Set α) [DecidablePred (· ∈ s)]  (h : heap) : hheap :=
+--   λ a => if a ∈ s then h else ∅
 
 def hunion (h₁ h₂ : hheap) : hheap :=
   λ a => h₁ a ∪ h₂ a
@@ -51,14 +51,14 @@ infixr:51 " ===> " => hqimpl
 
 -- variable (hH₁ hH₂ : hhProp)
 
-def hhextend (s : Set α) [DecidablePred (· ∈ s)]  (hH : hProp) : hhProp :=
-  fun hh => ∃ h, hH h ∧ hh = hextend s h
+def hextend (s : Set α) (hH : hProp) : hhProp :=
+  fun hh => ∀ a, if a ∈ s then hH (hh a) else hh a = ∅
 
-notation "[in" s "| " h "]" => hhextend s h
+notation "[in " s "| " h "]" => hextend s h
 
 def hhempty : hhProp := (· = ∅)
 
-notation:max "emp" => hhempty
+notation:max (priority := high) "emp" => hhempty
 
 def hhsingle (a : α) (p : loc) (v : val) : hhProp := [in {a} | p ~~> v]
 
@@ -102,30 +102,175 @@ def hhpure (P : Prop) : hhProp :=
   hhexists (fun (_ : P) => emp)
 
 def hhtop : hhProp :=
-  hhexists (fun (H : hhProp) => H)
+  hhexists (fun (h : hhProp) => h)
 
-def hhwand (H1 H2 : hhProp) : hhProp :=
-  hhexists (fun (H0 : hhProp) => H0 ∗ (hhpure (H1 ∗ H0 ==> H2)))
+def hhwand (h1 h2 : hhProp) : hhProp :=
+  hhexists (fun (h0 : hhProp) => h0 ∗ (hhpure (h1 ∗ h0 ==> h2)))
 
 @[default_instance]
 instance : HWand hhProp hhProp hhProp := ⟨hhwand⟩
 
-def hqwand {A} (Q1 Q2 : A → hhProp) : hhProp :=
-  hhforall (fun (x : A) => (Q1 x) -∗ (Q2 x))
+def hqwand {A} (q1 q2 : A → hhProp) : hhProp :=
+  hhforall (fun (x : A) => (q1 x) -∗ (q2 x))
 
 notation:max "⌜" P "⌝" => hhpure P
 
 /- ⊤⊤ is very annoynig, let's just overwrite lean's ⊤ -/
 notation (priority := high) "⊤" => hhtop
 
-def hqstar {A} (Q : A → hhProp) (H : hhProp) : A → hhProp :=
-  fun x => (Q x) ∗ H
+def hqstar {A} (q : A → hhProp) (h : hhProp) : A → hhProp :=
+  fun x => (q x) ∗ h
 
 instance (A : Type) : HStar (A → hhProp) hhProp (A → hhProp) where
   hStar := hqstar
 
 instance (α : Type) : HWand (α → hhProp) (α → hhProp) hhProp where
   hWand := hqwand
+
+/- ============ Properties of Hyper Separation Logic Operators ============ -/
+
+/- ------------------ Properties of [hhimpl] and [hqimpl] ----------------- -/
+
+lemma hhimpl_refl (h : hhProp) : h ==> h :=
+  fun _ => id
+
+lemma hhimpl_trans {h₁ h₂ h₃ : hhProp} : h₁ ==> h₂ -> h₂ ==> h₃ -> h₁ ==> h₃ :=
+  fun h₁h₂ h₂h₃ hh HH₁ => h₂h₃ hh (h₁h₂ hh HH₁)
+
+lemma hhimpl_trans_r  (h₁ h₂ h₃ : hhProp) : h₂ ==> h₃ -> h₁ ==> h₂ -> h₁ ==> h₃ :=
+  fun h₂h₃ h₁h₂ hh HH₁ => h₂h₃ hh (h₁h₂ hh HH₁)
+
+lemma hhimpl_antisymm {h₁ h₂ : hhProp} : h₁ ==> h₂ -> h₂ ==> h₁ -> h₁ = h₂ :=
+  fun h₁h₂ h₂h₁ => funext (fun hh => propext ⟨h₁h₂ hh, h₂h₁ hh⟩)
+
+lemma hhprop_op_comm (op : hhProp -> hhProp -> hhProp) (h1 h2 : hhProp) :
+  (∀ h1 h2, op h1 h2 ==> op h2 h1) -> op h1 h2 = op h2 h1 :=
+  fun hcomm => hhimpl_antisymm (hcomm h1 h2) (hcomm h2 h1)
+
+/- ---------------- Properties of [hhempty] ---------------- -/
+
+lemma hhempty_intro : emp (∅ : hheap) :=
+  by simp [hhempty, hEmpty]
+
+lemma hhempty_inv {h : hheap} : emp h -> h = ∅ :=
+  by simp [hhempty, hEmpty]
+
+lemma hhempty_hextend0 : [in ∅ | h] = (emp : hhProp) :=
+  by sby unfold hhempty hextend=> !? /== ⟨?!|->⟩
+
+lemma hhempty_hextend_emp (s : Set α) [DecidablePred (· ∈ s)] : [in s | hempty] = emp :=
+  by sby unfold hhempty hextend=> !?; simp[hempty]=> ⟨?!|->⟩
+
+
+
+/- ---------------- Properties of [hstar] ---------------- -/
+
+lemma hhstar_intro : ∀ {hH₁ hH₂ : hhProp} {h₁ h₂ : hheap}, hH₁ h₁ -> hH₂ h₂ ->
+  hdisjoint h₁ h₂ -> (hH₁ ∗ hH₂) (h₁ ∪ h₂) :=
+  by sdone
+
+lemma hhstar_inv {hH₁ hH₂ : hhProp} {h : hheap} : (hH₁ ∗ hH₂) h ->
+  exists (h₁ h₂ : hheap), hH₁ h₁ ∧ hH₂ h₂ ∧ h = h₁ ∪ h₂ ∧ hdisjoint h₁ h₂ :=
+  by sapply
+
+lemma hhstar_comm {hH₁ hH₂ : hhProp} : hH₁ ∗ hH₂ = hH₂ ∗ hH₁ :=
+  by apply hhprop_op_comm=> > ? ![>??] ->; sorry
+
+lemma hhstar_assoc {hH₁ hH₂ hH₃ : hhProp} : hH₁ ∗ (hH₂ ∗ hH₃) = (hH₁ ∗ hH₂) ∗ hH₃ := by sorry
+
+lemma hhstar_hempty_l {hH : hhProp} : emp ∗ hH = hH :=
+  by sorry
+
+lemma hhstar_hempty_r {hH : hhProp} : hH ∗ emp = hH :=
+  by sorry
+
+lemma hhstar_hhexists_l {A} {P : A → hhProp} {hH : hhProp} :
+  (hhexists P) ∗ hH = hhexists (fun x => P x ∗ hH) :=
+  by sorry
+
+lemma hhstar_hhforall_l {A} {P : A → hhProp} {hH : hhProp} :
+  (hhforall P) ∗ hH = hhforall (fun x => P x ∗ hH) :=
+  by sorry
+
+lemma hhimpl_frame_l (hH₁ hH₂ hH₃ : hhProp) : hH₁ ==> hH₂ -> hH₁ ∗ hH₃ ==> hH₂ ∗ hH₃ :=
+  by sorry
+
+lemma hhimpl_frame_r (hH₁ hH₂ hH₃ : hhProp) : hH₁ ==> hH₂ -> hH₃ ∗ hH₁ ==> hH₃ ∗ hH₂ :=
+  by sorry
+
+lemma hhimpl_frame_lr (hH₁ hH₂ hH₃ hH₄ : hhProp) : hH₁ ==> hH₂ -> hH₃ ==> hH₄ -> hH₁ ∗ hH₃ ==> hH₂ ∗ hH₄ :=
+  by sorry
+
+/- --------------- Properties of [hhpure] --------------- -/
+/- ----------------- Properties of [hhexists] ----------------- -/
+/- ----------------- Properties of [hqwand] ----------------- -/
+/- --------------------- Properties of [hhtop] --------------------- -/
+/- -------------------- Properties of [hhsingle] -------------------- -/
+/- -------------------- Properties of [hhsingle] -------------------- -/
+/- -------------------- Properties of [hextend] -------------------- -/
+
+lemma union0 (f₁ f₂ : heap) :  f₁ ∪ f₂ = ∅ <-> f₁ = ∅ ∧ f₂ = ∅ := by sorry
+
+-- lemma ex_hheap (hH : hProp) {s : Set α} [DecidablePred (· ∈ s)] :
+--   [in s | hH] h -> ∃ h : hheap, fora
+
+lemma choose_fun {α β : Type} (b₀ : β) (p : α -> β -> Prop) (s : Set α) :
+  (∀ a ∈ s, ∃ b : β, p a b) -> (∃ f : α -> β, ∀ a ∈ s, p a (f a)) := by sorry
+
+
+-- lemma choose_fun2 (α β : Type) (p : α -> β -> β -> Prop) :
+--   (∀ a : α, ∃ b₁ b₂ : β, p a b₁ b₂) -> (∃ f₁ f₂ : α -> β , ∀ a : α, p a (f₁ a) (f₂ a)) := by
+--   move=> /choose_fun [f₁] /choose_fun [f₂] ?
+--   exists f₁; exists f₂
+
+lemma hextend_split {s : Set α} :
+  [in s| Hh] h ->
+    (∀ a ∈ s, Hh (h a)) ∧ (∀ a ∉ s, h a = ∅) := by sorry
+
+macro_rules | `(tactic| ssr_triv ) => `(tactic| solve_by_elim)
+lemma hexted_hstar
+   {hH₁ hH₂ : hProp} {s : Set α} :
+    [in s | hH₁] ∗ [in s | hH₂] = [in s | hH₁ ∗ hH₂] := by
+    scase: (Set.eq_empty_or_nonempty s)=> [->|]
+    { sby srw ?hhempty_hextend0 hhstar_hempty_l }
+    move=> exS ! hh /== ⟨![h₁ h₂ h₁H h₂H->dij a]|H⟩
+    { scase_if=> /== ?
+      { (sdo 5 econstructor)=> //
+        { sby move: (h₁H a); scase_if }
+        sby move: (h₂H a); scase_if }
+      rw [union0]; constructor
+      { sby move: (h₁H a); scase_if }
+      sby move: (h₂H a); scase_if }
+    scase: exS=> x ?
+    scase: (hextend_split H)=> /(choose_fun (hh x))[f₁]
+    move=> /(choose_fun (hh x))[f₂] H
+    sorry
+
+
+    -- case h.mpr _ inst =>
+    --   let hh₁ : hheap := fun a =>
+    --     let H := H a
+    --     match iE : inst a with
+    --     | isTrue h => by
+    --       rw [iE] at H
+    --       dsimp at H
+    --       apply hstar_inv at H
+    --       exact choose H
+    --     | isFalse h => ∅
+    --   exists hh₁; exists ?_
+    --   repeat' constructor
+    --   { move=> a; scase_if=> inS
+    --     { simp [hh₁]
+    --       cases iE :(inst a) } }
+
+
+
+
+
+
+
+
+
 
 
 end HHProp
