@@ -228,7 +228,7 @@ lemma hextend_split {s : Set α} :
     sby move=> H ⟨|⟩ a inS <;> move: (H a) <;> scase_if
 
 macro_rules | `(tactic| ssr_triv) => `(tactic| solve_by_elim)
-lemma hexted_hstar
+lemma hextehd_hhstar
    {hH₁ hH₂ : hProp} {s : Set α} :
     [in s | hH₁] ∗ [in s | hH₂] = [in s | hH₁ ∗ hH₂] := by
     scase: (Set.eq_empty_or_nonempty s)=> [->|]
@@ -246,11 +246,32 @@ lemma hexted_hstar
     move=> /(choose_fun (hh x))[f₂] H ?
     let h₁ := fun a => if a ∈ s then f₁ a else ∅
     let h₂ := fun a => if a ∈ s then f₂ a else ∅
-    exists h₁; exists h₂
+    exists h₁, h₂
     repeat' constructor; simp [h₁, h₂]
     { sby move=> ?; simp [h₁]; scase_if }
     { sby move=> ?; simp [h₂]; scase_if }
     { sby ext1=> /=; scase_if }
     sby move=> ?; simp [h₁, h₂]; scase_if
+
+lemma hextend_hhstar_disj
+   {hH : hProp} {s₁ s₂ : Set α} :
+    Disjoint s₁ s₂ ->
+    [in s₁ | hH] ∗ [in s₂ | hH] = [in s₁ ∪ s₂ | hH] := by
+    move=> /Set.disjoint_left Dij !hh /== ⟨![hh₁ hh₂ Hh₁ Hh₂ -> ? a/==]|⟩
+    { scase_if=> /== <;> move: (Hh₁ a) (Hh₂ a)=> /== <;> scase_if
+      { sby move=> /Dij; scase_if }
+      { sby move=> ? -> /==; scase_if }
+      { sby move=> /Dij; scase_if }
+      sby scase_if }
+    let h₁ := fun a => if a ∈ s₁ then hh a else ∅
+    let h₂ := fun a => if a ∈ s₂ then hh a else ∅
+    move=> H; exists h₁, h₂; (repeat' constructor) <;> simp [h₁, h₂]
+    { sby move=> a /=; move: (H a)=> /==; sdo 2 scase_if }
+    { sby move=> a /=; move: (H a)=> /==; sdo 2 scase_if }
+    { move=> !a/=; scase_if=> [/Dij|/==] <;> scase_if=> //
+      sby move: (H a)=> /==; scase_if }
+    move=> a; sdo 2 scase_if=> // *
+    { apply Finmap.Disjoint.symm; apply Finmap.disjoint_empty }
+    apply Finmap.disjoint_empty
 
 end HHProp
