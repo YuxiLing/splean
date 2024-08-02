@@ -584,7 +584,4 @@ by
   { apply hexted_himpl; apply hstar_hsingle_same_loc }
   sby srw hextend_hpure_nonemp
 
-
-
-
 end HHProp
