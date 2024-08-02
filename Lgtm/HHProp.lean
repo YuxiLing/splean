@@ -13,6 +13,23 @@ variable {α : Type} [DecidableEq α]
 abbrev hheap := α -> heap
 abbrev hhProp := @hheap α -> Prop
 
+def hunion (h₁ h₂ : @hheap α) : @hheap α :=
+  λ a => h₁ a ∪ h₂ a
+
+instance (α : Type) : Union (@hheap α) := ⟨hunion⟩
+
+@[simp]
+def hdisjoint (h₁ h₂ : @hheap α) : Prop :=
+  ∀ a, Finmap.Disjoint (h₁ a) (h₂ a)
+
+def hhstar (hH₁ hH₂ : @hhProp α) : (@hhProp α) :=
+  fun (hh : @hheap α) =>
+    exists (hh₁ hh₂ : @hheap α),
+      hH₁ hh₁ ∧ hH₂ hh₂ ∧ hh = hh₁ ∪ hh₂ ∧ hdisjoint hh₁ hh₂
+
+@[default_instance]
+instance (α : Type) : HStar (@hhProp α) (@hhProp α) (@hhProp α) := ⟨hhstar⟩
+
 local notation "hhProp" => @hhProp α
 local notation "hheap" => @hheap α
 
@@ -26,30 +43,24 @@ def hSingle (a : α) (p : loc) (v : val) : hheap :=
 -- def hextend (s : Set α) [DecidablePred (· ∈ s)]  (h : heap) : hheap :=
 --   λ a => if a ∈ s then h else ∅
 
-def hunion (h₁ h₂ : hheap) : hheap :=
-  λ a => h₁ a ∪ h₂ a
-
-instance : Union hheap := ⟨hunion⟩
-
 @[simp]
 lemma unionE {h₁ h₂ : hheap} {a : α} : (h₁ ∪ h₂) a = h₁ a ∪ h₂ a := by rfl
-
-@[simp]
-def hdisjoint (h₁ h₂ : hheap) : Prop :=
-  ∀ a, Finmap.Disjoint (h₁ a) (h₂ a)
 
 
 abbrev hhimpl (H₁ H₂ : hhProp) : Prop :=
   forall h, H₁ h -> H₂ h
 
-infixr:51 " ==> " => hhimpl
+infixr:51 (priority := high) " ==> " => hhimpl
 
 def hqimpl {A} (Q₁ Q₂ : A → hhProp) : Prop :=
   forall (v:A), Q₁ v ==> Q₂ v
 
-infixr:51 " ===> " => hqimpl
+infixr:51 (priority := high) " ===> " => hqimpl
 
 -- variable (hH₁ hH₂ : hhProp)
+
+noncomputable def extend (s : Set α) (h : heap) : hheap :=
+  fun a => if a ∈ s then h else ∅
 
 def hextend (s : Set α) (hH : hProp) : hhProp :=
   fun hh => ∀ a, if a ∈ s then hH (hh a) else hh a = ∅
@@ -65,14 +76,6 @@ def hhsingle (a : α) (p : loc) (v : val) : hhProp := [in {a} | p ~~> v]
 notation p " ~" s:max "~> " v => [in s | p ~~> v]
 
 
-def hhstar (hH₁ hH₂ : hhProp) : hhProp :=
-  fun (hh : hheap) =>
-    exists (hh₁ hh₂ : hheap),
-      hH₁ hh₁ ∧ hH₂ hh₂ ∧ hh = hh₁ ∪ hh₂ ∧ hdisjoint hh₁ hh₂
-
-@[default_instance]
-instance : HStar hhProp hhProp hhProp := ⟨hhstar⟩
-
 def hhexists {A} (P : A → hhProp) : hhProp :=
   fun hh => exists (v:A), P v hh
 
@@ -81,8 +84,8 @@ def hhforall {A} (P : A → hhProp) : hhProp :=
 
 section
 open Lean.TSyntax.Compat
-macro "h∃" xs:Lean.explicitBinders ", " b:term : term => Lean.expandExplicitBinders ``hhexists xs b
-macro "h∀" xs:Lean.explicitBinders ", " b:term : term => Lean.expandExplicitBinders ``hhforall xs b
+macro (priority := high) "h∃" xs:Lean.explicitBinders ", " b:term : term => Lean.expandExplicitBinders ``hhexists xs b
+macro (priority := high) "h∀" xs:Lean.explicitBinders ", " b:term : term => Lean.expandExplicitBinders ``hhforall xs b
 end
 
 @[app_unexpander hhexists] def unexpandHHExists : Lean.PrettyPrinter.Unexpander
@@ -113,7 +116,7 @@ instance : HWand hhProp hhProp hhProp := ⟨hhwand⟩
 def hqwand {A} (q1 q2 : A → hhProp) : hhProp :=
   hhforall (fun (x : A) => (q1 x) -∗ (q2 x))
 
-notation:max "⌜" P "⌝" => hhpure P
+notation:max (priority := high) "⌜" P "⌝" => hhpure P
 
 /- ⊤⊤ is very annoynig, let's just overwrite lean's ⊤ -/
 notation (priority := high) "⊤" => hhtop
@@ -155,10 +158,10 @@ lemma hhempty_intro : emp (∅ : hheap) :=
 lemma hhempty_inv {h : hheap} : emp h -> h = ∅ :=
   by simp [hhempty, hEmpty]
 
-lemma hhempty_hextend0 : [in ∅ | h] = (emp : hhProp) :=
+lemma hextend0 : [in ∅ | h] = (emp : hhProp) :=
   by sby unfold hhempty hextend=> !? /== ⟨?!|->⟩
 
-lemma hhempty_hextend_emp (s : Set α) [DecidablePred (· ∈ s)] : [in s | hempty] = emp :=
+lemma hextend_hhempty (s : Set α) [DecidablePred (· ∈ s)] : [in s | hempty] = emp :=
   by sby unfold hhempty hextend=> !?; simp[hempty]=> ⟨?!|->⟩
 
 
@@ -176,12 +179,12 @@ lemma hhstar_inv {hH₁ hH₂ : hhProp} {h : hheap} : (hH₁ ∗ hH₂) h ->
 lemma hhstar_comm {hH₁ hH₂ : hhProp} : hH₁ ∗ hH₂ = hH₂ ∗ hH₁ :=
   by apply hhprop_op_comm=> > ? ![>??] ->; sorry
 
-lemma hhstar_assoc {hH₁ hH₂ hH₃ : hhProp} : hH₁ ∗ (hH₂ ∗ hH₃) = (hH₁ ∗ hH₂) ∗ hH₃ := by sorry
+lemma hhstar_assoc {hH₁ hH₂ hH₃ : hhProp} : (hH₁ ∗ hH₂) ∗ hH₃ = hH₁ ∗ (hH₂ ∗ hH₃) := by sorry
 
-lemma hhstar_hempty_l {hH : hhProp} : emp ∗ hH = hH :=
+lemma hhstar_hhempty_l {hH : hhProp} : emp ∗ hH = hH :=
   by sorry
 
-lemma hhstar_hempty_r {hH : hhProp} : hH ∗ emp = hH :=
+lemma hhstar_hhempty_r {hH : hhProp} : hH ∗ emp = hH :=
   by sorry
 
 lemma hhstar_hhexists_l {A} {P : A → hhProp} {hH : hhProp} :
@@ -201,19 +204,285 @@ lemma hhimpl_frame_r (hH₁ hH₂ hH₃ : hhProp) : hH₁ ==> hH₂ -> hH₃ ∗
 lemma hhimpl_frame_lr (hH₁ hH₂ hH₃ hH₄ : hhProp) : hH₁ ==> hH₂ -> hH₃ ==> hH₄ -> hH₁ ∗ hH₃ ==> hH₂ ∗ hH₄ :=
   by sorry
 
+lemma hhimpl_hhstar_trans_l {hH1 hH2 hH3 hH4 : hhProp} :
+  hH1 ==> hH2 →
+  hH2 ∗ hH3 ==> hH4 →
+  hH1 ∗ hH3 ==> hH4 :=
+by
+  srw !hhimpl => ? hStar23 ? ![h1 h3 *]
+  apply hStar23
+  sby exists h1, h3
+
+lemma hhimpl_hhstar_trans_r {hH1 hH2 hH3 hH4 : hhProp} :
+  hH1 ==> hH2 →
+  hH3 ∗ hH2 ==> hH4 →
+  hH3 ∗ hH1 ==> hH4 :=
+by
+  srw !hhimpl => ? hStar32 ? ![h3 h1 *]
+  apply hStar32
+  sby exists h3, h1
+
 /- --------------- Properties of [hhpure] --------------- -/
+
+lemma hhpure_intro (P : Prop) :
+  P → (⌜P⌝ : hhProp) ∅ :=
+by sdone
+
+lemma hhpure_inv (P : Prop) (h : hheap) :
+  ⌜P⌝ h →
+  P ∧ h = ∅ :=
+by
+  sby move=> []
+
+lemma hhstar_hhpure_l (P : Prop) (H : hhProp) (h : hheap) :
+  ((⌜P⌝ : hhProp) ∗ H) h = (P ∧ H h) :=
+by
+  srw hhpure hhstar_hhexists_l hhstar_hhempty_l
+  sby move=> ! ⟨|⟩ []
+
+lemma hhstar_hhpure_r (P : Prop) (H : hhProp) (h : hheap) :
+  (H ∗ (⌜P⌝ : hhProp)) h = (H h ∧ P) :=
+by
+  sby srw hhstar_comm hhstar_hhpure_l
+
+lemma hhimpl_hhstar_hhpure_r (P : Prop) (H H' : hhProp) :
+   P →
+   (H ==> H') →
+   H ==> ⌜P⌝ ∗ H' :=
+by
+  srw !hhimpl => *
+  sby srw hhstar_hhpure_l
+
+lemma hhpure_inv_hhempty (P : Prop) (h : hheap) :
+  ⌜P⌝ h →
+  P ∧ emp h :=
+by
+  sby srw -hhstar_hhpure_l hhstar_hhempty_r
+
+lemma hhpure_intro_hhempty (P : Prop) (h : hheap) :
+  emp h → P → ⌜P⌝ h :=
+by
+  sby move=> *
+
+lemma hhimpl_hempty_hhpure (P : Prop) :
+  P → (emp : hhProp) ==> ⌜P⌝ :=
+by
+  sby move=> ???
+
+lemma hhimpl_hstar_hhpure_l (P : Prop) (H H' : hhProp) :
+  (P → H ==> H') →
+  (⌜P⌝ ∗ H) ==> H' :=
+by
+  srw hhimpl=> * ?
+  sby srw hhstar_hhpure_l
+
+lemma hempty_eq_hhpure_true :
+  (emp : hhProp) = ⌜True⌝ :=
+by
+  apply hhimpl_antisymm
+  { move=> * ; sby apply hhpure_intro_hhempty }
+  sby move=> ? []
+
+lemma hhfalse_hhstar_any (H : hhProp) :
+  ⌜False⌝ ∗ H = ⌜False⌝ :=
+by
+  apply hhimpl_antisymm
+  { move=> ? ; sby srw hhstar_hhpure_l }
+  move=> ? []
+  sby srw hhstar_hhpure_l
+
 /- ----------------- Properties of [hhexists] ----------------- -/
+
+lemma hhexists_intro {A : Type} (x : A) (J : A → hhProp) (h : hheap) :
+  J x h → (hhexists J) h :=
+by sdone
+
+lemma hhexists_inv {A : Type} (J : A → hhProp) (h : hheap) :
+  (hhexists J) h → exists (x : A), J x h :=
+by
+  sby srw hhexists
+
+lemma hhimpl_hhexists_l {A : Type} {H : hhProp} (J : A → hhProp) :
+  (forall (x : A), J x ==> H) → (hhexists J) ==> H :=
+by
+  srw [0](hhimpl)=> hJx ? [?]
+  sby apply hJx
+
+lemma hhimpl_hhexists_r {A : Type} (x : A) {H : hhProp} (J : A → hhProp) :
+  (H ==> J x) →
+  H ==> (hhexists J) :=
+by
+  srw hhimpl=> * ??
+  sby exists x
+
+lemma hhimpl_hhexists {A : Type} (J1 J2 : A → hhProp) :
+  J1 ===> J2 →
+  hhexists J1 ==> hhexists J2 :=
+by
+  srw hqimpl=> hJs
+  sby apply hhimpl_hhexists_l=> ?? /hJs
+
+/- ------------------- Properties of [hhforall] ------------------- -/
+
+lemma hhforall_intro {A : Type} (J : A → hhProp) (h : hheap) :
+  (∀ x, J x h) → (hhforall J) h :=
+by sdone
+
+lemma hhforall_inv {A : Type} (J : A → hhProp) (h : hheap) :
+  (hhforall J) h → ∀ x, J x h :=
+by
+  sby srw hhforall
+
+lemma hhimpl_hhforall_r {A : Type} (J : A → hhProp) (H : hhProp) :
+  (∀ x, H ==> J x) →
+  H ==> (hhforall J) :=
+by
+  sby srw [0]hhimpl=> * ?
+
+lemma hhimpl_hhforall_l {A : Type} (x : A) (J : A → hhProp) (H : hhProp) :
+  (J x ==> H) →
+  (hhforall J) ==> H :=
+by
+  srw hhimpl=> ??
+  sby srw hhforall
+
+lemma hhforall_specialize {A : Type} (x : A) (J : A → hhProp) :
+  (hhforall J) ==> (J x) :=
+by
+  move=> ? ; sapply
+
+lemma hhimpl_hhforall {A : Type} (J1 J2 : A → hhProp) :
+  J1 ===> J2 →
+  hhforall J1 ==> hhforall J2 :=
+by
+  srw hqimpl=> hQimp
+  apply hhimpl_hhforall_r=> ?
+  apply hhimpl_hhforall_l
+  move: hQimp ; sapply
+
 /- ----------------- Properties of [hqwand] ----------------- -/
+
+lemma hhwandE :
+  H1 -∗ H2 = hhexists (fun (H0 : hhProp) => H0 ∗ hhpure ((H1 ∗ H0) ==> H2)) := rfl
+
+lemma hhwand_equiv (H0 H1 H2 : hhProp) :
+  (H0 ==> H1 -∗ H2) ↔ (H1 ∗ H0 ==> H2) :=
+by
+  srw hhwandE ; apply Iff.intro
+  { srw hhstar_comm=> ?
+    apply hhimpl_hhstar_trans_l=>//
+    srw hhstar_hhexists_l
+    apply hhimpl_hhexists_l=> ?
+    srw [2](hhstar_comm) (hhstar_assoc) [2](hhstar_comm)
+    sby apply hhimpl_hstar_hhpure_l }
+  move=> ?
+  apply hhimpl_hhexists_r
+  rw [<-(@hhstar_hhempty_r _ H0)]
+  apply hhimpl_frame_r ; sby apply hhimpl_hempty_hhpure
+
+lemma hhimpl_hhwand_r (H1 H2 H3 : hhProp) :
+  (H2 ∗ H1) ==> H3 →
+  H1 ==> (H2 -∗ H3) :=
+by
+  sby srw hhwand_equiv
+
+lemma hhimpl_hhwand_r_inv (H1 H2 H3 : hhProp) :
+  H1 ==> (H2 -∗ H3) →
+  (H2 ∗ H1) ==> H3 :=
+by
+  sby srw -hhwand_equiv
+
+lemma hhwand_cancel (H1 H2 : hhProp) :
+  (H1 ∗ (H1 -∗ H2)) ==> H2 :=
+by
+  sby apply hhimpl_hhwand_r_inv=> ?
+
+lemma hhimpl_hempty_hhwand_same (H : hhProp) :
+  emp ==> (H -∗ H) :=
+by
+  apply hhimpl_hhwand_r
+  sby srw hhstar_hhempty_r=> h
+
+lemma hhwand_hempty_l (H : hhProp) :
+  (emp -∗ H) = H :=
+by
+  apply hhimpl_antisymm
+  { rw [<- (@hhstar_hhempty_l _ (emp -∗ H))]
+    apply hhwand_cancel }
+  apply hhimpl_hhwand_r
+  sby srw hhstar_hhempty_l=> ?
+
+lemma hhwand_hhpure_l (P : Prop) (H : hhProp) :
+  P → (⌜P⌝ -∗ H) = H :=
+by
+  move=> ? ; apply hhimpl_antisymm
+  { apply hhimpl_trans
+    apply (hhimpl_hhstar_hhpure_r P (⌜P⌝ -∗ H) (⌜P⌝ -∗ H))=>//
+    apply hhimpl_refl
+    apply hhwand_cancel }
+  srw hhwand_equiv
+  sby apply hhimpl_hstar_hhpure_l=> ??
+
+lemma hhwand_curry (H1 H2 H3 : hhProp) :
+  (H1 ∗ H2) -∗ H3 ==> H1 -∗ (H2 -∗ H3) :=
+by
+  sdo 2 apply hhimpl_hhwand_r;
+  srw -hhstar_assoc [0]hhstar_comm
+  apply hhwand_cancel
+
+lemma hhwand_uncurry (H1 H2 H3 : hhProp) :
+  H1 -∗ (H2 -∗ H3) ==> (H1 ∗ H2) -∗ H3 :=
+by
+  srw hhwand_equiv [2]hhstar_comm hhstar_assoc
+  apply hhimpl_hhstar_trans_r
+  sdo 2 apply hhwand_cancel;
+
+lemma hhwand_curry_eq (H1 H2 H3 : hhProp) :
+  (H1 ∗ H2) -∗ H3 = H1 -∗ (H2 -∗ H3) :=
+by
+  apply hhimpl_antisymm
+  { apply hhwand_curry }
+  apply hhwand_uncurry
+
+lemma hunion_empty (h₁ : hheap) :
+  h₁ ∪ ∅ = h₁ := by sorry
+
+lemma hhwand_inv (h1 h2 : hheap) (H1 H2 : hhProp) :
+  (H1 -∗ H2) h2 →
+  H1 h1 →
+  hdisjoint h1 h2 →
+  H2 (h1 ∪ h2) :=
+by
+  move=> [? ![hW1 ?? [/hhimpl h1W hW2emp] /hW2emp /hunion_empty hU *]]
+  apply h1W ; exists h1, hW1
+  sby srw hU
+
 /- --------------------- Properties of [hhtop] --------------------- -/
-/- -------------------- Properties of [hhsingle] -------------------- -/
-/- -------------------- Properties of [hhsingle] -------------------- -/
+
+lemma hhtop_intro (h : hheap) :
+  ⊤ h :=
+by sdone
+
+lemma hhimpl_hhtop_r {H : hhProp} :
+  H ==> ⊤ :=
+by sdone
+
+lemma hhtop_eq :
+  (⊤ : hhProp) = h∃ H, H :=
+by
+  srw hhtop
+
+lemma hhstar_hhtop_hhtop :
+  (⊤ : hhProp) ∗ (⊤ : hhProp) = (⊤ : hhProp) :=
+by
+  apply hhimpl_antisymm
+  { apply hhimpl_hhtop_r }
+  srw -[1](@hhstar_hhempty_r _ ⊤)
+  apply hhimpl_frame_r ; apply hhimpl_hhtop_r
+
 /- -------------------- Properties of [hextend] -------------------- -/
 
 lemma union0 (f₁ f₂ : heap) :  f₁ ∪ f₂ = ∅ <-> f₁ = ∅ ∧ f₂ = ∅ := by sorry
-
--- lemma ex_hheap (hH : hProp) {s : Set α} [DecidablePred (· ∈ s)] :
---   [in s | hH] h -> ∃ h : hheap, fora
-
 
 lemma choose_fun {α β : Type} (b₀ : β)  (p : α -> β -> Prop) (s : Set α) :
   (∀ a ∈ s, ∃ b : β, p a b) -> (∃ f : α -> β, (∀ a ∈ s, p a (f a))) := by
@@ -221,6 +490,10 @@ lemma choose_fun {α β : Type} (b₀ : β)  (p : α -> β -> Prop) (s : Set α)
   exists (fun a => if h : a ∈ s then choose (pH a h) else b₀)=> /=
   move=> a inS
   srw dif_pos //; apply choose_spec
+
+lemma hextend_intro (s : Set α) :
+  H h -> [in s | H] (extend s h) := by
+    sby move=> Hh a; unfold extend; scase_if
 
 lemma hextend_split {s : Set α} :
   [in s| Hh] h ->
@@ -232,7 +505,7 @@ lemma hextehd_hhstar
    {hH₁ hH₂ : hProp} {s : Set α} :
     [in s | hH₁] ∗ [in s | hH₂] = [in s | hH₁ ∗ hH₂] := by
     scase: (Set.eq_empty_or_nonempty s)=> [->|]
-    { sby srw ?hhempty_hextend0 hhstar_hempty_l }
+    { sby srw ?hextend0 hhstar_hhempty_l }
     move=> exS ! hh /== ⟨![> h₁H h₂H ->? a]|H⟩
     { scase_if=> /== ?
       { (sdo 5 econstructor)=> //
@@ -273,5 +546,45 @@ lemma hextend_hhstar_disj
     move=> a; sdo 2 scase_if=> // *
     { apply Finmap.Disjoint.symm; apply Finmap.disjoint_empty }
     apply Finmap.disjoint_empty
+
+lemma hexted_himpl (s : Set α) (H H' : hProp) :
+  himpl H H' -> [in s | H] ==> [in s | H'] := by
+  sby move=> himp ? Hh a; move: (Hh a); scase_if
+
+lemma hextend_hpure_nonemp (s : Set α) (P : Prop) :
+  s.Nonempty ->
+  [in s | hpure P] = ⌜P⌝ := by
+  move=> [σ In]; apply hhimpl_antisymm
+  { move=> h H; move: (H σ); scase_if=> //_
+    scase=> p /= ?; exists p=> /= ! σ
+    sby move: (H σ); scase_if=> // ? []? }
+  sby move=> h []p /=-> ?; scase_if
+
+/- -------------------- Properties of [hhsingle] -------------------- -/
+
+variable (s : Set α)
+
+lemma hhsingle_intro p v :
+  (p ~(s)~> v) (extend s (Finmap.singleton p v)) :=
+by apply hextend_intro; sdone
+
+lemma hhsingl_inv p v h :
+  (p ~(s)~> v) h →
+  h = extend s (Finmap.singleton p v) :=
+by sby move=> sH ! z; move: (sH z); unfold extend; scase_if
+
+
+
+lemma hhstar_hhsingle_same_loc p v1 v2 :
+  s.Nonempty ->
+  (p ~(s)~> v1) ∗ (p ~(s)~> v2) ==> ⌜False⌝ :=
+by
+  move=> ?; srw hextehd_hhstar
+  apply (@hhimpl_trans (h₂ := [in s | hpure False]))
+  { apply hexted_himpl; apply hstar_hsingle_same_loc }
+  sby srw hextend_hpure_nonemp
+
+
+
 
 end HHProp
