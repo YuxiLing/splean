@@ -40,7 +40,7 @@ instance : EmptyCollection hheap := ⟨hEmpty⟩
 def hSingle (a : α) (p : loc) (v : val) : hheap :=
   λ a' => if a = a' then Finmap.singleton p v else ∅
 
--- def hextend (s : Set α) [DecidablePred (· ∈ s)]  (h : heap) : hheap :=
+-- def bighstar (s : Set α) [DecidablePred (· ∈ s)]  (h : heap) : hheap :=
 --   λ a => if a ∈ s then h else ∅
 
 @[simp]
@@ -59,21 +59,22 @@ infixr:51 (priority := high) " ===> " => hqimpl
 
 -- variable (hH₁ hH₂ : hhProp)
 
-noncomputable def extend (s : Set α) (h : heap) : hheap :=
-  fun a => if a ∈ s then h else ∅
+noncomputable def extend (s : Set α) (h : α -> heap) : hheap :=
+  fun a => if a ∈ s then h a else ∅
 
-def hextend (s : Set α) (hH : hProp) : hhProp :=
-  fun hh => ∀ a, if a ∈ s then hH (hh a) else hh a = ∅
+def bighstar (s : Set α) (hH : α -> hProp) : hhProp :=
+  fun hh => ∀ a, if a ∈ s then hH a (hh a) else hh a = ∅
 
-notation "[in " s "| " h "]" => hextend s h
+notation "[∗" i " in " s "| " h "]" => bighstar s (fun i => h)
+notation "[∗ in " s "| " h "]" => bighstar s (fun _ => h)
 
 def hhempty : hhProp := (· = ∅)
 
 notation:max (priority := high) "emp" => hhempty
 
-def hhsingle (a : α) (p : loc) (v : val) : hhProp := [in {a} | p ~~> v]
+def hhsingle (a : α) (p : loc) (v : val) : hhProp := [∗ in {a} | p ~~> v]
 
-notation p " ~" s:max "~> " v => [in s | p ~~> v]
+notation p " ~" s:max "~> " v => [∗ in s | p ~~> v]
 
 
 def hhexists {A} (P : A → hhProp) : hhProp :=
@@ -158,11 +159,12 @@ lemma hhempty_intro : emp (∅ : hheap) :=
 lemma hhempty_inv {h : hheap} : emp h -> h = ∅ :=
   by simp [hhempty, hEmpty]
 
-lemma hextend0 : [in ∅ | h] = (emp : hhProp) :=
-  by sby unfold hhempty hextend=> !? /== ⟨?!|->⟩
+lemma bighstar0 (h : α -> _) : [∗ i in ∅ | h i] = (emp : hhProp) :=
+  by sby unfold hhempty bighstar=> !? /== ⟨?!|->⟩
 
-lemma hextend_hhempty (s : Set α) [DecidablePred (· ∈ s)] : [in s | hempty] = emp :=
-  by sby unfold hhempty hextend=> !?; simp[hempty]=> ⟨?!|->⟩
+lemma bighstar_hhempty (s : Set α) [DecidablePred (· ∈ s)] :
+   [∗ in s | hempty] = emp :=
+  by sby unfold hhempty bighstar=> !?; simp[hempty]=> ⟨?!|->⟩
 
 
 
@@ -480,7 +482,7 @@ by
   srw -[1](@hhstar_hhempty_r _ ⊤)
   apply hhimpl_frame_r ; apply hhimpl_hhtop_r
 
-/- -------------------- Properties of [hextend] -------------------- -/
+/- -------------------- Properties of [bighstar] -------------------- -/
 
 lemma union0 (f₁ f₂ : heap) :  f₁ ∪ f₂ = ∅ <-> f₁ = ∅ ∧ f₂ = ∅ := by sorry
 
@@ -491,21 +493,21 @@ lemma choose_fun {α β : Type} (b₀ : β)  (p : α -> β -> Prop) (s : Set α)
   move=> a inS
   srw dif_pos //; apply choose_spec
 
-lemma hextend_intro (s : Set α) :
-  H h -> [in s | H] (extend s h) := by
+lemma bighstar_intro (s : Set α) (H : α -> hProp) :
+  (forall i, H i (h i)) -> [∗ i in s | H i] (extend s h) := by
     sby move=> Hh a; unfold extend; scase_if
 
-lemma hextend_split {s : Set α} :
-  [in s| Hh] h ->
-    (∀ a ∈ s, Hh (h a)) ∧ (∀ a ∉ s, h a = ∅) := by
+lemma bighstar_split {s : Set α} (Hh : α -> hProp):
+  [∗ i in s| Hh i] h ->
+    (∀ a ∈ s, Hh a (h a)) ∧ (∀ a ∉ s, h a = ∅) := by
     sby move=> H ⟨|⟩ a inS <;> move: (H a) <;> scase_if
 
 macro_rules | `(tactic| ssr_triv) => `(tactic| solve_by_elim)
-lemma hextehd_hhstar
-   {hH₁ hH₂ : hProp} {s : Set α} :
-    [in s | hH₁] ∗ [in s | hH₂] = [in s | hH₁ ∗ hH₂] := by
+lemma bighstar_hhstar
+   {hH₁ hH₂ : α ->  hProp} {s : Set α}:
+    [∗ i in s | hH₁ i] ∗ [∗ i in s | hH₂ i] = [∗ i in s | hH₁ i ∗ hH₂ i] := by
     scase: (Set.eq_empty_or_nonempty s)=> [->|]
-    { sby srw ?hextend0 hhstar_hhempty_l }
+    { sby srw ?bighstar0 hhstar_hhempty_l }
     move=> exS ! hh /== ⟨![> h₁H h₂H ->? a]|H⟩
     { scase_if=> /== ?
       { (sdo 5 econstructor)=> //
@@ -515,7 +517,7 @@ lemma hextehd_hhstar
       { sby move: (h₁H a); scase_if }
       sby move: (h₂H a); scase_if }
     scase: exS=> x ?
-    scase: (hextend_split H)=> /(choose_fun (hh x))[f₁]
+    scase: (bighstar_split _ H)=> /(choose_fun (hh x))[f₁]
     move=> /(choose_fun (hh x))[f₂] H ?
     let h₁ := fun a => if a ∈ s then f₁ a else ∅
     let h₂ := fun a => if a ∈ s then f₂ a else ∅
@@ -526,10 +528,10 @@ lemma hextehd_hhstar
     { sby ext1=> /=; scase_if }
     sby move=> ?; simp [h₁, h₂]; scase_if
 
-lemma hextend_hhstar_disj
-   {hH : hProp} {s₁ s₂ : Set α} :
+lemma bighstar_hhstar_disj
+   {hH : α -> hProp} {s₁ s₂ : Set α} :
     Disjoint s₁ s₂ ->
-    [in s₁ | hH] ∗ [in s₂ | hH] = [in s₁ ∪ s₂ | hH] := by
+    [∗ i in s₁ | hH i] ∗ [∗ i in s₂ | hH i] = [∗ i in s₁ ∪ s₂ | hH i] := by
     move=> /Set.disjoint_left Dij !hh /== ⟨![hh₁ hh₂ Hh₁ Hh₂ -> ? a/==]|⟩
     { scase_if=> /== <;> move: (Hh₁ a) (Hh₂ a)=> /== <;> scase_if
       { sby move=> /Dij; scase_if }
@@ -547,13 +549,13 @@ lemma hextend_hhstar_disj
     { apply Finmap.Disjoint.symm; apply Finmap.disjoint_empty }
     apply Finmap.disjoint_empty
 
-lemma hexted_himpl (s : Set α) (H H' : hProp) :
-  himpl H H' -> [in s | H] ==> [in s | H'] := by
+lemma hexted_himpl (s : Set α) (H H' : α -> hProp) :
+  (∀ a, himpl (H a) (H' a)) -> [∗ i in s | H i] ==> [∗ i in s | H' i] := by
   sby move=> himp ? Hh a; move: (Hh a); scase_if
 
-lemma hextend_hpure_nonemp (s : Set α) (P : Prop) :
+lemma bighstar_hpure_nonemp (s : Set α) (P : Prop) :
   s.Nonempty ->
-  [in s | hpure P] = ⌜P⌝ := by
+  [∗ in s | hpure P] = ⌜P⌝ := by
   move=> [σ In]; apply hhimpl_antisymm
   { move=> h H; move: (H σ); scase_if=> //_
     scase=> p /= ?; exists p=> /= ! σ
@@ -565,12 +567,12 @@ lemma hextend_hpure_nonemp (s : Set α) (P : Prop) :
 variable (s : Set α)
 
 lemma hhsingle_intro p v :
-  (p ~(s)~> v) (extend s (Finmap.singleton p v)) :=
-by apply hextend_intro; sdone
+  (p ~(s)~> v) (extend s (fun _ =>Finmap.singleton p v)) :=
+by apply bighstar_intro; sdone
 
 lemma hhsingl_inv p v h :
   (p ~(s)~> v) h →
-  h = extend s (Finmap.singleton p v) :=
+  h = extend s (fun _ => Finmap.singleton p v) :=
 by sby move=> sH ! z; move: (sH z); unfold extend; scase_if
 
 
@@ -579,9 +581,9 @@ lemma hhstar_hhsingle_same_loc p v1 v2 :
   s.Nonempty ->
   (p ~(s)~> v1) ∗ (p ~(s)~> v2) ==> ⌜False⌝ :=
 by
-  move=> ?; srw hextehd_hhstar
-  apply (@hhimpl_trans (h₂ := [in s | hpure False]))
-  { apply hexted_himpl; apply hstar_hsingle_same_loc }
-  sby srw hextend_hpure_nonemp
+  move=> ?; srw bighstar_hhstar
+  apply (@hhimpl_trans (h₂ := [∗ in s | hpure False]))
+  { apply hexted_himpl=> ?; apply hstar_hsingle_same_loc }
+  sby srw bighstar_hpure_nonemp
 
 end HHProp
