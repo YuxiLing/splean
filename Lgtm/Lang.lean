@@ -400,16 +400,16 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       eval s1 t1 Q1 ->
       (forall v1 s2, Q1 v1 s2 -> eval s2 (trm_app v1 t2) Q) ->
       eval s1 (trm_app t1 t2) Q
-  | eval_app_arg2 : forall s1 v1 t2 Q1 Q,
+  | eval_app_arg2 : forall s1 (v1 : val) t2 Q1 Q,
       ¬ trm_is_val t2 ->
       eval s1 t2 Q1 ->
       (forall v2 s2, Q1 v2 s2 -> eval s2 (trm_app v1 v2) Q) ->
       eval s1 (trm_app v1 t2) Q
-  | eval_app_fun : forall s1 v1 v2 x t1 Q,
+  | eval_app_fun : forall s1 v1 (v2 :val) x t1 Q,
       v1 = val_fun x t1 ->
       eval s1 (subst x v2 t1) Q ->
       eval s1 (trm_app v1 v2) Q
-  | eval_app_fix : forall s v1 v2 f x t1 Q,
+  | eval_app_fix : forall s (v1 v2 : val) f x t1 Q,
       v1 = val_fix f x t1 ->
       eval s (subst x v2 (subst f v1 t1)) Q ->
       eval s (trm_app v1 v2) Q
@@ -428,7 +428,7 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       evalunop op v1 P ->
       purepostin s P Q ->
       eval s (trm_app op v1) Q
-  | eval_binop : forall op s v1 v2 P Q,
+  | eval_binop : forall op s (v1 v2 : val) P Q,
       evalbinop op v1 v2 P ->
       purepostin s P Q ->
       eval s (trm_app (trm_app op v1) v2) Q
@@ -526,7 +526,7 @@ by
   sby scase: t1=> // ? []
 
 /- TODO: optimise (similar to ↑) -/
-lemma eval_app_arg2' : forall s1 v1 t2 Q1 Q,
+lemma eval_app_arg2' : forall s1 (v1 : val) t2 Q1 Q,
   eval s1 t2 Q1 ->
   (forall v2 s2, eval s2 (trm_app v1 v2) Q) ->
   eval s1 (trm_app v1 t2) Q :=

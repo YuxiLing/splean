@@ -581,9 +581,14 @@ lemma bighstar_hhstar_disj
     { apply Finmap.Disjoint.symm; apply Finmap.disjoint_empty }
     apply Finmap.disjoint_empty
 
-lemma hexted_himpl (s : Set α) (H H' : α -> hProp) :
-  (∀ a, himpl (H a) (H' a)) -> [∗ i in s | H i] ==> [∗ i in s | H' i] := by
+lemma bighstarDef_himpl (s : Set α) (H H' : α -> hProp) :
+  (∀ a ∈ s, himpl (H a) (H' a)) -> bighstarDef s H h₀ ==> bighstarDef s H' h₀ := by
   sby move=> himp ? Hh a; move: (Hh a); scase_if
+
+
+lemma bighstar_himpl (s : Set α) (H H' : α -> hProp) :
+  (∀ a ∈ s, himpl (H a) (H' a)) -> [∗ i in s | H i] ==> [∗ i in s | H' i] := by
+  sby apply bighstarDef_himpl
 
 lemma bighstar_hpure_nonemp (s : Set α) (P : Prop) :
   s.Nonempty ->
@@ -615,7 +620,7 @@ lemma hhstar_hhsingle_same_loc p v1 v2 :
 by
   move=> ?; srw bighstar_hhstar
   apply (@hhimpl_trans (h₂ := [∗ in s | hpure False]))
-  { apply hexted_himpl=> ?; apply hstar_hsingle_same_loc }
+  { apply bighstar_himpl=> ??; apply hstar_hsingle_same_loc }
   sby srw bighstar_hpure_nonemp
 
 end HHProp
