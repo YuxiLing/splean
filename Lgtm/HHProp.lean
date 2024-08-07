@@ -33,6 +33,7 @@ instance (α : Type) : HStar (@hhProp α) (@hhProp α) (@hhProp α) := ⟨hhstar
 local notation "hhProp" => @hhProp α
 local notation "hheap" => @hheap α
 
+@[simp]
 def hEmpty : hheap := fun _ => ∅
 
 instance : EmptyCollection hheap := ⟨hEmpty⟩
@@ -62,8 +63,13 @@ infixr:51 (priority := high) " ===> " => hqimpl
 noncomputable def extend (s : Set α) (h : α -> heap) : hheap :=
   fun a => if a ∈ s then h a else ∅
 
+@[simp]
+def bighstarDef (s : Set α) (hH : α -> hProp) (h₀ : hheap) : hhProp :=
+  fun h => ∀ a, if a ∈ s then hH a (h a) else h a = h₀ a
+
+
 def bighstar (s : Set α) (hH : α -> hProp) : hhProp :=
-  fun hh => ∀ a, if a ∈ s then hH a (hh a) else hh a = ∅
+  bighstarDef s hH hEmpty
 
 notation "[∗" i " in " s "| " h "]" => bighstar s (fun i => h)
 notation "[∗ in " s "| " h "]" => bighstar s (fun _ => h)
@@ -125,8 +131,11 @@ notation (priority := high) "⊤" => hhtop
 def hqstar {A} (q : A → hhProp) (h : hhProp) : A → hhProp :=
   fun x => (q x) ∗ h
 
+
 instance (A : Type) : HStar (A → hhProp) hhProp (A → hhProp) where
   hStar := hqstar
+
+lemma hqstarE {A} (q : A → hhProp) (h : hhProp) (a : A) : (q ∗ h) a = q a ∗ h := by rfl
 
 instance (α : Type) : HWand (α → hhProp) (α → hhProp) hhProp where
   hWand := hqwand
@@ -159,12 +168,16 @@ lemma hhempty_intro : emp (∅ : hheap) :=
 lemma hhempty_inv {h : hheap} : emp h -> h = ∅ :=
   by simp [hhempty, hEmpty]
 
+lemma bighstarDef0 (h : α -> _) : bighstarDef ∅ h h₀ = (· = h₀) :=
+  by sby unfold bighstarDef=> !? /== ⟨?!|->⟩
+
+
 lemma bighstar0 (h : α -> _) : [∗ i in ∅ | h i] = (emp : hhProp) :=
-  by sby unfold hhempty bighstar=> !? /== ⟨?!|->⟩
+  by sby srw bighstar bighstarDef0
 
 lemma bighstar_hhempty (s : Set α) [DecidablePred (· ∈ s)] :
    [∗ in s | hempty] = emp :=
-  by sby unfold hhempty bighstar=> !?; simp[hempty]=> ⟨?!|->⟩
+  by sby unfold hhempty bighstar bighstarDef hEmpty=> /= !?; simp[hempty]=> ⟨?!|->⟩
 
 
 
@@ -497,36 +510,55 @@ lemma bighstar_intro (s : Set α) (H : α -> hProp) :
   (forall i, H i (h i)) -> [∗ i in s | H i] (extend s h) := by
     sby move=> Hh a; unfold extend; scase_if
 
+lemma bighstarDef_split {s : Set α} (Hh : α -> hProp) h₀:
+  bighstarDef s Hh h₀ h ->
+    (∀ a ∈ s, Hh a (h a)) ∧ (∀ a ∉ s, h a = h₀ a) := by
+    sby move=> H ⟨|⟩ a inS <;> move: (H a) <;> scase_if
+
+
 lemma bighstar_split {s : Set α} (Hh : α -> hProp):
   [∗ i in s| Hh i] h ->
     (∀ a ∈ s, Hh a (h a)) ∧ (∀ a ∉ s, h a = ∅) := by
     sby move=> H ⟨|⟩ a inS <;> move: (H a) <;> scase_if
 
+lemma bighstarDef_eq :
+  bighstarDef s (fun a => (· = hh a)) hh = (· = hh) := by
+  apply hhimpl_antisymm=> [? /= h !a |?->?]
+  { sby move: (h a); scase_if }
+  sby scase_if
+
 macro_rules | `(tactic| ssr_triv) => `(tactic| solve_by_elim)
+lemma bighstarDef_hhstar
+   {hH₁ hH₂ : α ->  hProp} {s : Set α}:
+    hdisjoint h₁ h₂ ->
+    (bighstarDef s hH₁ h₁) ∗ (bighstarDef s hH₂ h₂) = bighstarDef s (fun i => hH₁ i ∗ hH₂ i) (h₁ ∪ h₂) := by
+    move=> ?
+    scase: (Set.eq_empty_or_nonempty s)=> [->|]
+    { srw ?bighstarDef0; apply hhimpl_antisymm=> /==
+      { sby move=> ? ![] }
+      sby exists h₁, h₂ }
+    move=> exS ! hh /== ⟨![hh₁ hh₂ h₁H h₂H ->? a]|H⟩
+    { scase_if=> /== ?
+      { exists (hh₁ a), (hh₂ a); repeat' constructor=> //
+        { sby move: (h₁H a); scase_if }
+        sby move: (h₂H a); scase_if }
+      sby move: (h₁H a) (h₂H a); scase_if }
+    scase: exS=> x ?
+    scase: (bighstarDef_split _ _ H)=> /(choose_fun (hh x))[f₁]
+    move=> /(choose_fun (hh x))[f₂] H ?
+    let h₁ := fun a => if a ∈ s then f₁ a else h₁ a
+    let h₂ := fun a => if a ∈ s then f₂ a else h₂ a
+    exists h₁, h₂
+    repeat' constructor; simp [h₁, h₂]
+    { sby move=> ?; scase_if }
+    { sby move=> ?; scase_if }
+    { sby ext1=> /=; scase_if }
+    sby move=> ?; simp [h₁, h₂]; scase_if
+
 lemma bighstar_hhstar
    {hH₁ hH₂ : α ->  hProp} {s : Set α}:
     [∗ i in s | hH₁ i] ∗ [∗ i in s | hH₂ i] = [∗ i in s | hH₁ i ∗ hH₂ i] := by
-    scase: (Set.eq_empty_or_nonempty s)=> [->|]
-    { sby srw ?bighstar0 hhstar_hhempty_l }
-    move=> exS ! hh /== ⟨![> h₁H h₂H ->? a]|H⟩
-    { scase_if=> /== ?
-      { (sdo 5 econstructor)=> //
-        { sby move: (h₁H a); scase_if }
-        sby move: (h₂H a); scase_if }
-      srw union0; constructor
-      { sby move: (h₁H a); scase_if }
-      sby move: (h₂H a); scase_if }
-    scase: exS=> x ?
-    scase: (bighstar_split _ H)=> /(choose_fun (hh x))[f₁]
-    move=> /(choose_fun (hh x))[f₂] H ?
-    let h₁ := fun a => if a ∈ s then f₁ a else ∅
-    let h₂ := fun a => if a ∈ s then f₂ a else ∅
-    exists h₁, h₂
-    repeat' constructor; simp [h₁, h₂]
-    { sby move=> ?; simp [h₁]; scase_if }
-    { sby move=> ?; simp [h₂]; scase_if }
-    { sby ext1=> /=; scase_if }
-    sby move=> ?; simp [h₁, h₂]; scase_if
+    sby srw ?bighstar bighstarDef_hhstar; congr=> ?
 
 lemma bighstar_hhstar_disj
    {hH : α -> hProp} {s₁ s₂ : Set α} :
