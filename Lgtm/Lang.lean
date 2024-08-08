@@ -542,6 +542,15 @@ by
 def eval_like (t1 t2:trm) : Prop :=
   forall s Q, eval s t1 Q -> eval s t2 Q
 
+-- lemma eval_app_arg1_inv s1 t1 t2 Q :
+--   eval s1 (trm_app t1 t2) Q ->
+--   ¬ trm_is_val t1 ->
+--   ∃ Q1, eval s1 t1 Q1 ∧
+--     (forall v1 s2, Q1 v1 s2 -> eval s2 (trm_app v1 t2) Q) := by
+--     scase=> //==
+--     { move=> Q1 *; exists Q1 }
+
+
 end eval
 
 /- ================================================================= -/

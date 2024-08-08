@@ -576,3 +576,142 @@ lemma triple_ptr_add_nat p (f : ℕ) :
 by
   apply triple_conseq _ _ _ _ _ (triple_ptr_add p f _)=>// ? /=
   sby xsimp
+
+
+abbrev sP h t :=fun v => h∀ (Q : val -> hProp), ⌜eval h t Q⌝ -∗ Q v
+
+open Classical
+lemma hpure_intr :
+  (P -> H s) -> (⌜P⌝ -∗ H) s := by
+  move=> ?
+  scase: [P]=> p
+  { exists ⊤, s, ∅; repeat' constructor=> //
+    { xsimp=>// }
+    sorry }
+  sorry
+
+lemma hforall_impl (J₁ J₂ : α -> hProp) :
+  (forall x, J₁ x ==> J₂ x) ->
+  hforall J₁ ==> hforall J₂ := by
+  move=> ? h /[swap]  x/(_ x)//
+
+lemma sP_strongest :
+  eval h t Q -> sP h t ===> Q := by
+  move=> ev v; unfold sP;
+  apply himpl_hforall_l _ Q
+  srw hwand_hpure_l=> //
+
+set_option maxHeartbeats 400000 in
+lemma sP_post :
+  eval h t Q -> eval h t (sP h t) := by
+  elim=> >
+  { move=> ?; constructor=> Q; apply hpure_intr=> []// }
+  { move=> ?; constructor=> Q; apply hpure_intr=> []// }
+  { move=> ?; constructor=> Q; apply hpure_intr=> []// }
+  { move=> ? evv ev' ih ih'; apply eval.eval_app_arg1=> //
+    move=> > ?; apply eval_conseq=> //
+    apply ih'
+    { apply sP_strongest; apply evv=> // }
+    move=> v; dsimp [sP]; apply himpl_hforall=> Q/=
+    xsimp=> ev; srw hwand_hpure_l=> //
+    scase: ev=> //
+    { move=> ?? /sP_strongest himp; sapply
+      sby apply himp }
+    { scase=> // [] // ?? []// }
+    move=> >? []// }
+  { move=> ? ev₁; intro ih ih' sp
+    apply eval.eval_app_arg2=> // > sp'
+    apply eval_conseq=> //
+    apply sp
+    { apply sP_strongest; apply ev₁=> // }
+    move=> v; dsimp [sP]; apply himpl_hforall=> Q/=
+    xsimp=> ev; srw hwand_hpure_l=> //
+    scase: ev=> // ??/sP_strongest himp; sapply=> //
+    sby apply himp }
+  { move=> -> ? ih; apply eval.eval_app_fun=> //
+    apply eval_conseq=> //
+    move=> v; dsimp [sP]; apply himpl_hforall=> Q/=
+    xsimp=> ev; srw hwand_hpure_l=> //
+    scase: ev=> // }
+  { move=> -> ? ih; apply eval.eval_app_fix=> //
+    apply eval_conseq=> //
+    move=> v; dsimp [sP]; apply himpl_hforall=> Q/=
+    xsimp=> ev; srw hwand_hpure_l=> //
+    scase: ev=> // }
+  { move=> ev₁ _ sp ih₂; constructor; apply sp
+    move=> > ?
+    apply eval_conseq=> //; apply ih₂
+    { apply sP_strongest; apply ev₁=> // }
+    move=> v; dsimp [sP]; apply himpl_hforall=> Q/=
+    xsimp=> ev; srw hwand_hpure_l=> //
+    scase: ev=> // ? ev₁; sapply
+    apply sP_strongest; apply ev₁=> // }
+  { move=> ev₁ _ sp ih₂; constructor; apply sp
+    move=> > ?
+    apply eval_conseq=> //; apply ih₂
+    { apply sP_strongest; apply ev₁=> // }
+    move=> v; dsimp [sP]; apply himpl_hforall=> Q/=
+    xsimp=> ev; srw hwand_hpure_l=> //
+    scase: ev=> // ? ev₁; sapply
+    apply sP_strongest; apply ev₁=> // }
+  { move=> ev sp; constructor
+    apply eval_conseq=> // v
+    dsimp [sP]; apply himpl_hforall=> Q/=
+    xsimp=> ev; srw hwand_hpure_l=> //
+    scase: ev=> // }
+  { move=> eop pp; apply eval.eval_unop=> // ? ??
+    apply hpure_intr=> []//??; sapply
+    scase: eop
+    { move=> ? [] //== }
+    { move=> ? [] // }
+    move=> ? [] // }
+  { move=> eop pp; apply eval.eval_binop=> // ? ??
+    apply hpure_intr=> []//?
+    { move=> ? [] // [] // }
+    move=> eop'; sapply; scase: eop
+    any_goals (try scase: eop'=> //)
+    any_goals (try move=> ?? [] //)
+    move=> ???->? []// }
+  { move=> ->?; apply eval.eval_ref=> // ???
+    apply hpure_intr=> []// }
+  { move=> ??; apply eval.eval_get=> // ?
+    apply hpure_intr=> []// }
+  { move=> ->??; apply eval.eval_set=> // ?
+    apply hpure_intr=> []// ?? []// }
+  { move=> ??; apply eval.eval_free=> // ?
+    apply hpure_intr=> []// }
+  { move=> ??; apply eval.eval_alloc=> // *?
+    apply hpure_intr=> []// }
+  move=> ev₁ ev₂; constructor
+  apply eval_conseq=> // v
+  dsimp [sP]; apply himpl_hforall=> Q/=
+  xsimp=> ev; srw hwand_hpure_l=> //
+  sby scase: ev
+  -- move=> ev₁ ev₂; constructor
+  -- apply eval_conseq=> // v
+  -- dsimp [sP]; apply himpl_hforall=> Q/=
+  -- xsimp=> ev; srw hwand_hpure_l=> //
+  -- sby scase: ev
+
+lemma finite_state (s : state) :
+  ∃ p, p ∉ s := by sorry
+
+lemma finite_state' n (s : state) :
+  ∃ p, p ≠ null ∧
+    Finmap.Disjoint s (conseq (make_list n val_uninit) p) := by sorry
+
+lemma eval_sat :
+  eval h t Q -> ∃ h v, Q h v := by
+  elim=> // >
+  { move=> ??? ![>?]; sapply=> // }
+  { move=> ??? ![>?]; sapply=> // }
+  { move=> ?? ![>?]; sapply=> // }
+  { move=> ?? ![>?]; sapply=> // }
+  { scase=> >
+    any_goals move=> pp; (sdo 2 econstructor); apply pp=> //
+    move=> ? pp; sdo 2 econstructor; apply pp=> //}
+  { scase=> >
+    any_goals move=> pp; (sdo 2 econstructor); apply pp=> //
+    any_goals move=> ? pp; (sdo 2 econstructor); apply pp=> // }
+  { move=> ?; scase: (finite_state s)=> p /[swap]/[apply]// }
+  sby move=> ?; scase: (finite_state' n.natAbs sa)=> p ? /(_ p) H

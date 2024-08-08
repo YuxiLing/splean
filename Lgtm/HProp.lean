@@ -714,6 +714,7 @@ by
   move=> *
   sby apply hind_any
 
+
 open HStar HWand
 
 /- TODO: Add more properties -/

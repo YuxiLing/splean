@@ -56,11 +56,19 @@ lemma fun_insert_assoc :
 --   (f ∪_s₁ f ∪_s₂ h) = f ∪_s h := by
 --     sby move=> !? /=; scase_if
 
+/- s = {1,2}
+   hQ := fun v => v(1) > v(2)  -/
+
+-- def heval (s : Set α) (hh : hheap) (ht : htrm) (hQ : hval -> hhProp) : Prop :=
+--   ∀ a ∈ s, eval (hh a) (ht a) (hQ a)
+
 
 def heval (s : Set α) (hh : hheap) (ht : htrm) (hQ : hval -> hhProp) : Prop :=
   ∃ (hQ' : α -> val -> hProp),
     heval_nonrel s hh ht hQ' ∧
     ∀ hv, bighstarDef s (fun a => hQ' a (hv a)) hh ==> h∃ hv', hQ (hv ∪_s hv')
+    /-                    hQ'                      ==>         hQ -/
+
 
 lemma heval_nonrel_conseq (s : Set α) :
   heval_nonrel s hh t Q1 →
@@ -88,11 +96,14 @@ lemma heval_frame :
   scase! => hQ ? himp ?
   exists fun a => hQ a ∗ (· = hh2 a)=> ⟨|hv⟩
   { sby apply heval_nonrel_frame }
-  -- scase: (himp hv)=> hv' ?; exists hv'
   srw qstarE hqstarE -bighstarDef_hhstar // bighstarDef_eq
   srw -hhstar_hhexists_l
   sby apply hhimpl_hhstar_trans_l
 
+/-   ∀ i ∈ s, { Hᵢ } [P i] { Qᵢ }
+ ----------------------------------------
+ { ∗_(i ∈ s) Hᵢ } [s : P] { ∗_(i ∈ s) Qᵢ}
+ -/
 lemma heval_prod (hQ : α -> val -> hProp) :
   (∀ a, eval (hh a) (ht a) (hQ a)) ->
   heval s hh ht fun hv => bighstarDef s (fun a => hQ a (hv a)) hh := by
@@ -110,12 +121,17 @@ lemma heval_nonrel_split1 :
   heval_nonrel s₁ hh ht hQ := by
   sby move=> /[swap]?/[swap]?; sapply
 
-lemma eval_sat :
-  eval h t Q -> ∃ h v, Q h v := by sorry
-
 lemma heval_nonrel_sat :
   heval_nonrel s h t Q ->
-    ∃ (hh : hheap) (hv : hval), ∀ a ∈ s, Q a (hv a) (hh a) := by sorry
+    ∃ (hh : hheap) (hv : hval), ∀ a ∈ s, Q a (hv a) (hh a) := by
+    move=> ev
+    shave: ∃ (hhv : α -> heap × val), ∀ a ∈ s, Q a (hhv a).2 (hhv a).1
+    { srw -(@skolem _ (fun _ => heap × val) (fun a b => a ∈ s -> Q a b.2 b.1))
+      move=> x; scase: [x ∈ s]
+      { move=> ?; constructor=> // }
+      move=> /ev /eval_sat ![]h v ?
+      sby exists (v,h)=> ? }
+    scase=> hhv H; exists (fun a => (hhv a).1), (fun a => (hhv a).2)
 
 
 lemma heval_unfocus (s₁ s₂ : Set α) :
@@ -143,7 +159,7 @@ abbrev isHStrongestPostNonrel (s : Set α) h t (sP : α -> _) :=
   ∀ Q, heval_nonrel s h t Q -> ∀ a ∈ s, qimpl (sP a) (Q a)
 
 abbrev hStrongestPostNonrel (hh : hheap) (ht : htrm) :=
-  fun a v => hforall fun Q => hpure (eval (hh a) (ht a) Q) -∗ Q v
+  fun a => sP (hh a) (ht a)
 
 
 lemma hstrongest_postP :
@@ -151,14 +167,11 @@ lemma hstrongest_postP :
   move=> Q ? a ?? /=; apply himpl_hforall_l _ (Q a)
   sby srw hwand_hpure_l
 
-lemma eval_hforall (J : β -> val -> hProp) :
-  (∀ x, eval h t (J x)) ->
-  eval h t (fun v => hforall fun x => J x v) := by sorry
 
 lemma hstrongest_post_provable :
   heval_nonrel s hh ht hQ -> heval_nonrel s hh ht (hStrongestPostNonrel hh ht) := by
   move=> hev a /hev; unfold hStrongestPostNonrel
-  sorry
+  apply sP_post
 
 lemma heval_strongest :
   heval s hh ht hQ ->
