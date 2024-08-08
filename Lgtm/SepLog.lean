@@ -155,12 +155,13 @@ by
   { move=> * ; apply eval.eval_free=>//
     srw remove_disjoint_union_l ; apply hstar_intro=>//
     sby apply disjoint_remove_l }
-  move=> >? ih * ; apply eval.eval_alloc=>//
-  move=> > /ih h /h hQ1 /[dup] /Finmap.disjoint_union_left [] /hQ1 *
-  srw qstarE -Finmap.union_assoc
-  apply hstar_intro=>//
-  srw Finmap.disjoint_union_left at *
-  sby srw Finmap.Disjoint.symm_iff
+  { move=> >? ih * ; apply eval.eval_alloc=>//
+    move=> > /ih h /h hQ1 /[dup] /Finmap.disjoint_union_left [] /hQ1 *
+    srw qstarE -Finmap.union_assoc
+    apply hstar_intro=>//
+    srw Finmap.disjoint_union_left at *
+    sby srw Finmap.Disjoint.symm_iff }
+  all_goals move=> //
 
 end evalProp
 
@@ -682,16 +683,16 @@ lemma sP_post :
     apply hpure_intr=> []// }
   { move=> ??; apply eval.eval_alloc=> // *?
     apply hpure_intr=> []// }
+  { move=> ev₁ ev₂; constructor
+    apply eval_conseq=> // v
+    dsimp [sP]; apply himpl_hforall=> Q/=
+    xsimp=> ev; srw hwand_hpure_l=> //
+    sby scase: ev }
   move=> ev₁ ev₂; constructor
   apply eval_conseq=> // v
   dsimp [sP]; apply himpl_hforall=> Q/=
   xsimp=> ev; srw hwand_hpure_l=> //
   sby scase: ev
-  -- move=> ev₁ ev₂; constructor
-  -- apply eval_conseq=> // v
-  -- dsimp [sP]; apply himpl_hforall=> Q/=
-  -- xsimp=> ev; srw hwand_hpure_l=> //
-  -- sby scase: ev
 
 lemma finite_state (s : state) :
   ∃ p, p ∉ s := by sorry

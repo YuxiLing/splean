@@ -463,6 +463,9 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
                (trm_seq (subst x n₁ t₁) (trm_for x (val_int (n₁ + 1)) n₂ t₁))
             else val_unit) Q ->
     eval s (trm_for x n₁ n₂ t₁) Q
+  | eval_while (t₁ t₂ : trm) (Q : val -> state -> Prop) :
+    eval s (trm_if t₁ (trm_seq t₂ (trm_while t₁ t₂)) val_unit) Q ->
+    eval s (trm_while t₁ t₂) Q
 
 
 /- Not sure if the rules eval_ref and eval_set are correct. I had to add the
