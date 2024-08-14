@@ -231,30 +231,63 @@ def hlocal (s : Set α) (h : @hheap α) := ∀ a, a ∉ s -> h a = ∅
 
 noncomputable def partialInvSet (s : Set α) (σ : α -> β) : β -> Option α :=
   fun b =>
-    match partialInv σ b with
-    | .some a => if a ∈ s then some a else none
-    | .none => none
+    if h : ∃ a ∈ s, σ a = b then some (choose h) else none
 
 noncomputable def fsubst {γ : Type} [Inhabited γ] (s : Set α) (g : α -> γ) : β -> γ :=
   fun b => (g <$> partialInvSet s σ b).get!
 
+instance (priority := high) : Inhabited Prop := ⟨False⟩
+
 @[inline] abbrev ssubst (s : Set α) : Set α -> Set β := fsubst σ s
 
-def validSubst (s : Set α) (g : α -> γ) : Prop :=
+
+
+variable (s : Set α)
+
+def validSubst (g : α -> γ) : Prop :=
   ∀ a ∈ s, ∀ b ∈ s, σ a = σ b -> g a = g b
 
-lemma fsubst_in (s : Set α) : a ∈ s -> σ a ∈ ssubst σ s s := by
-  move=> In; unfold Membership.mem Set.instMembership Set.Mem ssubst fsubst=> /==
+
+lemma fsubst_inE :
+  validSubst σ s s' ->
+  (b ∈ ssubst σ s s' <-> ∃ x ∈ s ∩ s', σ x = b) := by
+  move=> vs
+  srw Membership.mem Set.instMembership Set.Mem ssubst fsubst=> /==
+  unfold partialInvSet
+  scase: [∃ x ∈ s, σ x = b]=> h
+  { sby srw dif_neg /=; unfold default instInhabitedProp_lgtm }
+  srw dif_pos=> //==; constructor=> [|[]x[][]]
+  all_goals move: (choose_spec h)=> [] //
+  sby move=> /vs h ? /h h *; srw h
+
+@[simp]
+lemma valisSubstss : validSubst σ s s = True := by
+  sby move=> /== ?
+
+lemma fsubst_in : a ∈ s -> σ a ∈ ssubst σ s s := by
+  sby move=> ?; srw fsubst_inE
 
 def hsubst (s : Set α) : @hhProp α -> @hhProp β :=
   fun H h =>
     ∃ h', h = fsubst σ s h' ∧ H h' ∧ hlocal s h'
 
+lemma fsubst_σ [Inhabited γ] (f : α -> γ) :
+  validSubst σ s f ->
+  x ∈ s ->
+  fsubst σ s f (σ x) = f x := by
+  move=> vs xin; srw fsubst partialInvSet
+  srw dif_pos
+  { move=> /=; move: (?hc)=> /choose_spec => []??
+    sby apply vs }
+  sdone
 
-def hsubst_heval_nonrel (s : Set α) :
-  heval_nonrel (fsubst σ s s) (fsubst σ s hh) ht (fsubst σ s Q) ->
-  heval_nonrel s hh (ht ∘ f) Q := by
-  move=> ev a /=
+lemma fsubst_heval_nonrel (s : Set α) :
+  validSubst σ s hh ->
+  validSubst σ s Q ->
+  heval_nonrel (ssubst σ s s) (fsubst σ s hh) ht (fsubst σ s Q) ->
+  heval_nonrel s hh (ht ∘ σ) Q := by
+  move=> ?? ev a /= /[dup]? /(fsubst_in (σ := σ)) /ev
+  sby srw ?fsubst_σ
 
 
 def hsubst_heval (s : Set α) :
@@ -262,3 +295,6 @@ def hsubst_heval (s : Set α) :
   heval s hh (ht ∘ f) Q := by sorry
 
 end hsubst
+
+def htriple (s : Set α) (hH : @hhProp α) (ht : @htrm α) (hQ : @hval α -> @hhProp α) : Prop :=
+  ∀ hh, hH hh -> heval s hh ht hQ
