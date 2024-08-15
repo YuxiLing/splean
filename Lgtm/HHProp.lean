@@ -47,7 +47,6 @@ def hSingle (a : α) (p : loc) (v : val) : hheap :=
 @[simp]
 lemma unionE {h₁ h₂ : hheap} {a : α} : (h₁ ∪ h₂) a = h₁ a ∪ h₂ a := by rfl
 
-
 abbrev hhimpl (H₁ H₂ : hhProp) : Prop :=
   forall h, H₁ h -> H₂ h
 
@@ -140,6 +139,44 @@ lemma hqstarE {A} (q : A → hhProp) (h : hhProp) (a : A) : (q ∗ h) a = q a �
 instance (α : Type) : HWand (α → hhProp) (α → hhProp) hhProp where
   hWand := hqwand
 
+/- =================== Useful Properties of Hyper Heaps =================== -/
+
+lemma hunion_empty (h₁ : hheap) :
+  h₁ ∪ ∅ = h₁ := by
+  funext=> /=
+  apply Finmap.union_empty
+
+lemma empty_hunion (h : hheap) :
+  ∅ ∪ h = h := by
+  funext=> /=
+  apply Finmap.empty_union
+
+lemma hunion_comm_of_hdisjoint (h₁ h₂ : hheap) :
+  hdisjoint h₁ h₂ → h₁ ∪ h₂ = h₂ ∪ h₁ := by
+  move=> /= ?
+  apply funext=> > /=
+  sby apply Finmap.union_comm_of_disjoint
+
+lemma hunion_assoc (h₁ h₂ h₃ : hheap) :
+  h₁ ∪ h₂ ∪ h₃ = h₁ ∪ (h₂ ∪ h₃) := by
+  funext=> /=
+  apply Finmap.union_assoc
+
+lemma hdisjoint_symm (h₁ h₂ : hheap ) :
+  hdisjoint h₁ h₂ → hdisjoint h₂ h₁ := by
+  move=> /= ? >
+  sby apply Finmap.Disjoint.symm
+
+lemma hdisjoint_hunion_left (h₁ h₂ h₃ : hheap) :
+  hdisjoint (h₁ ∪ h₂) h₃ ↔ hdisjoint h₁ h₃ ∧ hdisjoint h₂ h₃ := by
+  move=> /=
+  sby srw Finmap.disjoint_union_left
+
+lemma hdisjoint_hunion_right (h₁ h₂ h₃ : hheap) :
+  hdisjoint h₁ (h₂ ∪ h₃) ↔ hdisjoint h₁ h₂ ∧ hdisjoint h₁ h₃ := by
+    move=> /=
+    sby srw Finmap.disjoint_union_right
+
 /- ============ Properties of Hyper Separation Logic Operators ============ -/
 
 /- ------------------ Properties of [hhimpl] and [hqimpl] ----------------- -/
@@ -191,33 +228,63 @@ lemma hhstar_inv {hH₁ hH₂ : hhProp} {h : hheap} : (hH₁ ∗ hH₂) h ->
   exists (h₁ h₂ : hheap), hH₁ h₁ ∧ hH₂ h₂ ∧ h = h₁ ∪ h₂ ∧ hdisjoint h₁ h₂ :=
   by sapply
 
-lemma hhstar_comm {hH₁ hH₂ : hhProp} : hH₁ ∗ hH₂ = hH₂ ∗ hH₁ :=
-  by apply hhprop_op_comm=> > ? ![>??] ->; sorry
+lemma hhstar_comm {hH₁ hH₂ : hhProp} : hH₁ ∗ hH₂ = hH₂ ∗ hH₁ := by
+  apply hhprop_op_comm=> > ? ![>??] ->
+  move=> /hdisjoint_symm /[dup] ? /hunion_comm_of_hdisjoint ?
+  sby exists w_1, w
 
-lemma hhstar_assoc {hH₁ hH₂ hH₃ : hhProp} : (hH₁ ∗ hH₂) ∗ hH₃ = hH₁ ∗ (hH₂ ∗ hH₃) := by sorry
+lemma hhstar_assoc {hH₁ hH₂ hH₃ : hhProp} : (hH₁ ∗ hH₂) ∗ hH₃ = hH₁ ∗ (hH₂ ∗ hH₃) := by
+  apply hhimpl_antisymm=> ?
+  { move=> ![] > ![] > ?? -> ?? -> /hdisjoint_hunion_left [] *
+    exists w_2, w_3 ∪ w_1
+    sdo 3 apply And.intro=> //
+    apply hunion_assoc
+    sby srw hdisjoint_hunion_right }
+  { move=> ![] > ? ![] > ?? -> ? -> /hdisjoint_hunion_right [] *
+    exists w ∪ w_2, w_3
+    sdo 3 apply And.intro=> //
+    srw ?hunion_assoc
+    sby srw hdisjoint_hunion_left }
 
-lemma hhstar_hhempty_l {hH : hhProp} : emp ∗ hH = hH :=
-  by sorry
+lemma hhstar_hhempty_l {hH : hhProp} : emp ∗ hH = hH := by
+  apply hhimpl_antisymm=> h
+  { move=> ![] > /hhempty_inv -> ? ->
+    sby srw empty_hunion }
+  move=> ?
+  exists ∅, h
+  srw empty_hunion => /=
+  repeat (constructor=> //)=> >
+  apply Finmap.disjoint_empty
 
-lemma hhstar_hhempty_r {hH : hhProp} : hH ∗ emp = hH :=
-  by sorry
+lemma hhstar_hhempty_r {hH : hhProp} : hH ∗ emp = hH := by
+  srw hhstar_comm
+  apply hhstar_hhempty_l
 
 lemma hhstar_hhexists_l {A} {P : A → hhProp} {hH : hhProp} :
-  (hhexists P) ∗ hH = hhexists (fun x => P x ∗ hH) :=
-  by sorry
+  (hhexists P) ∗ hH = hhexists (fun x => P x ∗ hH) := by
+  apply hhimpl_antisymm
+  { sby move=> > ![] > [] }
+  sby move=> > ![]
 
-lemma hhstar_hhforall_l {A} {P : A → hhProp} {hH : hhProp} :
-  (hhforall P) ∗ hH = hhforall (fun x => P x ∗ hH) :=
-  by sorry
+lemma hhstar_hhforall_l {A} {_ : Nonempty A} {P : A → hhProp} {hH : hhProp} :
+  (hhforall P) ∗ hH ==> hhforall (fun x => P x ∗ hH) := by
+  move=> ? ![] > /hhforall * ?
+  sby exists w, w_1
 
-lemma hhimpl_frame_l (hH₁ hH₂ hH₃ : hhProp) : hH₁ ==> hH₂ -> hH₁ ∗ hH₃ ==> hH₂ ∗ hH₃ :=
-  by sorry
+lemma hhimpl_frame_l (hH₁ hH₂ hH₃ : hhProp) :
+  hH₁ ==> hH₂ -> hH₁ ∗ hH₃ ==> hH₂ ∗ hH₃ := by
+  srw hhimpl=> ?? ![] > *
+  sby exists w, w_1
 
-lemma hhimpl_frame_r (hH₁ hH₂ hH₃ : hhProp) : hH₁ ==> hH₂ -> hH₃ ∗ hH₁ ==> hH₃ ∗ hH₂ :=
-  by sorry
+lemma hhimpl_frame_r (hH₁ hH₂ hH₃ : hhProp) :
+  hH₁ ==> hH₂ -> hH₃ ∗ hH₁ ==> hH₃ ∗ hH₂ := by
+  srw hhimpl=> ?? ![] > *
+  sby exists w, w_1
 
-lemma hhimpl_frame_lr (hH₁ hH₂ hH₃ hH₄ : hhProp) : hH₁ ==> hH₂ -> hH₃ ==> hH₄ -> hH₁ ∗ hH₃ ==> hH₂ ∗ hH₄ :=
-  by sorry
+lemma hhimpl_frame_lr (hH₁ hH₂ hH₃ hH₄ : hhProp) :
+  hH₁ ==> hH₂ -> hH₃ ==> hH₄ -> hH₁ ∗ hH₃ ==> hH₂ ∗ hH₄ := by
+  srw !hhimpl=> ?? > ![] > *
+  sby exists w, w_1
 
 lemma hhimpl_hhstar_trans_l {hH1 hH2 hH3 hH4 : hhProp} :
   hH1 ==> hH2 →
@@ -459,9 +526,6 @@ by
   { apply hhwand_curry }
   apply hhwand_uncurry
 
-lemma hunion_empty (h₁ : hheap) :
-  h₁ ∪ ∅ = h₁ := by sorry
-
 lemma hhwand_inv (h1 h2 : hheap) (H1 H2 : hhProp) :
   (H1 -∗ H2) h2 →
   H1 h1 →
@@ -497,7 +561,18 @@ by
 
 /- -------------------- Properties of [bighstar] -------------------- -/
 
-lemma union0 (f₁ f₂ : heap) :  f₁ ∪ f₂ = ∅ <-> f₁ = ∅ ∧ f₂ = ∅ := by sorry
+lemma union_nonmem (f₁ f₂ : heap) (p : loc) :
+  p ∉ f₁ ∪ f₂ → p ∉ f₁ ∧ p ∉ f₂ := by
+  sby unfold Not
+
+lemma union0 (f₁ f₂ : heap) :  f₁ ∪ f₂ = ∅ <-> f₁ = ∅ ∧ f₂ = ∅ := by
+  apply Iff.intro
+  { move=> ?
+    apply And.intro <;> apply Finmap.ext_lookup=> > /=
+    all_goals have hx:(x ∉ f₁ ∪ f₂) := by sdone ;
+    srw Finmap.lookup_eq_none
+    sby move: hx=> /union_nonmem }
+  sby move=> [] -> ->
 
 lemma choose_fun {α β : Type} (b₀ : β)  (p : α -> β -> Prop) (s : Set α) :
   (∀ a ∈ s, ∃ b : β, p a b) -> (∃ f : α -> β, (∀ a ∈ s, p a (f a))) := by
