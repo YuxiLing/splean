@@ -68,9 +68,9 @@ def heval (s : Set α) (hh : hheap) (ht : htrm) (hQ : hval -> hhProp) : Prop :=
 /- **Frame** Rule -/
 lemma heval_nonrel_conseq (s : Set α) :
   heval_nonrel s hh t Q1 →
-  (∀ a, qimpl (Q1 a) $ Q2 a) →
+  (∀ a ∈ s, qimpl (Q1 a) $ Q2 a) →
   heval_nonrel s hh t Q2 := by
-  sby move=> hev qimp a /hev/eval_conseq /(_ (qimp a))
+  sby move=> hev qimp a /[dup] ain/hev/eval_conseq /(_ (qimp a ain))
 
 lemma heval_conseq :
   heval s hh t Q1 →
@@ -228,6 +228,7 @@ variable {α β: Type}
 variable (σ : α -> β)
 
 def hlocal (s : Set α) (h : @hheap α) := ∀ a, a ∉ s -> h a = ∅
+def hhlocal (s : Set α) (H : @hhProp α) := H ==> hlocal s
 
 noncomputable def partialInvSet (s : Set α) (σ : α -> β) : β -> Option α :=
   fun b =>
@@ -269,7 +270,10 @@ lemma fsubst_in : a ∈ s -> σ a ∈ ssubst σ s s := by
 
 def hsubst (s : Set α) : @hhProp α -> @hhProp β :=
   fun H h =>
-    ∃ h', h = fsubst σ s h' ∧ H h' ∧ hlocal s h'
+    ∃ h',
+      h = fsubst σ s h' ∧
+      H h' ∧
+      validSubst σ s h'
 
 lemma fsubst_σ [Inhabited γ] (f : α -> γ) :
   validSubst σ s f ->
@@ -289,10 +293,62 @@ lemma fsubst_heval_nonrel (s : Set α) :
   move=> ?? ev a /= /[dup]? /(fsubst_in (σ := σ)) /ev
   sby srw ?fsubst_σ
 
+lemma fsubst_comp_σ [Inhabited γ] (f : β -> γ) :
+  ∀ x, x ∈ ssubst σ s s -> fsubst σ s (f ∘ σ) x = f x := by
+  sby move=> x /fsubst_inE /== ?? <-; srw fsubst_σ
 
-def hsubst_heval (s : Set α) :
-  heval (ssubst σ s s) (fsubst σ s hh) ht (fun hv => hsubst f s (Q (hv ∘ f))) ->
-  heval s hh (ht ∘ f) Q := by sorry
+-- lemma hsubst_hhimp :
+--   hsubst σ s H ==> hsubst σ s H' ->
+--   H ==> H' := by
+--   move=> /[swap] h /(_ fsubst σ s h) /[swap] Hh
+--   shave: hsubst σ s H (fsubst σ s h)
+--   { exists h }
+
+def injectiveSet (s : Set α) :=
+  ∀ a ∈ s, ∀ b ∈ s, σ a = σ b -> a = b
+
+@[simp]
+lemma injectiveSet_validSubst {inj : injectiveSet σ s} :
+  validSubst σ s f := by
+  move=> ? /inj/[apply]/[apply]/[apply]->
+
+lemma fsubst_out [Inhabited γ] (f : α -> γ) :
+  a ∉ ssubst σ s s -> fsubst σ s f a = default := by
+  srw fsubst_inE /== fsubst partialInvSet=> ?
+  sby srw dif_neg
+
+lemma fsubst_eq_local_eq [Inhabited γ] (f f' : α -> γ) :
+  validSubst σ s f ->
+  validSubst σ s f' ->
+  fsubst σ s f = fsubst σ s f' -> ∀ a ∈ s, f a = f' a := by
+    move=> ?? /[swap] a /(congr (a₁ := σ a) (a₂ := σ a)) /[swap] ?
+    sby srw ?fsubst_σ
+
+set_option maxHeartbeats 800000 in
+lemma hsubst_heval (s : Set α) :
+  injectiveSet σ s ->
+  (∀ hv hh₁ hh₂, (∀ a ∈ s, hh₁ a = hh₂ a) -> Q hv hh₁ = Q hv hh₂) ->
+  heval (ssubst σ s s) (fsubst σ s hh) ht (fun hv => hsubst σ s (Q (hv ∘ σ))) ->
+  heval s hh (ht ∘ σ) Q := by
+  move=> vs Ql ![hQ ev himp]
+  exists hQ ∘ σ; constructor
+  { apply fsubst_heval_nonrel=> //
+    apply heval_nonrel_conseq=> // ??
+    sby srw fsubst_comp_σ }
+  move=> hv /= h hQh
+  move: (himp (fsubst σ s hv) (fsubst σ s h))
+  shave H: bighstarDef (ssubst σ s s) (fun a ↦ hQ a (fsubst σ s hv a)) (fsubst σ s hh) (fsubst σ s h)
+  { move=> a; scase_if
+    { move=>/fsubst_inE /== a' ? <-
+      sby move: (hQh a'); srw if_pos //= ?fsubst_σ }
+    sby move=> ?; srw ?fsubst_out }
+  move=> /(_ H) ![hv' h' /=] /fsubst_eq_local_eq heq hQ _
+  let f := fun a => if σ a ∈ ssubst σ s s then fsubst σ s hv (σ a) else hv' (σ a)
+  exists f=> /=
+  shave->: (hv ∪_s f) = (fsubst σ s hv ∪_(ssubst σ s s) hv') ∘ σ
+  { move=> !a /=; scase_if=> ain //
+    sby (checkpoint srw if_pos // ?fsubst_σ //; apply fsubst_in) }
+  sby srw Ql
 
 end hsubst
 
