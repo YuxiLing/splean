@@ -165,6 +165,14 @@ lemma heval_nonrel_sat :
     scase=> hhv H; exists (fun a => (hhv a).1), (fun a => (hhv a).2)
 
 
+lemma heval_nonrel_sat' :
+  heval_nonrel s h t Q ->
+    ∃ (hh : hheap) (hv : hval), (∀ a ∈ s, Q a (hv a) (hh a)) ∧ (∀ a ∉ s, hh a = h a) := by
+    move=> /heval_nonrel_sat ![hh hv H]
+    sby exists (hh ∪_s h), hv
+
+
+
 lemma heval_unfocus (s₁ s₂ : Set α) :
   Disjoint s₁ s₂ ->
   heval (s₁ ∪ s₂) hh ht hQ ->
@@ -297,13 +305,6 @@ lemma fsubst_comp_σ [Inhabited γ] (f : β -> γ) :
   ∀ x, x ∈ ssubst σ s s -> fsubst σ s (f ∘ σ) x = f x := by
   sby move=> x /fsubst_inE /== ?? <-; srw fsubst_σ
 
--- lemma hsubst_hhimp :
---   hsubst σ s H ==> hsubst σ s H' ->
---   H ==> H' := by
---   move=> /[swap] h /(_ fsubst σ s h) /[swap] Hh
---   shave: hsubst σ s H (fsubst σ s h)
---   { exists h }
-
 def injectiveSet (s : Set α) :=
   ∀ a ∈ s, ∀ b ∈ s, σ a = σ b -> a = b
 
@@ -352,5 +353,70 @@ lemma hsubst_heval (s : Set α) :
 
 end hsubst
 
-def htriple (s : Set α) (hH : @hhProp α) (ht : @htrm α) (hQ : @hval α -> @hhProp α) : Prop :=
-  ∀ hh, hH hh -> heval s hh ht hQ
+/- ------------------ Evaluation of Hyper Programs ------------------ -/
+
+open trm eval
+
+open Classical
+
+lemma heval_seq :
+  heval s hh ht₁ (fun _ h₂ => heval s h₂ ht₂ Q) ->
+  heval s hh (fun d => trm_seq (ht₁ d) (ht₂ d)) Q := by
+    scase! => hQ₁ hev₁ /= himp
+    exists fun a v => hexists fun h' => hexists fun v' => hpure (hQ₁ a v' h') ∗ sP h' (ht₂ a) v
+    constructor=> /==
+    { move=> a /[dup] /hev₁ _ ain /= ⟨|//|⟩ v₂ h₂ ?
+      move: (heval_nonrel_sat' hev₁)=> ![hh₂' hv₂' hQH₁ hheq]
+      let hh₂ := fun b => if b = a then h₂ else hh₂' b
+      let hv₂ := fun b => if b = a then v₂ else hv₂' b
+      specialize himp hv₂ hh₂ ?_
+      { sby move=> b /=; scase_if <;> simp [hv₂, hh₂] <;> scase_if }
+      apply eval_conseq (Q1 := sP h₂ (ht₂ a))
+      { sby scase: himp=> /= _ ![hQ /(_ ain)]; simp [hh₂]=> /sP_post }
+      sby move=> v /=; xsimp }
+    move=> hv; srw ?bighstarDef_hexists
+    apply hhimpl_hhexists_l=> hh'
+    apply hhimpl_hhexists_l=> hv'
+    srw -(empty_hunion hh) -bighstarDef_hhstar; rotate_left
+    { move=> ?; apply Finmap.disjoint_empty }
+    erw [bighstarDef_hpure]
+    apply hhimpl_hstar_hhpure_l=> hQ₁H
+    specialize himp hv' (hh' ∪_s hh) ?_
+    { sby move=> a; scase_if }
+    scase: himp=> /= _ ![hQ /hstrongest_postP sPimp imp]
+    apply hhimpl_trans_r; apply imp
+    srw (bighstarDef_def_eq (h₀' := hh' ∪_s hh))=> //
+    apply bighstarDef_himpl=> a /[dup]?/sPimp /(_ hv a)
+    sby simp [hStrongestPostNonrel]; scase_if
+
+lemma heval_let (x : α -> var) (ht₂ : α -> trm) :
+  heval s hh ht₁ (fun hv h₂ => heval s h₂ (fun d => subst (x d) (hv d) (ht₂ d)) Q) ->
+  heval s hh (fun d => trm_let (x d) (ht₁ d) (ht₂ d)) Q := by
+    scase! => hQ₁ hev₁ /= himp
+    exists fun a v =>
+      hexists fun h' => hexists fun v' => hpure (hQ₁ a v' h') ∗ sP h' (subst (x a) v' (ht₂ a)) v
+    constructor=> /==
+    { move=> a /[dup] /hev₁ _ ain /= ⟨|//|⟩ v₂ h₂ ?
+      move: (heval_nonrel_sat' hev₁)=> ![hh₂' hv₂' hQH₁ hheq]
+      let hh₂ := fun b => if b = a then h₂ else hh₂' b
+      let hv₂ := fun b => if b = a then v₂ else hv₂' b
+      specialize himp hv₂ hh₂ ?_
+      { sby move=> b /=; scase_if <;> simp [hv₂, hh₂] <;> scase_if }
+      apply eval_conseq (Q1 := sP h₂ (subst (x a) v₂ (ht₂ a)))
+      { scase: himp=> /= ? ![hQ /(_ (ain))]; simp [hh₂, hv₂]=> /sP_post
+        sby srw ?if_pos }
+      sby move=> v /=; xsimp }
+    move=> hv; srw ?bighstarDef_hexists
+    apply hhimpl_hhexists_l=> hh'
+    apply hhimpl_hhexists_l=> hv'
+    srw -(empty_hunion hh) -bighstarDef_hhstar; rotate_left
+    { move=> ?; apply Finmap.disjoint_empty }
+    erw [bighstarDef_hpure]
+    apply hhimpl_hstar_hhpure_l=> hQ₁H
+    specialize himp hv' (hh' ∪_s hh) ?_
+    { sby move=> a; scase_if }
+    scase: himp=> /= ? ![hQ /hstrongest_postP sPimp imp]
+    apply hhimpl_trans_r; apply imp
+    srw (bighstarDef_def_eq (h₀' := hh' ∪_s hh))=> //
+    apply bighstarDef_himpl=> a /[dup]?/sPimp /(_ hv a)
+    sby simp [hStrongestPostNonrel]; scase_if

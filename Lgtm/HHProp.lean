@@ -656,14 +656,38 @@ lemma bighstar_hhstar_disj
     { apply Finmap.Disjoint.symm; apply Finmap.disjoint_empty }
     apply Finmap.disjoint_empty
 
+lemma bighstarDef_hexists [Inhabited β] {P : α -> β -> hProp} {hh₀ : hheap} :
+  bighstarDef s (fun a => hexists (P a)) hh₀  = h∃ (x : α -> β), bighstarDef s (fun a => P a (x a)) hh₀ := by
+  apply hhimpl_antisymm
+  { move=> hh hhH; unfold hhexists=> /=
+    srw -(skolem (p := fun a v => if a ∈ s then P a v (hh a) else hh a = hh₀ a))=> x
+    scase: [x ∈ s]=> xin
+    { exists default; srw if_neg
+      sby move: (hhH x); srw if_neg }
+    sby move: (hhH x); srw if_pos }
+  sby move=> j [x] /= /[swap] a /(_ a); scase_if
+
 lemma bighstarDef_himpl (s : Set α) (H H' : α -> hProp) :
   (∀ a ∈ s, himpl (H a) (H' a)) -> bighstarDef s H h₀ ==> bighstarDef s H' h₀ := by
   sby move=> himp ? Hh a; move: (Hh a); scase_if
 
+lemma bighstarDef_def_eq  :
+  (∀ a ∉ s, h₀ a = h₀' a) →
+  bighstarDef s H h₀ = bighstarDef s H h₀' := by
+  move=> eq
+  sby apply hhimpl_antisymm=> h /[swap] a /(_ a) M <;> scase_if
 
 lemma bighstar_himpl (s : Set α) (H H' : α -> hProp) :
   (∀ a ∈ s, himpl (H a) (H' a)) -> [∗ i in s | H i] ==> [∗ i in s | H' i] := by
   sby apply bighstarDef_himpl
+
+lemma bighstarDef_hpure (s : Set α) (P : α -> Prop) :
+  bighstarDef s (hpure ∘ P) ∅ = ⌜∀ i ∈ s, P i⌝ := by
+    apply hhimpl_antisymm
+    { move=> h H ⟨|⟩/=
+      { sby move=> i; move: (H i); scase_if=> // ? [] }
+      sby move=> !a; move: (H a); scase_if=> // ? [] }
+    sby move=> h []/= ? -> ?; scase_if
 
 lemma bighstar_hpure_nonemp (s : Set α) (P : Prop) :
   s.Nonempty ->
