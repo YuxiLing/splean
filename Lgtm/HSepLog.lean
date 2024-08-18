@@ -420,3 +420,56 @@ lemma heval_let (x : α -> var) (ht₂ : α -> trm) :
     srw (bighstarDef_def_eq (h₀' := hh' ∪_s hh))=> //
     apply bighstarDef_himpl=> a /[dup]?/sPimp /(_ hv a)
     sby simp [hStrongestPostNonrel]; scase_if
+
+open val
+
+lemma heval_if (ht₁ ht₂ : htrm) (s : Set α) (b : α -> Bool) :
+  heval s h₁ (fun a => if b a then ht₁ a else ht₂ a) Q ->
+  heval s h₁ (fun a => trm_if (val_bool (b a)) (ht₁ a) (ht₂ a)) Q := by
+  sby scase! => * ⟨|⟨|⟩⟩
+
+lemma heval_nonrel_ht_eq :
+  heval_nonrel s h₁ ht₁ Q ->
+  (∀ a ∈ s, ht₁ a = ht₂ a) ->
+  heval_nonrel s h₁ ht₂ Q := by
+  move=> hev eq a /[dup] ain
+  sby move: (hev a ain)=> /eq
+
+lemma heval_app_fun (s : Set α) (hv₁ : hval) (x : α -> var) (ht₁ : α -> trm)
+  (hv₂ : hval) :
+  (forall d, d ∈ s -> hv₁ d = val_fun (x d) (ht₁ d)) ->
+  heval s h₁ (fun a => subst (x a) (hv₂ a) (ht₁ a)) Q ->
+  heval s h₁ (fun a => trm_app (hv₁ a) (hv₂ a)) Q := by
+  move=> ? ![*]⟨|⟨|⟩⟩//
+  apply heval_nonrel_ht_eq (ht₁ := fun a => trm_app (val_fun (x a) (ht₁ a)) (hv₂ a))=> //
+  sby move=> ??; apply eval_app_fun
+
+lemma heval_app_fix (s : Set α) (hv₁ : hval) (x f : α -> var) (ht₁ : α -> trm)
+  (hv₂ : hval) :
+  (forall d, d ∈ s -> hv₁ d = val_fix (f d) (x d) (ht₁ d)) ->
+  heval s h₁ (fun a => subst (x a) (hv₂ a) $ subst (f a) (hv₁ a) $ ht₁ a) Q ->
+  heval s h₁ (fun a => trm_app (hv₁ a) (hv₂ a)) Q := by
+  move=> eq ![*]⟨|⟨|⟩⟩//
+  apply heval_nonrel_ht_eq (ht₁ := fun a => trm_app (val_fix (f a) (x a) (ht₁ a)) (hv₂ a))=> //
+  sby move=> ??; apply eval_app_fix=> //; srw -eq
+
+lemma heval_val :
+  heval s h (trm_val ∘ hv) (fun v h' => v = hv ∧ h = h') := by
+  exists (fun a v h' => v = hv a ∧ h a = h'); constructor=> //
+  { sdone }
+  move=> hv' /= ? /= H ⟨//|⟩/= ⟨|⟩
+  all_goals sby funext a; move: (H a); scase_if
+
+lemma heval_fun (s : Set α) (x : α -> var) (ht₁ : α -> trm):
+  heval s h (fun a => trm_fun (x a) (ht₁ a)) (fun hv h' => h = h' ∧ hv = fun a => val_fun (x a) (ht₁ a)) := by
+  exists (fun a v h' => h a = h' ∧ v = val_fun (x a) (ht₁ a)); constructor=> //
+  { sdone }
+  move=> hv' /= ? /= H ⟨|⟨|⟩⟩/=; exact (fun a => val_fun (x a) (ht₁ a))
+  all_goals sby funext a; move: (H a); scase_if
+
+lemma heval_fix (s : Set α) (x f : α -> var) (ht₁ : α -> trm) :
+  heval s h (fun a => trm_fix (f a) (x a) (ht₁ a)) (fun hv h' => h = h' ∧ hv = fun a => val_fix (f a) (x a) (ht₁ a)) := by
+  exists (fun a v h' => h a = h' ∧ v = val_fix (f a) (x a) (ht₁ a)); constructor=> //
+  { sdone }
+  move=> hv' /= ? /= H ⟨|⟨|⟩⟩/=; exact (fun a => val_fix (f a) (x a) (ht₁ a))
+  all_goals sby funext a; move: (H a); scase_if
