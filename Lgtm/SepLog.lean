@@ -578,6 +578,7 @@ by
   apply triple_conseq _ _ _ _ _ (triple_ptr_add p f _)=>// ? /=
   sby xsimp
 
+/- --------------------- Strongest Post Condition --------------------- -/
 
 abbrev sP h t :=fun v => h∀ (Q : val -> hProp), ⌜eval h t Q⌝ -∗ Q v
 

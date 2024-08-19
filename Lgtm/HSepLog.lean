@@ -13,8 +13,8 @@ open Classical
 
 variable {α : Type}
 
-def htrm := α -> trm
-def hval := α -> val
+def htrm (α : Type) := α -> trm
+def hval (α : Type) := α -> val
 
 local notation "hheap"  => @hheap α
 local notation "hhProp" => @hhProp α
@@ -103,11 +103,20 @@ lemma heval_frame :
  ----------------------------------------
  { ∗_(i ∈ s) Hᵢ } [s : P] { ∗_(i ∈ s) Qᵢ }
  -/
-lemma heval_prod (hQ : α -> val -> hProp) :
-  (∀ a, eval (hh a) (ht a) (hQ a)) ->
+lemma heval_prod' (hQ : α -> val -> hProp) :
+  (∀ a ∈ s, eval (hh a) (ht a) (hQ a)) ->
   heval s hh ht fun hv => bighstarDef s (fun a => hQ a (hv a)) hh := by
   move=> hev; exists hQ=> ⟨|hv ⟩ //
   sby apply (hhimpl_hhexists_r hv); srw fun_insert_ff
+
+lemma heval_prod (hQ : α -> val -> hProp) :
+  (∀ a ∈ s, eval (hh a) (ht a) (hQ a)) ->
+  (∀ a ∉ s, hh a = hh₀ a) ->
+  heval s hh ht fun hv => bighstarDef s (fun a => hQ a (hv a)) hh₀ := by
+  move=> *; apply heval_conseq
+  { apply heval_prod'=> // }
+  sby move=> ? /=; srw bighstarDef_def_eq
+
 
 /- Stronges Hyper Post Condition -/
 
@@ -355,6 +364,8 @@ end hsubst
 
 /- ------------------ Evaluation of Hyper Programs ------------------ -/
 
+section HEvalTrm
+
 open trm eval
 
 open Classical
@@ -423,7 +434,7 @@ lemma heval_let (x : α -> var) (ht₂ : α -> trm) :
 
 open val
 
-lemma heval_if (ht₁ ht₂ : htrm) (s : Set α) (b : α -> Bool) :
+lemma heval_if (ht₁ ht₂ : htrm α) (s : Set α) (b : α -> Bool) :
   heval s h₁ (fun a => if b a then ht₁ a else ht₂ a) Q ->
   heval s h₁ (fun a => trm_if (val_bool (b a)) (ht₁ a) (ht₂ a)) Q := by
   sby scase! => * ⟨|⟨|⟩⟩
@@ -435,8 +446,8 @@ lemma heval_nonrel_ht_eq :
   move=> hev eq a /[dup] ain
   sby move: (hev a ain)=> /eq
 
-lemma heval_app_fun (s : Set α) (hv₁ : hval) (x : α -> var) (ht₁ : α -> trm)
-  (hv₂ : hval) :
+lemma heval_app_fun (s : Set α) (hv₁ : hval α) (x : α -> var) (ht₁ : α -> trm)
+  (hv₂ : hval α ) :
   (forall d, d ∈ s -> hv₁ d = val_fun (x d) (ht₁ d)) ->
   heval s h₁ (fun a => subst (x a) (hv₂ a) (ht₁ a)) Q ->
   heval s h₁ (fun a => trm_app (hv₁ a) (hv₂ a)) Q := by
@@ -444,8 +455,8 @@ lemma heval_app_fun (s : Set α) (hv₁ : hval) (x : α -> var) (ht₁ : α -> t
   apply heval_nonrel_ht_eq (ht₁ := fun a => trm_app (val_fun (x a) (ht₁ a)) (hv₂ a))=> //
   sby move=> ??; apply eval_app_fun
 
-lemma heval_app_fix (s : Set α) (hv₁ : hval) (x f : α -> var) (ht₁ : α -> trm)
-  (hv₂ : hval) :
+lemma heval_app_fix (s : Set α) (hv₁ : hval α) (x f : α -> var) (ht₁ : α -> trm)
+  (hv₂ : hval α) :
   (forall d, d ∈ s -> hv₁ d = val_fix (f d) (x d) (ht₁ d)) ->
   heval s h₁ (fun a => subst (x a) (hv₂ a) $ subst (f a) (hv₁ a) $ ht₁ a) Q ->
   heval s h₁ (fun a => trm_app (hv₁ a) (hv₂ a)) Q := by
@@ -473,3 +484,97 @@ lemma heval_fix (s : Set α) (x f : α -> var) (ht₁ : α -> trm) :
   { sdone }
   move=> hv' /= ? /= H ⟨|⟨|⟩⟩/=; exact (fun a => val_fix (f a) (x a) (ht₁ a))
   all_goals sby funext a; move: (H a); scase_if
+
+
+end HEvalTrm
+
+/- ================= Hyper Separation Logic Reasoning Rules ================= -/
+
+/- -------------- Definition of Hyper Separation Logic Triples -------------- -/
+
+section HTriple
+
+variable {α : Type} (s : Set α)
+
+local notation "htrm" => htrm α
+local notation "hval" => hval α
+local notation "hhProp" => hhProp α
+
+abbrev htriple (t : htrm) (H : hhProp) (Q : hval → hhProp) : Prop :=
+  forall hh, H hh → heval s hh t Q
+
+/- -------------- Structural Rules -------------- -/
+
+lemma htriple_conseq (t : htrm) (H H' : hhProp) (Q Q' : hval → hhProp) :
+  htriple s t H Q →
+  H' ==> H →
+  Q ===> Q' →
+  htriple s t H' Q' := by
+  sby move=> htr himp ? ? /himp/htr/heval_conseq
+
+attribute [simp] hqstarE
+
+lemma htriple_frame (t : htrm) (H : hhProp) (Q : hval → hhProp) :
+  htriple s t H Q →
+  htriple s t (H ∗ H') (Q ∗ H') := by
+  move=> htr hh ![hh hh' /htr/heval_frame hev ? -> /hev /heval_conseq]
+  sapply=> ? /==
+  -- TODO: xsimp
+  sby apply hhimpl_hhstar_trans_r; rotate_left; apply hhimpl_refl
+
+
+lemma htriple_hhexists (H : β -> hhProp) :
+  (∀ x, htriple s t (H x) Q) →
+  htriple s t (h∃ x, H x) Q := by
+  sby move=> htr hh ![x /htr]
+
+lemma htriple_hhpure :
+  (P -> htriple s t H Q) →
+  htriple s t (⌜P⌝ ∗ H) Q := by
+  move=> htr hh ![> []/=/htr{}htr->/htr ?->]
+  sby srw empty_hunion
+
+lemma htriple_hhforall (J : β -> hhProp) :
+  htriple s t (J x) Q ->
+  htriple s t (h∀ x, J x) Q := by
+  sby sdone
+
+lemma htriple_hhwand_hhpure_l :
+  P ->
+  htriple s t H Q ->
+  htriple s t (⌜P⌝ -∗ H) Q := by
+  move=> ? htr hh ![> ?] ![]/= imp ->->?
+  apply htr=> //; apply imp
+  srw hunion_empty
+  exists ∅, w_1; repeat' constructor=> //
+  { srw empty_hunion }
+  move=> ? /=; apply Finmap.disjoint_empty
+
+lemma htriple_conseq_frame :
+  htriple s t H₁ Q₁ →
+  H ==> H₁ ∗ H₂ →
+  Q₁ ∗ H₂ ===> Q →
+  htriple s t H Q := by
+  move=> htr himp qimp; eapply htriple_conseq; eapply htriple_frame
+  hide_mvars; all_goals sdone
+
+lemma htriple_ramified_frame :
+  htriple s t H₁ Q₁ ->
+  H ==> H₁ ∗ (Q₁ -∗ Q) ->
+  htriple s t H Q := by
+  move=> htr himp; eapply htriple_conseq_frame=> //
+  sby srw -hqwand_equiv
+
+lemma htriple_prod (H : α -> hProp) (Q : α -> val -> hProp) :
+  (∀ a ∈ s, triple (ht a) (H a) (Q a)) ->
+  htriple s ht [∗ i in s| H i] (fun hv => [∗ i in s| Q i (hv i)]) := by
+    move=> htr hh hH; apply heval_prod
+    { sby move=> a /[dup]?/htr; sapply; move: (hH a) }
+    sby move=> a; move: (hH a)
+
+/- -------------- Rules for Hyper terms -------------- -/
+
+
+
+
+end HTriple

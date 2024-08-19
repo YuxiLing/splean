@@ -10,8 +10,8 @@ section HHProp
 
 variable {α : Type} [DecidableEq α]
 
-abbrev hheap := α -> heap
-abbrev hhProp := @hheap α -> Prop
+abbrev hheap (α : Type) := α -> heap
+abbrev hhProp (α : Type) := @hheap α -> Prop
 
 def hunion (h₁ h₂ : @hheap α) : @hheap α :=
   λ a => h₁ a ∪ h₂ a
@@ -447,6 +447,8 @@ by
 lemma hhwandE :
   H1 -∗ H2 = hhexists (fun (H0 : hhProp) => H0 ∗ hhpure ((H1 ∗ H0) ==> H2)) := rfl
 
+attribute [simp] hhwandE hqstarE
+
 lemma hhwand_equiv (H0 H1 H2 : hhProp) :
   (H0 ==> H1 -∗ H2) ↔ (H1 ∗ H0 ==> H2) :=
 by
@@ -461,6 +463,16 @@ by
   apply hhimpl_hhexists_r
   rw [<-(@hhstar_hhempty_r _ H0)]
   apply hhimpl_frame_r ; sby apply hhimpl_hempty_hhpure
+
+
+lemma hqwand_equiv (Q2 Q1 : β -> hhProp) :
+  H ==> (Q1 -∗ Q2) <-> (Q1 ∗ H) ===> Q2 := by
+    constructor=> imp
+    { move=> v /== h ![h₁ h₂] /[swap] /imp /(_ v)/=
+      scase! => H' hh ? ? ![]/= imp ->->_ ? ->
+      sby srw ?hunion_empty=> ?; apply imp }
+    apply hhimpl_hhforall_r=> ?
+    sby srw hhwand_equiv; apply imp
 
 lemma hhimpl_hhwand_r (H1 H2 H3 : hhProp) :
   (H2 ∗ H1) ==> H3 →
