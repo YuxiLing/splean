@@ -679,6 +679,11 @@ lemma bighstarDef_hexists [Inhabited β] {P : α -> β -> hProp} {hh₀ : hheap}
     sby move: (hhH x); srw if_pos }
   sby move=> j [x] /= /[swap] a /(_ a); scase_if
 
+lemma bighstar_hexists [Inhabited β] {P : α -> β -> hProp} :
+  bighstar s (fun a => hexists (P a))  = h∃ (x : α -> β), bighstar s (fun a => P a (x a)) := by
+  apply bighstarDef_hexists
+
+
 lemma bighstarDef_himpl (s : Set α) (H H' : α -> hProp) :
   (∀ a ∈ s, himpl (H a) (H' a)) -> bighstarDef s H h₀ ==> bighstarDef s H' h₀ := by
   sby move=> himp ? Hh a; move: (Hh a); scase_if

@@ -574,7 +574,245 @@ lemma htriple_prod (H : α -> hProp) (Q : α -> val -> hProp) :
 
 /- -------------- Rules for Hyper terms -------------- -/
 
+open trm val prim
+
+lemma htriple_val (Q : hval -> hhProp) :
+  H ==> Q v ->
+  htriple s (trm_val ∘ v) H Q := by
+    move=> himp hh /himp ?; apply heval_conseq
+    { sby apply heval_val }
+    sby move=> >?
+
+lemma htriple_fun (Q : hval -> hhProp) (x : α -> var) (ht : α -> trm) :
+  (H ==> Q fun a => val_fun (x a) (ht a)) ->
+  htriple s (fun a => trm_fun (x a) (ht a)) H Q := by
+    move=> himp hh /himp ?; apply heval_conseq
+    { sby apply heval_fun }
+    sby move=> >?
+
+lemma htriple_fix (Q : hval -> hhProp) (x f : α -> var) (ht : α -> trm) :
+  (H ==> Q fun a => val_fix (f a) (x a) (ht a)) ->
+  htriple s (fun a => trm_fix (f a) (x a) (ht a)) H Q := by
+    move=> himp hh /himp ?; apply heval_conseq
+    { sby apply heval_fix }
+    sby move=> >?
+
+lemma htriple_if (b : α -> Bool) (ht₁ ht₂ : α -> trm) (Q : hval -> hhProp) :
+  htriple s (fun a => if b a then ht₁ a else ht₂ a) H Q ->
+  htriple s (fun a => trm_if (val_bool (b a)) (ht₁ a) (ht₂ a)) H Q := by
+    move=> htr hh /htr ?; apply heval_conseq
+    { sby apply heval_if }
+    sby move=> >?
+
+lemma htriple_app_fun (Q : hval -> hhProp) (hv₁ : hval) (x : α -> var) (ht₁ : α -> trm) (hv₂ : hval) :
+  (forall d, d ∈ s -> hv₁ d = val_fun (x d) (ht₁ d)) ->
+  htriple s (fun a => subst (x a) (hv₂ a) (ht₁ a)) H Q ->
+  htriple s (fun a => trm_app (hv₁ a) (hv₂ a)) H Q := by
+    move=> eq htr hh /htr ?; apply heval_conseq
+    { sby apply heval_app_fun }
+    sby move=> >?
+
+lemma htriple_app_fix (Q : hval -> hhProp) (hv₁ : hval) (x f : α -> var) (ht₁ : α -> trm) (hv₂ : hval) :
+  (forall d, d ∈ s -> hv₁ d = val_fix (f d) (x d) (ht₁ d)) ->
+  htriple s (fun a => subst (x a) (hv₂ a) $ subst (f a) (hv₁ a) $ ht₁ a) H Q ->
+  htriple s (fun a => trm_app (hv₁ a) (hv₂ a)) H Q := by
+    move=> eq htr hh /htr ?; apply heval_conseq
+    { sby apply heval_app_fix }
+    sby move=> >?
+
+/- -------------- Hyper Triple-Style Specification for Primitive Hyper Functions -------------- -/
+
+notation (priority := high) "funloc" p "=>" H => fun hv => h∃ p, ⌜ hv = val_loc ∘ p ⌝ ∗ H
+
+open Classical
+
+lemma htriple_ref' (v : α -> val) :
+  htriple s (fun a => trm_app val_ref (v a))
+    emp
+    (fun hv => [∗ i in s| hexists fun p => hpure (hv i = val_loc p) ∗ p ~~> v i]) := by
+    srw -(bighstar_hhempty (s := s)); apply htriple_prod (Q := fun a v' => hexists fun p => hpure (v' = val_loc p) ∗ p ~~> v a)
+    move=> ??; apply triple_ref
+
+lemma htriple_hv_ext :
+  htriple s ht H (fun hv => h∃ hv', Q (hv ∪_s hv')) ->
+  htriple s ht H Q := by
+  move=> htr ? /htr ![hQ ? imp] ⟨//|⟨//|?⟩⟩
+  apply hhimpl_trans=> //=
+  -- TODO: xsimp
+  apply hhimpl_hhexists_l=> hv'
+  apply hhimpl_hhexists_l=> hv''
+  apply hhimpl_hhexists_r (x := hv'')
+  sby srw fun_insert_ss
 
 
+lemma htriple_ref (v : α -> val) :
+  htriple s (fun a => trm_app val_ref (v a))
+    emp
+    (funloc p => [∗ i in s| p i ~~> v i]) := by
+    apply htriple_hv_ext
+    apply htriple_conseq; apply htriple_ref'; apply hhimpl_refl
+    move=> hv /=; srw bighstar_hexists
+    -- TODO: xsimp
+    apply hhimpl_hhexists_l=> p
+    apply hhimpl_hhexists_r (x := val_loc ∘ p)
+    apply hhimpl_hhexists_r (x := p)
+    srw -bighstar_hhstar bighstar
+    erw [(bighstarDef_hpure (P := fun i => hv i = val_loc (p i)))]
+    -- TODO: xsimp
+    apply hhimpl_frame_l
+    move=> h [] /= p -> ⟨ /= |//⟩
+    sby funext x
+
+lemma htriple_prod_val_eq (ht : htrm) (H : α -> _) (Q : α -> _) (fv : hval) :
+  (∀ a ∈ s, triple (ht a) (H a) (fun v => hpure (v = fv a) ∗ Q a)) ->
+  htriple s ht [∗ i in s| H i] (fun hv => ⌜hv = fv⌝ ∗ [∗ i in s| Q i]) := by
+  move=> htr
+  shave htr: htriple s ht [∗ i in s| H i] (fun hv => [∗ i in s| hpure (hv i = fv i) ∗ Q i])
+  { sby apply htriple_prod (Q := fun a v' => hpure (v' = fv a) ∗ Q a) }
+  apply htriple_hv_ext
+  apply htriple_conseq; apply htr; apply hhimpl_refl
+  move=> hv /=
+  apply hhimpl_hhexists_r (x := fv)
+  srw -bighstar_hhstar bighstar
+  erw [(bighstarDef_hpure (P := fun i => hv i = fv i))]
+  apply hhimpl_frame_l
+  move=> h [] /= p -> ⟨ /= |//⟩
+  sby funext x
+
+lemma htriple_prod_val_eq_emp (ht : htrm) (fv : hval) :
+  (∀ a ∈ s, triple (ht a) hempty (fun v => hpure (v = fv a))) ->
+  htriple s ht emp (fun hv => ⌜hv = fv⌝) := by
+  move: (htriple_prod_val_eq s ht (fun _ => hempty) (fun _ => hempty) fv)
+  move=> H htr; apply htriple_conseq; apply H=> //
+  { move=> ??; apply triple_conseq=> // ? /=; xsimp }
+  { sby srw bighstar_hhempty }
+  move=> ? /= -- TODO: xsimp
+  sby srw bighstar_hhempty hhstar_hhempty_r
+
+lemma htriple_get (p : α -> loc) :
+  htriple s (fun a => trm_app val_get (val_loc (p a)))
+    [∗ i in s| p i ~~> v i]
+    (fun hv => ⌜hv = v⌝ ∗ [∗ i in s| p i ~~> v i]) := by
+    apply htriple_prod_val_eq=> *; apply triple_get
+
+lemma htriple_set (hv hu : hval) (p : α -> loc) :
+  htriple s (fun a => trm_app (trm_app val_set (p a)) (hu a))
+    [∗ i in s| p i ~~> hv i]
+    (fun hv => ⌜hv = fun _ => val_unit⌝ ∗ [∗ i in s| p i ~~> hu i]) := by
+    apply htriple_prod_val_eq
+    move=> ??; apply triple_set
+
+lemma htriple_free (hv : hval) (p : α -> loc) :
+  htriple s (fun a => trm_app val_free (val_loc (p a)))
+    [∗ i in s| p i ~~> hv i]
+    (fun _ => emp) := by
+    srw -(bighstar_hhempty (s := s))
+    apply htriple_prod (Q := fun _ _ => hempty)
+    move=> ??; apply triple_free
+
+lemma htriple_unop (op : α -> prim) (v₁ v : hval) :
+  (∀ a ∈ s, evalunop (op a) (v₁ a) (· = v a)) ->
+  htriple s (fun a => trm_app (op a) (v₁ a))
+    emp
+    (fun hv => ⌜hv = v⌝) := by
+    move=> ?; apply htriple_prod_val_eq_emp=> ??
+    sby apply triple_unop
+
+lemma htriple_binop (op : α -> prim) (v₁ v₂ v : hval) :
+  (∀ a ∈ s, evalbinop (op a) (v₁ a) (v₂ a) (· = v a)) ->
+  htriple s (fun a => trm_app (op a) (v₁ a) (v₂ a))
+    emp
+    (fun hv => ⌜hv = v⌝) := by
+    move=> ?; apply htriple_prod_val_eq_emp=> ??
+    sby apply triple_binop
+
+lemma htriple_add (v₁ v₂ : α -> Int) :
+  htriple s (fun a => trm_app val_add (v₁ a) (v₂ a))
+    emp
+    (fun hv => ⌜hv = fun i => val_int $ v₁ i + v₂ i⌝) := by
+  sby apply htriple_binop
+
+lemma htriple_div (v₁ v₂ : α -> Int) :
+  (∀ a ∈ s, v₂ a ≠ 0) ->
+  htriple s (fun a => trm_app val_div (v₁ a) (v₂ a))
+    emp
+    (fun hv => ⌜hv = fun i => val_int $ v₁ i / v₂ i⌝) := by
+  sby move=> neq; apply htriple_binop=> ? /neq
+
+lemma htriple_neg (v₁ : α -> Bool) :
+  htriple s (fun a => trm_app val_neg (v₁ a))
+    emp
+    (fun hv => ⌜hv = fun i => val_bool $ ¬v₁ i⌝) := by
+  sby apply htriple_unop
+
+lemma htriple_opp (v₁ : α -> Int) :
+  htriple s (fun a => trm_app val_opp (v₁ a))
+    emp
+    (fun hv => ⌜hv = fun i => val_int $ -v₁ i⌝) := by
+  sby apply htriple_unop
+
+lemma htriple_eq (v₁ v₂ : α -> val) :
+  htriple s (fun a => trm_app val_eq (v₁ a) (v₂ a))
+    emp
+    (fun hv => ⌜hv = fun i => val_bool $ v₁ i = v₂ i⌝) := by
+  sby apply htriple_binop
+
+lemma htriple_neq (v₁ v₂ : α -> val) :
+  htriple s (fun a => trm_app val_neq (v₁ a) (v₂ a))
+    emp
+    (fun hv => ⌜hv = fun i => val_bool $ is_true $ v₁ i ≠ v₂ i⌝) := by
+  sby apply htriple_binop
+
+lemma htriple_sub (v₁ v₂ : α -> Int) :
+  htriple s (fun a => trm_app val_sub (v₁ a) (v₂ a))
+    emp
+    (fun hv => ⌜hv = fun i => val_int $ v₁ i - v₂ i⌝) := by
+  sby apply htriple_binop
+
+lemma htriple_mul (v₁ v₂ : α -> Int) :
+  htriple s (fun a => trm_app val_mul (v₁ a) (v₂ a))
+    emp
+    (fun hv => ⌜hv = fun i => val_int $ v₁ i * v₂ i⌝) := by
+  sby apply htriple_binop
+
+lemma htriple_mod (v₁ v₂ : α -> Int) :
+  (∀ a ∈ s, v₂ a ≠ 0) ->
+  htriple s (fun a => trm_app val_mod (v₁ a) (v₂ a))
+    emp
+    (fun hv => ⌜hv = fun i => val_int $ v₁ i % v₂ i⌝) := by
+  sby move=> neq; apply htriple_binop=> ? /neq
+
+lemma htriple_le (v₁ v₂ : α -> Int) :
+  htriple s (fun a => trm_app val_le (v₁ a) (v₂ a))
+    emp
+    (fun hv => ⌜hv = fun i => val_bool $ v₁ i ≤ v₂ i⌝) := by
+  sby apply htriple_binop
+
+lemma htriple_lt (v₁ v₂ : α -> Int) :
+  htriple s (fun a => trm_app val_lt (v₁ a) (v₂ a))
+    emp
+    (fun hv => ⌜hv = fun i => val_bool $ v₁ i < v₂ i⌝) := by
+  sby apply htriple_binop
+
+lemma htriple_ge (v₁ v₂ : α -> Int) :
+  htriple s (fun a => trm_app val_ge (v₁ a) (v₂ a))
+    emp
+    (fun hv => ⌜hv = fun i => val_bool $ v₁ i ≥ v₂ i⌝) := by
+  sby apply htriple_binop
+
+
+lemma htriple_gt (v₁ v₂ : α -> Int) :
+  htriple s (fun a => trm_app val_gt (v₁ a) (v₂ a))
+    emp
+    (fun hv => ⌜hv = fun i => val_bool $ v₁ i > v₂ i⌝) := by
+  sby apply htriple_binop
+
+lemma htriple_ptr_add (v₁ : α -> loc) (v₂ : α -> Int) :
+  (∀ i ∈ s, v₁ i + v₂ i >= 0) ->
+  htriple s (fun a => trm_app val_ptr_add (v₁ a) (v₂ a))
+    emp
+    (fun hv => ⌜hv = fun i => val_loc $ (v₁ i + v₂ i).toNat⌝) := by
+  sby move=> imp; apply htriple_prod_val_eq_emp=> ? /imp ?
+      apply triple_ptr_add
 
 end HTriple

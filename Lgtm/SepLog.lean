@@ -563,7 +563,7 @@ lemma triple_ptr_add (p : loc) (n : ℤ) :
   p + n >= 0 →
   triple (trm_app val_ptr_add p n)
     emp
-    (fun r ↦ ⌜r = val_loc (Int.toNat (Int.natAbs (p + n)))⌝) :=
+    (fun r ↦ ⌜r = val_loc ((p + n).toNat)⌝) :=
 by
   move=> ?
   apply triple_binop
