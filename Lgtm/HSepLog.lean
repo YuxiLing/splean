@@ -335,9 +335,10 @@ lemma fsubst_eq_local_eq [Inhabited γ] (f f' : α -> γ) :
     sby srw ?fsubst_σ
 
 set_option maxHeartbeats 800000 in
-lemma hsubst_heval (s : Set α) :
+lemma heval_hsubst (s : Set α) :
   injectiveSet σ s ->
-  (∀ hv hh₁ hh₂, (∀ a ∈ s, hh₁ a = hh₂ a) -> Q hv hh₁ = Q hv hh₂) ->
+  (∀ hv h, Q hv h -> ∀ a ∉ s, h a = hh a) ->
+  -- (∀ hv hh₁ hh₂, (∀ a ∈ s, hh₁ a = hh₂ a) -> Q hv hh₁ = Q hv hh₂) ->
   heval (ssubst σ s s) (fsubst σ s hh) ht (fun hv => hsubst σ s (Q (hv ∘ σ))) ->
   heval s hh (ht ∘ σ) Q := by
   move=> vs Ql ![hQ ev himp]
@@ -358,7 +359,10 @@ lemma hsubst_heval (s : Set α) :
   shave->: (hv ∪_s f) = (fsubst σ s hv ∪_(ssubst σ s s) hv') ∘ σ
   { move=> !a /=; scase_if=> ain //
     sby (checkpoint srw if_pos // ?fsubst_σ //; apply fsubst_in) }
-  sby srw Ql
+  shave-> //: h = h'
+  move=> !a; scase: [a ∈ s]=> [|/heq//]
+  sby move: (hQh a) hQ; scase_if=> // ? -> /Ql
+
 
 end hsubst
 
@@ -496,6 +500,7 @@ section HTriple
 
 variable {α : Type} (s : Set α)
 
+section
 local notation "htrm" => htrm α
 local notation "hval" => hval α
 local notation "hhProp" => hhProp α
@@ -572,8 +577,23 @@ lemma htriple_prod (H : α -> hProp) (Q : α -> val -> hProp) :
     { sby move=> a /[dup]?/htr; sapply; move: (hH a) }
     sby move=> a; move: (hH a)
 
-/- -------------- Rules for Hyper terms -------------- -/
+end
 
+lemma htriple_hsubst (ht : htrm β) (H : hhProp α) (Q : hval α -> hhProp α) (σ : α -> β) :
+  injectiveSet σ s ->
+  hhlocal s H ->
+  (∀ hv, hhlocal s $ Q hv) ->
+  htriple (ssubst σ s s) ht (hsubst σ s H) (fun hv => hsubst σ s (Q (hv ∘ σ))) ->
+  htriple s (ht ∘ σ) H Q := by
+  move=> inj Hl Ql htr hh Hh; apply heval_hsubst=>//
+  { sby move=> ?? /Ql hl ? /[dup]/hl-> /(Hl _ Hh) }
+  sby apply htr; exists hh
+
+/- -------------- Rules for Hyper terms -------------- -/
+section
+local notation "htrm" => htrm α
+local notation "hval" => hval α
+local notation "hhProp" => hhProp α
 open trm val prim
 
 lemma htriple_val (Q : hval -> hhProp) :
@@ -815,4 +835,4 @@ lemma htriple_ptr_add (v₁ : α -> loc) (v₂ : α -> Int) :
   sby move=> imp; apply htriple_prod_val_eq_emp=> ? /imp ?
       apply triple_ptr_add
 
-end HTriple
+end end HTriple
