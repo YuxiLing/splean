@@ -77,10 +77,12 @@ def hhempty : hhProp := (· = ∅)
 
 notation:max (priority := high) "emp" => hhempty
 
-def hhsingle (a : α) (p : loc) (v : val) : hhProp := [∗ in {a} | p ~~> v]
+abbrev hhsingle (s : Set α) (p : α -> loc) (v : α -> val) : hhProp := [∗ i in s | p i ~~> v i]
 
-notation p " ~" s:max "~> " v => [∗ in s | p ~~> v]
-
+notation p " ~" s:max "~> " v => hhsingle s p v
+notation p " ~" s:max "~> " v => hhsingle s (fun _ => p) (fun _ => v)
+notation p " ~" s:max "~> " v => hhsingle s p (fun _ => v)
+notation p " ~" s:max "~> " v => hhsingle s (fun _ => p) v
 
 def hhexists {A} (P : A → hhProp) : hhProp :=
   fun hh => exists (v:A), P v hh
@@ -474,6 +476,11 @@ lemma hqwand_equiv (Q2 Q1 : β -> hhProp) :
     apply hhimpl_hhforall_r=> ?
     sby srw hhwand_equiv; apply imp
 
+lemma hqwand_specialize A (x : A) (Q1 Q2 : A → hhProp) :
+  (Q1 -∗ Q2) ==> (Q1 x -∗ Q2 x) :=
+by
+  sby apply (@hhimpl_hhforall_l α A x)=> ?; sapply
+
 lemma hhimpl_hhwand_r (H1 H2 H3 : hhProp) :
   (H2 ∗ H1) ==> H3 →
   H1 ==> (H2 -∗ H3) :=
@@ -719,8 +726,8 @@ lemma bighstar_hpure_nonemp (s : Set α) (P : Prop) :
 
 variable (s : Set α)
 
-lemma hhsingle_intro p v :
-  (p ~(s)~> v) (extend s (fun _ =>Finmap.singleton p v)) :=
+lemma hhsingle_intro (p : α -> _) (v : α -> _) :
+  (p ~(s)~> v) (extend s (fun i =>Finmap.singleton (p i) (v i))) :=
 by apply bighstar_intro; sdone
 
 lemma hhsingl_inv p v h :
@@ -730,7 +737,7 @@ by sby move=> sH ! z; move: (sH z); unfold extend; scase_if
 
 
 
-lemma hhstar_hhsingle_same_loc p v1 v2 :
+lemma hhstar_hhsingle_same_loc (p : α -> _) (v1 v2 : α -> _) :
   s.Nonempty ->
   (p ~(s)~> v1) ∗ (p ~(s)~> v2) ==> ⌜False⌝ :=
 by
