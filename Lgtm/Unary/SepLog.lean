@@ -1,9 +1,9 @@
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
-import Lgtm.Util
-import Lgtm.HProp
-import Lgtm.XSimp
+import Lgtm.Unary.Util
+import Lgtm.Unary.HProp
+import Lgtm.Unary.XSimp
 
 open trm val prim
 
@@ -563,7 +563,7 @@ lemma triple_ptr_add (p : loc) (n : ℤ) :
   p + n >= 0 →
   triple (trm_app val_ptr_add p n)
     emp
-    (fun r ↦ ⌜r = val_loc ((p + n).toNat)⌝) :=
+    (fun r ↦ ⌜r = val_loc ((p + n).natAbs)⌝) :=
 by
   move=> ?
   apply triple_binop

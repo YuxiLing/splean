@@ -3,8 +3,8 @@ import Qq
 
 -- import SSReflect.Lang
 
-import Lgtm.HProp
-import Lgtm.Util
+import Lgtm.Unary.HProp
+import Lgtm.Unary.Util
 
 
 -- open hprop_scope

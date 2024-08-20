@@ -1,7 +1,7 @@
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
-import Lgtm.Util
+import Lgtm.Unary.Util
 
 
 open Classical
@@ -328,7 +328,7 @@ inductive evalbinop : val → val → val → (val->Prop) → Prop where
   | evalbinop_ptr_add : forall (p1 : loc) (p2 : Int) n,
       p2 = p1 + n ->
       evalbinop val_ptr_add (val_loc p1) (val_int n)
-        (fun v => v = val_loc (Int.toNat p2))
+        (fun v => v = val_loc (Int.natAbs p2))
 
 
 /- ========================= Big-step Semantics ========================= -/

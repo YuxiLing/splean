@@ -1,11 +1,12 @@
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
-import Lgtm.Util
-import Lgtm.HProp
-import Lgtm.HHProp
-import Lgtm.XSimp
-import Lgtm.SepLog
+import Lgtm.Unary.Util
+import Lgtm.Unary.HProp
+import Lgtm.Unary.XSimp
+import Lgtm.Unary.SepLog
+
+import Lgtm.Hyper.HProp
 
 section HSepLog
 
@@ -831,7 +832,7 @@ lemma htriple_ptr_add (v₁ : α -> loc) (v₂ : α -> Int) :
   (∀ i ∈ s, v₁ i + v₂ i >= 0) ->
   htriple s (fun a => trm_app val_ptr_add (v₁ a) (v₂ a))
     emp
-    (fun hv => ⌜hv = fun i => val_loc $ (v₁ i + v₂ i).toNat⌝) := by
+    (fun hv => ⌜hv = fun i => val_loc $ (v₁ i + v₂ i).natAbs⌝) := by
   sby move=> imp; apply htriple_prod_val_eq_emp=> ? /imp ?
       apply triple_ptr_add
 

@@ -1,7 +1,7 @@
 import Mathlib.Data.Finmap
 
-import Lgtm.Util
-import Lgtm.HProp
+import Lgtm.Unary.Util
+import Lgtm.Unary.HProp
 
 
 open Classical

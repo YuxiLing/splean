@@ -1,9 +1,9 @@
-import Lgtm.XSimp
-import Lgtm.XChange
-import Lgtm.Util
-import Lgtm.SepLog
-import Lgtm.WP1
-import Lgtm.Lang
+import Lgtm.Unary.XSimp
+import Lgtm.Unary.XChange
+import Lgtm.Unary.Util
+import Lgtm.Unary.SepLog
+import Lgtm.Unary.WP1
+import Lgtm.Unary.Lang
 
 
 /- ============== Definitions for Arrays ============== -/
