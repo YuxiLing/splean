@@ -3,8 +3,10 @@ import Qq
 
 -- import SSReflect.Lang
 
-import Lgtm.Hyper.HProp
 import Lgtm.Unary.Util
+import Lgtm.Unary.XSimp
+
+import Lgtm.Hyper.HProp
 
 
 -- open hprop_scope
@@ -45,29 +47,19 @@ lemma hqimpl_refl_resolve (Q : α -> hhProp) : (Q ===> Q) = True := by
   sby simp=> ??
 
 
-lemma hstar_comm_assoc (H1 H2 H3 : hhProp) :
+lemma hhstar_comm_assoc (H1 H2 H3 : hhProp) :
   H1 ∗ H2 ∗ H3 = H2 ∗ H1 ∗ H3 := by
   sby srw -hhstar_assoc [2]hhstar_comm hhstar_assoc
 
 @[simp]
-lemma star_post_empty (Q : α -> hhProp) :
+lemma hstar_post_empty (Q : α -> hhProp) :
   Q ∗ (emp : hhProp) = Q := by
   move=> !?; srw hqstarE hhstar_hhempty_r
 
 
 attribute [heapSimp] hhstar_hhempty_l hhstar_hhempty_r
-                     hhstar_assoc star_post_empty hhwand_hempty_l
+                     hhstar_assoc hstar_post_empty hhwand_hempty_l
 
-@[heapSimp]
-lemma foo : (@OfNat.ofNat ℕ n _) = (n : ℤ) := rfl
-@[heapSimp]
-lemma foo' : (@OfNat.ofNat ℤ n _) = (n : ℤ) := rfl
-@[heapSimp]
-lemma foo'' : (@OfNat.ofNat val n _) = val.val_int (n : ℤ) := by sorry
-  -- by dsimp only [OfNat.ofNat]
-
-
-macro "hsimp" : tactic => `(tactic| (simp only [heapSimp]; try dsimp))
 
 
 /- **============ `ysimp` implementation ============** -/
@@ -77,9 +69,6 @@ def YSimp (hl hr : hhProp × hhProp × hhProp) :=
   let (hra, hrg, hrt) := hr
   hla ∗ hlw ∗ hlt ==> hra ∗ hrg ∗ hrt
 
-@[heapSimp]
-def protect (x : α) := x
-
 structure YSimpR where
   hla : Term
   hlw : Term
@@ -88,9 +77,6 @@ structure YSimpR where
   hra : Term
   hrg : Term
   hrt : Term
-
-def getGoalStxNN : Lean.Elab.Tactic.TacticM Syntax := do
-  delabNoNotations $ <- getMainTarget
 
 /-
 YSimp
@@ -113,72 +99,72 @@ def YSimpRIni : TacticM YSimpR := withMainContext do
 
 /- ------------ Tactic for flipping an interated [∗] operation ------------ -/
 
-lemma hstar_flip_0 :
+lemma hhstar_flip_0 :
   (emp : hhProp) = emp := by
   sdone
 
-lemma hstar_flip_1 :
+lemma hhstar_flip_1 :
   h1 ∗ emp = h1 ∗ emp := by
   sdone
 
-lemma hstar_flip_2 :
+lemma hhstar_flip_2 :
   h1 ∗ h2 ∗ emp = h2 ∗ h1 ∗ emp := by
-  srw hstar_comm_assoc
+  srw hhstar_comm_assoc
 
-lemma hstar_flip_3 :
+lemma hhstar_flip_3 :
   h1 ∗ h2 ∗ h3 ∗ emp = h3 ∗ h2 ∗ h1 ∗ emp := by
-  srw [0] hstar_flip_2 !(hstar_comm_assoc h3)
+  srw [0] hhstar_flip_2 !(hhstar_comm_assoc h3)
 
-lemma hstar_flip_4 :
+lemma hhstar_flip_4 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ emp = h4 ∗ h3 ∗ h2 ∗ h1 ∗ emp := by
-  srw [0] hstar_flip_3 !(hstar_comm_assoc h4)
+  srw [0] hhstar_flip_3 !(hhstar_comm_assoc h4)
 
-lemma hstar_flip_5 :
+lemma hhstar_flip_5 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ emp = h5 ∗ h4 ∗ h3 ∗ h2 ∗ h1 ∗ emp := by
-  srw [0] hstar_flip_4 !(hstar_comm_assoc h5)
+  srw [0] hhstar_flip_4 !(hhstar_comm_assoc h5)
 
-lemma hstar_flip_6 :
+lemma hhstar_flip_6 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ emp =
   h6 ∗ h5 ∗ h4 ∗ h3 ∗ h2 ∗ h1 ∗ emp := by
-  srw [0] hstar_flip_5 !(hstar_comm_assoc h6)
+  srw [0] hhstar_flip_5 !(hhstar_comm_assoc h6)
 
-lemma hstar_flip_7 :
+lemma hhstar_flip_7 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ emp =
   h7 ∗ h6 ∗ h5 ∗ h4 ∗ h3 ∗ h2 ∗ h1 ∗ emp := by
-  srw [0] hstar_flip_6 !(hstar_comm_assoc h7)
+  srw [0] hhstar_flip_6 !(hhstar_comm_assoc h7)
 
-lemma hstar_flip_8 :
+lemma hhstar_flip_8 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ emp =
   h8 ∗ h7 ∗ h6 ∗ h5 ∗ h4 ∗ h3 ∗ h2 ∗ h1 ∗ emp := by
-  srw [0] hstar_flip_7 !(hstar_comm_assoc h8)
+  srw [0] hhstar_flip_7 !(hhstar_comm_assoc h8)
 
-lemma hstar_flip_9 :
+lemma hhstar_flip_9 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ emp =
   h9 ∗ h8 ∗ h7 ∗ h6 ∗ h5 ∗ h4 ∗ h3 ∗ h2 ∗ h1 ∗ emp := by
-  srw [0] hstar_flip_8 !(hstar_comm_assoc h9)
+  srw [0] hhstar_flip_8 !(hhstar_comm_assoc h9)
 
-lemma hstar_flip_10 :
+lemma hhstar_flip_10 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ h10 ∗ emp =
   h10 ∗ h9 ∗ h8 ∗ h7 ∗ h6 ∗ h5 ∗ h4 ∗ h3 ∗ h2 ∗ h1 ∗ emp := by
-  srw [0] hstar_flip_9 !(hstar_comm_assoc h10)
+  srw [0] hhstar_flip_9 !(hhstar_comm_assoc h10)
 
-def hstar_flip_lemma (i : Nat) : Ident :=
-  mkIdent s!"hstar_flip_{i}".toName
+def hhstar_flip_lemma (i : Nat) : Ident :=
+  mkIdent s!"hhstar_flip_{i}".toName
 
-partial def hstar_arity (hs : Term) : TacticM Nat :=
+partial def hhstar_arity (hs : Term) : TacticM Nat :=
   match hs with
   | `(@hhempty $_)      => return (0)
   | `(@HStar.hStar $_ $_ $_ $_ $_ $h2) => do
-      let n <- hstar_arity h2
+      let n <- hhstar_arity h2
       return (1 + n)
   | _           => throwError "cannot get arity"
 
 set_option linter.unusedTactic false
 set_option linter.unreachableTactic false
 
-elab "hstar_flip" h:term : tactic => do
-  let i <- hstar_arity h
-  {| eapply $(hstar_flip_lemma i) |}
+elab "hhstar_flip" h:term : tactic => do
+  let i <- hhstar_arity h
+  {| eapply $(hhstar_flip_lemma i) |}
 
 lemma ysimp_flip_acc_l_lemma :
   hla = hla' →
@@ -193,10 +179,10 @@ lemma ysimp_flip_acc_r_lemma :
   sby move=> h /h
 
 elab "ysimp_flip_acc_l" hla:term : tactic =>
-  {| eapply ysimp_flip_acc_l_lemma ; hstar_flip $hla |}
+  {| eapply ysimp_flip_acc_l_lemma ; hhstar_flip $hla |}
 
 elab "ysimp_flip_acc_r" hra:term : tactic =>
-  {| eapply ysimp_flip_acc_r_lemma ; hstar_flip $hra |}
+  {| eapply ysimp_flip_acc_r_lemma ; hhstar_flip $hra |}
 
 def ysimp_flip_acc_lr (hla hra : Term) : TacticM Unit :=
   {| ysimp_flip_acc_l $hla ; ysimp_flip_acc_r $hra |}
@@ -206,90 +192,90 @@ def ysimp_flip_acc_lr (hla hra : Term) : TacticM Unit :=
 
 /- TODO: Pregenerate such lemmas automatically -/
 /- Note: Copilot can generate them pretty good -/
-lemma hstar_pick_1 :
+lemma hhstar_pick_1 :
   h1 ∗ h = h1 ∗ h := by
   sdone
 
-lemma hstar_pick_2  :
+lemma hhstar_pick_2  :
   h1 ∗ h2 ∗ h = h2 ∗ h1 ∗ h := by
-  sby srw hstar_comm_assoc
+  sby srw hhstar_comm_assoc
 
-lemma hstar_pick_3 :
+lemma hhstar_pick_3 :
   h1 ∗ h2 ∗ h3 ∗ h = h3 ∗ h1 ∗ h2 ∗ h := by
-  sby srw (hstar_comm_assoc h2); apply hstar_pick_2
+  sby srw (hhstar_comm_assoc h2); apply hhstar_pick_2
 
-lemma hstar_pick_4 :
+lemma hhstar_pick_4 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h = h4 ∗ h1 ∗ h2 ∗ h3 ∗ h := by
-  sby srw (hstar_comm_assoc h3); apply hstar_pick_3
+  sby srw (hhstar_comm_assoc h3); apply hhstar_pick_3
 
-lemma hstar_pick_5 :
+lemma hhstar_pick_5 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h = h5 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h := by
-  sby srw (hstar_comm_assoc h4); apply hstar_pick_4
+  sby srw (hhstar_comm_assoc h4); apply hhstar_pick_4
 
-lemma hstar_pick_6 :
+lemma hhstar_pick_6 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h = h6 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h := by
-  sby srw (hstar_comm_assoc h5); apply hstar_pick_5
+  sby srw (hhstar_comm_assoc h5); apply hhstar_pick_5
 
-lemma hstar_pick_7 :
+lemma hhstar_pick_7 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h = h7 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h := by
-  sby srw (hstar_comm_assoc h6); apply hstar_pick_6
+  sby srw (hhstar_comm_assoc h6); apply hhstar_pick_6
 
-lemma hstar_pick_8 :
+lemma hhstar_pick_8 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h = h8 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h := by
-  sby srw (hstar_comm_assoc h7); apply hstar_pick_7
+  sby srw (hhstar_comm_assoc h7); apply hhstar_pick_7
 
-lemma hstar_pick_9 :
+lemma hhstar_pick_9 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ h = h9 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h := by
-  sby srw (hstar_comm_assoc h8); apply hstar_pick_8
+  sby srw (hhstar_comm_assoc h8); apply hhstar_pick_8
 
-lemma hstar_pick_10 :
+lemma hhstar_pick_10 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ h10 ∗ h = h10 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ h := by
-  sby srw (hstar_comm_assoc h9); apply hstar_pick_9
+  sby srw (hhstar_comm_assoc h9); apply hhstar_pick_9
 
-lemma hstar_pick_last_1 :
+lemma hhstar_pick_last_1 :
   h1 = h1 := by sdone
 
-lemma hstar_pick_last_2 :
+lemma hhstar_pick_last_2 :
   h1 ∗ h2 = h2 ∗ h1 := by
   sby srw hhstar_comm
 
-lemma hstar_pick_last_3 :
+lemma hhstar_pick_last_3 :
   h1 ∗ h2 ∗ h3 = h3 ∗ h1 ∗ h2 := by
-  sby srw (@hhstar_comm _ h2); apply hstar_pick_2
+  sby srw (@hhstar_comm _ h2); apply hhstar_pick_2
 
-lemma hstar_pick_last_4 :
+lemma hhstar_pick_last_4 :
   h1 ∗ h2 ∗ h3 ∗ h4 = h4 ∗ h1 ∗ h2 ∗ h3 := by
-  sby srw (@hhstar_comm _ h3); apply hstar_pick_3
+  sby srw (@hhstar_comm _ h3); apply hhstar_pick_3
 
-lemma hstar_pick_last_5 :
+lemma hhstar_pick_last_5 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 = h5 ∗ h1 ∗ h2 ∗ h3 ∗ h4 := by
-  sby srw (@hhstar_comm _ h4); apply hstar_pick_4
+  sby srw (@hhstar_comm _ h4); apply hhstar_pick_4
 
-lemma hstar_pick_last_6 :
+lemma hhstar_pick_last_6 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 = h6 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 := by
-  sby srw (@hhstar_comm _ h5); apply hstar_pick_5
+  sby srw (@hhstar_comm _ h5); apply hhstar_pick_5
 
-lemma hstar_pick_last_7 :
+lemma hhstar_pick_last_7 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 = h7 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 := by
-  sby srw (@hhstar_comm _ h6); apply hstar_pick_6
+  sby srw (@hhstar_comm _ h6); apply hhstar_pick_6
 
-lemma hstar_pick_last_8 :
+lemma hhstar_pick_last_8 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 = h8 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 := by
-  sby srw (@hhstar_comm _ h7); apply hstar_pick_7
+  sby srw (@hhstar_comm _ h7); apply hhstar_pick_7
 
-lemma hstar_pick_last_9 :
+lemma hhstar_pick_last_9 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 = h9 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 := by
-  sby srw (@hhstar_comm _ h8); apply hstar_pick_8
+  sby srw (@hhstar_comm _ h8); apply hhstar_pick_8
 
-lemma hstar_pick_last_10 :
+lemma hhstar_pick_last_10 :
   h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 ∗ h10 = h10 ∗ h1 ∗ h2 ∗ h3 ∗ h4 ∗ h5 ∗ h6 ∗ h7 ∗ h8 ∗ h9 := by
-  sby srw (@hhstar_comm _ h9); apply hstar_pick_9
+  sby srw (@hhstar_comm _ h9); apply hhstar_pick_9
 
-def hstar_pick_lemma (i : Nat) (pickLast : Bool) : Ident :=
+def hhstar_pick_lemma (i : Nat) (pickLast : Bool) : Ident :=
   if pickLast then
-    mkIdent s!"hstar_pick_last_{i}".toName
+    mkIdent s!"hhstar_pick_last_{i}".toName
   else
-    mkIdent s!"hstar_pick_{i}".toName
+    mkIdent s!"hhstar_pick_{i}".toName
 
 lemma ysimp_pick_lemma :
   hla2 = hla1 ->
@@ -298,9 +284,9 @@ lemma ysimp_pick_lemma :
 
 def ysimp_pick (i : Nat) (last? : Bool) : TacticM Unit :=
    {| apply ysimp_pick_lemma
-      · apply $(hstar_pick_lemma i last?) |}
+      · apply $(hhstar_pick_lemma i last?) |}
 
-partial def hstar_search (hs : Term) (test : Nat -> Term -> optParam Bool false -> TacticM Unit) :=
+partial def hhstar_search (hs : Term) (test : Nat -> Term -> optParam Bool false -> TacticM Unit) :=
   let rec loop (i : Nat) (hs : Term)  : TacticM Unit := do
     match hs with
     | `(@HStar.hStar $_ $_ $_ $_ $h1 $h2) => do
@@ -312,7 +298,7 @@ partial def hstar_search (hs : Term) (test : Nat -> Term -> optParam Bool false 
 
 def ysimp_pick_same (h hla : Term) (f : optParam (Nat → Bool → TacticM Unit) ysimp_pick) : TacticM Unit := do
   let h  <- Tactic.elabTerm h none
-  hstar_search hla fun i h' last? => do
+  hhstar_search hla fun i h' last? => do
     let h' <- Tactic.elabTerm h' none
     let .true <-
       withAssignableSyntheticOpaque <| isDefEq h' h | throwError "not equal"
@@ -320,7 +306,7 @@ def ysimp_pick_same (h hla : Term) (f : optParam (Nat → Bool → TacticM Unit)
 
 def ysimp_pick_applied (h hla : Term) : TacticM Unit := do
   let h <- Term.elabTerm h  none
-  hstar_search hla fun i h' last? => do
+  hhstar_search hla fun i h' last? => do
     let h' <- Term.elabTerm h' none
     let numArgs + 1 := h'.getAppNumArgs' | throwError "not equal"
     let h' := h'.consumeMData.getAppPrefix numArgs
@@ -337,40 +323,40 @@ lemma ysimp_start_lemma :
 
 /- ----- Cancellation tactic for proving [ysimp] lemmas ----- -/
 
-lemma hstars_simp_start_lemma :
+lemma hhstar_simp_start_lemma :
   H1 ∗ emp ==> emp ∗ H2 ∗ emp →
   H1 ==> H2 := by
   sby hsimp
 
-lemma hstars_simp_keep_lemma :
+lemma hhstar_simp_keep_lemma :
   H1 ==> (H ∗ Ha) ∗ Ht →
   H1 ==> Ha ∗ H ∗ Ht := by
-  sby hsimp ; srw hstar_comm_assoc
+  sby hsimp ; srw hhstar_comm_assoc
 
-lemma hstars_simp_cancel_lemma :
+lemma hhstar_simp_cancel_lemma :
   H1 ==> Ha ∗ Ht →
   H ∗ H1 ==> Ha ∗ H ∗ Ht := by
-  srw hstar_comm_assoc=> ?
+  srw hhstar_comm_assoc=> ?
   sby apply hhimpl_frame_lr
 
-lemma hstars_simp_pick_lemma :
+lemma hhstar_simp_pick_lemma :
   H1 = H1' →
   H1' ==> H2 →
   H1 ==> H2 := by
   sby move=> h /h
 
-def hstars_simp_pick (i : Nat) (_ : Bool) : TacticM Unit :=
-  let L := hstar_pick_lemma i false
-  {| eapply hstars_simp_pick_lemma ; apply $(L) |}
+def hhstar_simp_pick (i : Nat) (_ : Bool) : TacticM Unit :=
+  let L := hhstar_pick_lemma i false
+  {| eapply hhstar_simp_pick_lemma ; apply $(L) |}
 
-def hstars_simp_start : TacticM Unit := withMainContext do
+def hhstar_simp_start : TacticM Unit := withMainContext do
   let goal <- getGoalStxNN
   match goal with
   | `(@hhimpl $_ $_ $_) =>
-      {| apply hstars_simp_start_lemma ; try srw ?hhstar_assoc |}
-  | _          => throwError "hstars_simp_start failure"
+      {| apply hhstar_simp_start_lemma ; try srw ?hhstar_assoc |}
+  | _          => throwError "hhstar_simp_start failure"
 
-def hstars_simp_step : TacticM Unit := withMainContext do
+def hhstar_simp_step : TacticM Unit := withMainContext do
   let goal <- getGoalStxNN
   match goal with
     | `(@hhimpl $_ $Hl $Hr) =>
@@ -379,31 +365,31 @@ def hstars_simp_step : TacticM Unit := withMainContext do
               match hs with
               | `(@HStar.hStar $_ $_ $_ $_ $H $_) =>
                     try
-                      ysimp_pick_same H Hl hstars_simp_pick ;
-                      {| apply hstars_simp_cancel_lemma |}
+                      ysimp_pick_same H Hl hhstar_simp_pick ;
+                      {| apply hhstar_simp_cancel_lemma |}
                     catch ex =>
                       let s <- ex.toMessageData.toString
                       if s == "not equal" then
-                        {| apply hstars_simp_keep_lemma |}
+                        {| apply hhstar_simp_keep_lemma |}
                       else
                         throw ex
               | _ => throwError "cannot simplify"
           | _ => throwError "cannot simplify"
     | _ => throwError "cannot simplify"
 
-def hstars_simp_post :=
+def hhstar_simp_post :=
   {| hsimp ; try apply hhimpl_refl |}
 
-elab "hstars_simp_start" : tactic => do
-  hstars_simp_start
+elab "hhstar_simp_start" : tactic => do
+  hhstar_simp_start
 
-elab "hstars_simp_step" : tactic => do
-  hstars_simp_step
+elab "hhstar_simp_step" : tactic => do
+  hhstar_simp_step
 
-elab "hstars_simp" : tactic => do
-  hstars_simp_start ;
-  {| repeat hstars_simp_step |} ;
-  hstars_simp_post
+elab "hhstar_simp" : tactic => do
+  hhstar_simp_start ;
+  {| repeat hhstar_simp_step |} ;
+  hhstar_simp_post
 
 
 /- ------------ Lemmas for LHS step ------------ -/
@@ -412,7 +398,7 @@ macro "ysimp_l_start" : tactic =>
   `(tactic| (srw ?YSimp=> ? ; try hsimp))
 
 macro "ysimp_l_start'" : tactic =>
-  `(tactic| (ysimp_l_start ; apply hhimpl_trans; try rotate_left=> //; hstars_simp ; try hstars_simp))
+  `(tactic| (ysimp_l_start ; apply hhimpl_trans; try rotate_left=> //; hhstar_simp ; try hhstar_simp))
 
 lemma ysimp_l_hempty :
   YSimp (hla, hlw, hlt) hr ->
@@ -423,7 +409,7 @@ lemma ysimp_l_hpure :
   (p -> YSimp (hla, hlw, hlt) hr) ->
   YSimp (hla, hlw, ⌜p⌝ ∗ hlt) hr := by
   ysimp_l_start
-  rw [hstar_pick_3]
+  rw [hhstar_pick_3]
   sby apply hhimpl_hstar_hhpure_l
 
 @[simp]
@@ -446,9 +432,9 @@ lemma ysimp_l_hexists {β : Type} {j : β -> _} :
   (∀ x, YSimp (hla, hlw, j x ∗ hlt) hr) ->
   YSimp (hla, hlw, (hhexists j) ∗ hlt) hr := by
   srw ?YSimp=> H
-  rw [hstar_pick_3, hhstar_hhexists_l]
+  rw [hhstar_pick_3, hhstar_hhexists_l]
   apply (@hhimpl_hhexists_l _ β (hr.1 ∗ hr.2.1 ∗ hr.2.2) (fun x : β => j x ∗ hla ∗ hlw ∗ hlt))=> x
-  rw [<- hstar_pick_3]
+  rw [<- hhstar_pick_3]
   apply H
 
 lemma ysimp_l_cancel_hwand_hempty :
@@ -512,36 +498,36 @@ lemma ysimp_r_hempty :
 lemma ysimp_r_hwand_same :
   YSimp hl (hra, hrg, hrt) ->
   YSimp hl (hra, hrg, (h -∗ h) ∗ hrt) := by
-  ysimp_l_start ; apply hhimpl_trans=> //; hstars_simp ; try hstars_simp
+  ysimp_l_start ; apply hhimpl_trans=> //; hhstar_simp ; try hhstar_simp
   sby srw hhwand_equiv ; hsimp
 
 lemma ysimp_r_hpure :
   YSimp hl (hra, hrg, hrt) -> p ->
   YSimp hl (hra, hrg, hhpure p ∗ hrt) := by
-  move=> ? ; ysimp_l_start ; apply hhimpl_trans=> //; hstars_simp ; try hstars_simp
+  move=> ? ; ysimp_l_start ; apply hhimpl_trans=> //; hhstar_simp ; try hhstar_simp
   sby apply hhimpl_hempty_hhpure
 
 lemma ysimp_r_hexists (β : Type) (x : β) hl (hra : hhProp) hrg hrt (j : β -> _) :
   YSimp hl (hra, hrg, j x ∗ hrt) ->
   YSimp hl (hra, hrg, (hhexists j) ∗ hrt) := by
-  move=> ? ; ysimp_l_start ; apply hhimpl_trans=> //; hstars_simp ; try hstars_simp
+  move=> ? ; ysimp_l_start ; apply hhimpl_trans=> //; hhstar_simp ; try hhstar_simp
   apply hhimpl_hhexists_r
   sdone
 
 lemma ysimp_r_keep :
   YSimp hl (h ∗ hra, hrg, hrt) ->
   YSimp hl (hra, hrg, h ∗ hrt) := by
-  move=> ? ; ysimp_l_start ; apply hhimpl_trans=> //; hstars_simp ; try hstars_simp
+  move=> ? ; ysimp_l_start ; apply hhimpl_trans=> //; hhstar_simp ; try hhstar_simp
 
 lemma ysimpl_r_hgc_or_htop :
   YSimp HL (Hra, (H ∗ Hrg), Hrt) ->
   YSimp HL (Hra, Hrg, (H ∗ Hrt)) := by
-  move=> ? ; ysimp_l_start ; apply hhimpl_trans=> //; hstars_simp ; try hstars_simp
+  move=> ? ; ysimp_l_start ; apply hhimpl_trans=> //; hhstar_simp ; try hhstar_simp
 
 lemma ysimpl_r_htop_drop :
   YSimp HL (Hra, Hrg, Hrt) ->
   YSimp HL (Hra, Hrg, ((⊤ : hhProp) ∗ Hrt)) := by
-  move=> ? ; ysimp_l_start ; apply hhimpl_trans=> //; hstars_simp ; try hstars_simp
+  move=> ? ; ysimp_l_start ; apply hhimpl_trans=> //; hhstar_simp ; try hhstar_simp
   apply hhimpl_hhtop_r
 
 /- ------------ Lemmas for LHS/RHS step ------------ -/
@@ -550,10 +536,10 @@ macro "ysimp_lr_start" : tactic =>
   `(tactic| (srw ?YSimp ; try hsimp))
 
 macro "ysimp_lr_start'" : tactic =>
-  `(tactic| (ysimp_l_start ; try hsimp ; try (apply himp_trans=>// ; hstars_simp)))
+  `(tactic| (ysimp_l_start ; try hsimp ; try (apply himp_trans=>// ; hhstar_simp)))
 
 macro "ysimp_lr_start''" : tactic =>
-  `(tactic| (ysimp_l_start ; try hsimp ; try (apply himp_trans; rotate_left=>// ; hstars_simp)))
+  `(tactic| (ysimp_l_start ; try hsimp ; try (apply himp_trans; rotate_left=>// ; hhstar_simp)))
 
 
 lemma ysimp_lr_hwand_hfalse :
@@ -566,10 +552,10 @@ lemma ysimp_lr_cancel_same :
   YSimp (hla, hlw, hlt) (hra, hrg, hrt) ->
   YSimp (h ∗ hla, hlw, hlt) (hra, hrg, h ∗ hrt) := by
   ysimp_lr_start'
-  srw [2]hstar_pick_3
+  srw [2]hhstar_pick_3
   sby apply hhimpl_frame_r
 
-lemma himpl_lr_refl :
+lemma hhimpl_lr_refl :
   YSimp (hla, emp, emp) (hla, emp, emp) := by
   ysimp_l_start'=> //
 
@@ -593,17 +579,17 @@ lemma ysimpl_lr_qwand_unit (Q1 Q2 : Unit -> hhProp) :
   move=> ?
   sby apply ysimpl_lr_qwand=> ?
 
-lemma himpl_lr_qwand_unify (Hla : hhProp) (Q : β -> hhProp):
+lemma hhimpl_lr_qwand_unify (Hla : hhProp) (Q : β -> hhProp):
   YSimp (Hla, emp, emp) ((Q -∗ (Q ∗ Hla)) ∗ emp, emp, emp) := by
   srw ?YSimp ; hsimp
   sby srw hqwand_equiv
 
-lemma himpl_lr_htop :
+lemma hhimpl_lr_htop :
   YSimp (emp, emp, emp) (emp, Hrg, emp) ->
   YSimp (Hla, emp, emp) (emp, ((⊤ : hhProp) ∗ Hrg), emp) := by
   ysimp_lr_start=>?
   srw -(@hhstar_hhempty_l _ Hla)
-  apply hhimpl_hhstar_trans_l=>// ; hstars_simp
+  apply hhimpl_hhstar_trans_l=>// ; hhstar_simp
   apply hhimpl_hhtop_r
 
 lemma ysimpl_lr_hforall (β : Type) (J : β -> hhProp) :
@@ -617,7 +603,7 @@ lemma ysimpl_lr_cancel_htop :
   YSimp (Hla, Hlw, Hlt) (Hra, ((⊤ : hhProp) ∗ Hrg), Hrt) ->
   YSimp ((H ∗ Hla), Hlw, Hlt) (Hra, ((⊤ : hhProp) ∗ Hrg), Hrt) := by
   ysimp_lr_start
-  srw (hstar_comm_assoc Hra) -[2]hhstar_hhtop_hhtop ; hsimp=>?
+  srw (hhstar_comm_assoc Hra) -[2]hhstar_hhtop_hhtop ; hsimp=>?
   apply hhimpl_frame_lr=>//
 
 lemma bighstar_eq (H H' : α -> hProp) :
@@ -636,7 +622,7 @@ lemma ysimpl_lr_cancel_same_hsingle (p : α -> loc) (v1 v2 : α -> val) :
   YSimp ([∗ i in s | p i ~~> v1 i] ∗ Hla, Hlw, Hlt) (Hra, Hrg, [∗ i in s | p i ~~> v2 i] ∗ Hrt) := by
   move=> ? hveq; srw (bighsingle_eq hveq)
   ysimp_lr_start
-  hstars_simp
+  hhstar_simp
   sby srw (@hhstar_comm _ Hrt) (@hhstar_comm _ Hrg) ; hsimp
 
 lemma ysimp_lr_exit :
@@ -644,7 +630,7 @@ lemma ysimp_lr_exit :
   YSimp (Hla, emp, emp) (Hra, Hrg, emp) := by
   sby srw ?YSimp ; hsimp
 
-lemma qstar_simp (Q1 : α -> hProp) :
+lemma hqstar_simp (Q1 : α -> hProp) :
   (Q1 ∗ H) x = Q1 x ∗ H := by rfl
 
 
@@ -652,7 +638,7 @@ lemma qstar_simp (Q1 : α -> hProp) :
 
 def ysimp_pick_same_pointer (p hla : Term) : TacticM Unit := withMainContext do
   let p  <- Tactic.elabTerm p none
-  hstar_search hla fun i h' last? => do
+  hhstar_search hla fun i h' last? => do
     match h' with
       | `(@hhsingle $_ $_ $p' $_) =>
         if p'.isMVarStx then throwError "not equal" else
@@ -662,14 +648,14 @@ def ysimp_pick_same_pointer (p hla : Term) : TacticM Unit := withMainContext do
       | _ => throwError "not equal"
     ysimp_pick i last?
 
-lemma val_int_congr :
-  n1 = n2 →
-  val.val_int n1 = val.val_int n2 := by
+lemma hval_int_congr (s : Set α) (n1 n2 : α -> Int) :
+  (∀ i ∈ s, n1 i = n2 i) →
+  (∀ i ∈ s, val.val_int (n1 i) = val.val_int (n2 i)) := by
   sdone
 
-lemma val_loc_congr :
-  n1 = n2 →
-  val.val_loc n1 = val.val_loc n2 := by
+lemma hval_loc_congr (n1 n2 : α -> loc) (s : Set α) :
+  (∀ i ∈ s, n1 i = n2 i) →
+  (∀ i ∈ s, val.val_loc (n1 i) = val.val_loc (n2 i)) := by
   sdone
 end
 
@@ -680,19 +666,19 @@ set_option linter.unreachableTactic false
 elab "ysimp_hsingle_discharge" : tactic =>
   withAssignableSyntheticOpaque {|
     -- try congruence lemma
-    (try apply val_int_congr
-     try apply val_loc_congr
-     try rfl
+    (try apply hval_int_congr
+     try apply hval_loc_congr
+     try move=> ??; rfl
      try sdone) |}
 
 
 /- ============ LHS ysimp step ============ -/
 
 def ysimp_hwand_hstars_l (hla hs : Term) :=
-  hstar_search hs fun i h last? => do
-    -- let hstar_pick := hstar_pick_lemma i last?
+  hhstar_search hs fun i h last? => do
+    -- let hhstar_pick := hhstar_pick_lemma i last?
     {| apply ysimp_l_hwand_reorder
-       · apply $(hstar_pick_lemma i last?) |}
+       · apply $(hhstar_pick_lemma i last?) |}
     match h with
     | `(@hhempty _) => {| apply ysimpl_l_cancel_hwand_hstar_hempty |}
     | _ => ysimp_pick_same h hla; {| apply ysimp_l_cancel_hwand_hstar |}
@@ -766,21 +752,21 @@ partial def ysimp_step_l (ysimp : YSimpR) (cancelWand := true) : TacticM Unit :=
   | _, _ => throwError "ysimp_step_l: @ unreachable"
 
 /- ============ RHS ysimp step ============ -/
-declare_syntax_cat hint
+-- declare_syntax_cat hint
 
-syntax term : hint
-syntax "?" : hint
+-- syntax term : hint
+-- syntax "?" : hint
 
-declare_syntax_cat hints
-syntax "[" (ppSpace colGt hint),* "]" : hints
+-- declare_syntax_cat hints
+-- syntax "[" (ppSpace colGt hint),* "]" : hints
 
-def eApplyAndName (lem : Name) (mvarName : Name) : TacticM Unit := withMainContext do
-    let g <- getMainGoal
-    let [g, ex] <- g.applyConst lem | throwError "eApplyAndName: should be two goals"
-    let nm <- fresh mvarName
-    ex.setTag nm.getId
-    ex.setUserName nm.getId
-    setGoals [g]
+-- def eApplyAndName (lem : Name) (mvarName : Name) : TacticM Unit := withMainContext do
+--     let g <- getMainGoal
+--     let [g, ex] <- g.applyConst lem | throwError "eApplyAndName: should be two goals"
+--     let nm <- fresh mvarName
+--     ex.setTag nm.getId
+--     ex.setUserName nm.getId
+--     setGoals [g]
 
 
 def ysimp_r_hexists_apply_hints (x : Ident) : TacticM Unit := do
@@ -863,7 +849,7 @@ def ysimp_step_lr (ysimp : YSimpR) : TacticM Unit := do
       match hhempty with
       | `(@hhempty $_) => {
         if h1.isMVarStx then
-          withAssignableSyntheticOpaque {| hsimp; apply himpl_lr_refl |}
+          withAssignableSyntheticOpaque {| hsimp; apply hhimpl_lr_refl |}
           return ( );
        match h1 with
        | `(@HWand.hWand $tp1 $tp2 $_ $_ $h1 $_) => do
@@ -876,20 +862,20 @@ def ysimp_step_lr (ysimp : YSimpR) : TacticM Unit := do
             ysimp_flip_acc_lr ysimp.hla ysimp.hra ;
             try
               let .true := h1.isMVarStx | failure
-              {| apply himpl_lr_qwand_unify |}
+              {| apply hhimpl_lr_qwand_unify |}
             catch _ =>
               {| first | apply ysimpl_lr_qwand_unit
                        | apply ysimpl_lr_qwand; unhygienic intro
-                 try simp only [qstar_simp] |}
+                 try simp only [hqstar_simp] |}
         | `(@hhforall $_ $_ fun ($x : $_) => $_) => /- TODO: flip -/
           {| ysimp_flip_acc_l $ysimp.hla ; apply ysimpl_lr_hforall; intro $x:term |}
         | _ => do /- TODO: flip -/ ysimp_flip_acc_lr ysimp.hla ysimp.hra ; {| apply ysimp_lr_exit |} }
       | _ => ysimp_flip_acc_lr ysimp.hla ysimp.hra ; {| apply ysimp_lr_exit |}
-    | `(@hhempty $_) => {| first | apply himpl_lr_refl | apply ysimp_lr_exit |}
+    | `(@hhempty $_) => {| first | apply hhimpl_lr_refl | apply ysimp_lr_exit |}
     | _ => /- TODO: flip -/ ysimp_flip_acc_lr ysimp.hla ysimp.hra ; {| apply ysimp_lr_exit |}
   | `(@HStar.hStar $_ $_ $_ $_ $hhtop $hhempty) =>
     match hhtop, hhempty with
-    | `(@hhtop $_), `(@hhempty $_) => {| first | apply himpl_lr_htop | apply ysimp_lr_exit |}
+    | `(@hhtop $_), `(@hhempty $_) => {| first | apply hhimpl_lr_htop | apply ysimp_lr_exit |}
     | _, _ => ysimp_flip_acc_lr ysimp.hla ysimp.hra ; {| apply ysimp_lr_exit |}
   | _ => /- TODO: flip -/ ysimp_flip_acc_lr ysimp.hla ysimp.hra ; {| apply ysimp_lr_exit |}
 
@@ -991,25 +977,25 @@ elab "ysimp" ls:hints : tactic => do
 /- **============ Test Cases ============** -/
 section
 
-lemma dup_lemma (p : Prop) : p -> p -> p := by sdone
+-- lemma dup_lemma (p : Prop) : p -> p -> p := by sdone
 
-partial def dup (n : Nat) : TacticM Unit := do
-  match n with
-  | 0 => {|skip|}
-  | _ => dup (n-1); {| apply dup_lemma|}
+-- partial def dup (n : Nat) : TacticM Unit := do
+--   match n with
+--   | 0 => {|skip|}
+--   | _ => dup (n-1); {| apply dup_lemma|}
 
 elab "dup" n:num : tactic =>
   dup $ n.getNat -1
 
-/- [hstar_pick] -/
+/- [hhstar_pick] -/
 section
 
 local elab "pick" i:num : tactic =>
-  let l := hstar_pick_lemma i.getNat false
+  let l := hhstar_pick_lemma i.getNat false
   {|apply $l|}
 
 local elab "pickl" i:num : tactic =>
-  let l := hstar_pick_lemma i.getNat true
+  let l := hhstar_pick_lemma i.getNat true
   {|apply $l|}
 
 example :

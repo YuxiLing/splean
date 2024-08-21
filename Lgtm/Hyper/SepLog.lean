@@ -3,10 +3,12 @@ import Mathlib.Data.Finmap
 
 import Lgtm.Unary.Util
 import Lgtm.Unary.HProp
-import Lgtm.Unary.XSimp
+-- import Lgtm.Unary.XSimp
 import Lgtm.Unary.SepLog
 
 import Lgtm.Hyper.HProp
+import Lgtm.Hyper.XSimp
+
 
 section HSepLog
 
