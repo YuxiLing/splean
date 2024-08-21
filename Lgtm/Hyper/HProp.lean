@@ -389,13 +389,13 @@ lemma hhexists_inv {A : Type} (J : A → hhProp) (h : hheap) :
 by
   sby srw hhexists
 
-lemma hhimpl_hhexists_l {A : Type} {H : hhProp} (J : A → hhProp) :
+lemma hhimpl_hhexists_l.{u} {A : Sort u} {H : hhProp} (J : A → hhProp) :
   (forall (x : A), J x ==> H) → (hhexists J) ==> H :=
 by
   srw [0](hhimpl)=> hJx ? [?]
   sby apply hJx
 
-lemma hhimpl_hhexists_r {A : Type} (x : A) {H : hhProp} (J : A → hhProp) :
+lemma hhimpl_hhexists_r.{u} {A : Sort u} (x : A) {H : hhProp} (J : A → hhProp) :
   (H ==> J x) →
   H ==> (hhexists J) :=
 by

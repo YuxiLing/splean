@@ -17,6 +17,8 @@ open Lean Elab Command Term Meta Tactic
 
 variable {α : Type}
 
+attribute [-simp] hhwandE
+
 section
 local notation "hhProp" => hhProp α
 local notation "hheap" => hheap α
@@ -58,7 +60,7 @@ lemma hstar_post_empty (Q : α -> hhProp) :
 
 
 attribute [heapSimp] hhstar_hhempty_l hhstar_hhempty_r
-                     hhstar_assoc hstar_post_empty hhwand_hempty_l
+                     hhstar_assoc hstar_post_empty hhwand_hempty_l bighstar_hhempty
 
 
 
@@ -428,7 +430,7 @@ lemma ysimp_l_acc_other :
   YSimp (hla, hlw, h ∗ hlt) hr := by
   ysimp_l_start'
 
-lemma ysimp_l_hexists {β : Type} {j : β -> _} :
+lemma ysimp_l_hexists.{u} {β : Sort u} {j : β -> _} :
   (∀ x, YSimp (hla, hlw, j x ∗ hlt) hr) ->
   YSimp (hla, hlw, (hhexists j) ∗ hlt) hr := by
   srw ?YSimp=> H
@@ -462,7 +464,6 @@ lemma ysimp_l_hwand_reorder :
 /-
   YSimp (hla, (h1 ∗ h2 ∗ ... ∗ hn -∗ h) ∗ hlw, hlt) hr
 -/
-attribute [-simp] hhwandE hqstarE
 
 lemma ysimp_l_cancel_hwand_hstar :
   YSimp (Hla, Hlw, (H2 -∗ H3) ∗ Hlt) HR →
@@ -507,7 +508,7 @@ lemma ysimp_r_hpure :
   move=> ? ; ysimp_l_start ; apply hhimpl_trans=> //; hhstar_simp ; try hhstar_simp
   sby apply hhimpl_hempty_hhpure
 
-lemma ysimp_r_hexists (β : Type) (x : β) hl (hra : hhProp) hrg hrt (j : β -> _) :
+lemma ysimp_r_hexists.{u} (β : Sort u) (x : β) hl (hra : hhProp) hrg hrt (j : β -> _) :
   YSimp hl (hra, hrg, j x ∗ hrt) ->
   YSimp hl (hra, hrg, (hhexists j) ∗ hrt) := by
   move=> ? ; ysimp_l_start ; apply hhimpl_trans=> //; hhstar_simp ; try hhstar_simp
@@ -926,12 +927,14 @@ macro "ypull_start" : tactic =>
   `(tactic|
      (ysimp_handle_qimpl
       apply ypull_protect
-      apply ysimp_start_lemma))
+      apply ysimp_start_lemma
+      try simp only [hqstarE]))
 
 macro "ysimp_start" : tactic =>
   `(tactic|
     (ysimp_handle_qimpl
-     try apply ysimp_start_lemma))
+     try apply ysimp_start_lemma
+     try simp only [hqstarE]))
 
 macro "ypull" : tactic =>
   `(tactic| (
