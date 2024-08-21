@@ -62,6 +62,17 @@ initialize
 initialize
   registerTraceClass `xchange
 
+initialize
+  registerTraceClass `ysimp_step_l
+initialize
+  registerTraceClass `ysimp_step_r
+initialize
+  registerTraceClass `ysimp_step_lr
+initialize
+  registerTraceClass `ysimp
+initialize
+  registerTraceClass `ychange
+
 
 abbrev HintExtState := List Syntax
 

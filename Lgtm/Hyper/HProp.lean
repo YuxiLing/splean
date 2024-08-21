@@ -79,10 +79,13 @@ notation:max (priority := high) "emp" => hhempty
 
 abbrev hhsingle (s : Set α) (p : α -> loc) (v : α -> val) : hhProp := [∗ i in s | p i ~~> v i]
 
-notation p " ~" s:max "~> " v => hhsingle s p v
-notation p " ~" s:max "~> " v => hhsingle s (fun _ => p) (fun _ => v)
-notation p " ~" s:max "~> " v => hhsingle s p (fun _ => v)
-notation p " ~" s:max "~> " v => hhsingle s (fun _ => p) v
+-- notation:60 p:57 " ~" s:max "~> " v:57 => hhsingle s p v
+-- notation:60 p:57 " ~" s:max "~> " v:57 => hhsingle s (fun _ => p) (fun _ => v)
+-- notation:60 p:57 " ~" s:max "~> " v:57 => hhsingle s p (fun _ => v)
+-- notation:60 p:57 "(" s ")|-> " v:57 => hhsingle s (fun _ => p) (fun _ => v)
+notation:60 p:57 "~⟨" i " in " s "⟩~> " v:57 => hhsingle s (fun i => p) (fun i => v)
+notation:60 p:57 "~" s:max "~> " v:57 => hhsingle s (fun i => p) (fun i => v)
+
 
 def hhexists {A} (P : A → hhProp) : hhProp :=
   fun hh => exists (v:A), P v hh
@@ -727,7 +730,7 @@ lemma bighstar_hpure_nonemp (s : Set α) (P : Prop) :
 variable (s : Set α)
 
 lemma hhsingle_intro (p : α -> _) (v : α -> _) :
-  (p ~(s)~> v) (extend s (fun i =>Finmap.singleton (p i) (v i))) :=
+  (p i ~⟨i in s⟩~> v i) (extend s (fun i =>Finmap.singleton (p i) (v i))) :=
 by apply bighstar_intro; sdone
 
 lemma hhsingl_inv p v h :
@@ -739,7 +742,7 @@ by sby move=> sH ! z; move: (sH z); unfold extend; scase_if
 
 lemma hhstar_hhsingle_same_loc (p : α -> _) (v1 v2 : α -> _) :
   s.Nonempty ->
-  (p ~(s)~> v1) ∗ (p ~(s)~> v2) ==> ⌜False⌝ :=
+  (p i ~⟨i in s⟩~> v1 i) ∗ (p i ~⟨i in s⟩~> v2 i) ==> ⌜False⌝ :=
 by
   move=> ?; srw bighstar_hhstar
   apply (@hhimpl_trans (h₂ := [∗ in s | hpure False]))
