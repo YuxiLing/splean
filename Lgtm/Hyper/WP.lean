@@ -250,8 +250,8 @@ lemma subst_isubst (v : hval) (t : htrm) :
 class HWpSound (s : Set α) (t : htrm) (E : ctx α) (F : outParam hformula) :=
   impl : ∀ Q, F Q ==> hwp s (fun a => isubst E a (t a)) Q
 
-@[instance 0]
-instance : HWpSound (s : Set α) t (∅ : ctx α) (hwp s t) := ⟨by sby srw isubst0⟩
+-- @[instance 0]
+-- instance : HWpSound (s : Set α) t (∅ : ctx α) (hwp s t) := ⟨by sby srw isubst0⟩
 
 instance : HWpSound s (fun a => trm_val (hv a)) E (hwpgen_val hv) := ⟨by sby move=> ? /==; apply htriple_val⟩
 instance : HWpSound s (fun _ => trm_var hr) E (hwpgen_var E hr) :=
@@ -308,7 +308,6 @@ lemma hwp_of_hwpgen [inst: HWpSound s t ∅ F] :
     { srw isubst0 }
     sby srw hWpSoundWp
 
--- set_option  true
 example :
   ⌜False⌝ ==> hwp {x : Int | x > 0} (fun i => [lang|
     if i > 0 then
@@ -322,8 +321,6 @@ example :
   apply hwp_of_hwpgen=> /==; simp [AList.lookup]
   ysimp=> //
 
-
-set_option trace.Meta.synthInstance true
 
 example :
   ⌜False⌝ ==> hwp {x : Int | x > 0} (fun i => [lang|
