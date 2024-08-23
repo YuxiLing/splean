@@ -359,58 +359,5 @@ example :
   apply hwp_of_hwpgen=> /==; simp[subst]
   ysimp=> //
 
-------------------------------------------------------------------------------------------------------------------------
-
-structure HFormulaSet where
-  F : hformula
-  S : Set α
-
-abbrev HFormulaSets (α : Type) := List $ @HFormulaSet α
-
-class inductive HFSSound (t : htrm) : Set α -> outParam (HFormulaSets α) -> Prop where
-  | nil : HFSSound t ∅ []
-  | cons (s ss : Set α) (F : hformula) : HFSSound t ss hfs -> HWpSound s t ∅ F -> HFSSound t (s ∪ ss) (⟨F, s⟩ :: hfs)
-
-instance : HFSSound t ∅ [] := HFSSound.nil
-
-instance [inst : HFSSound t ss hfs] [inst' : HWpSound s t ∅ F] : HFSSound t (s ∪ ss) (⟨F, s⟩ :: hfs) :=
-  HFSSound.cons (t := t) s ss F inst inst'
-
-def seqHstar : List hhProp -> hhProp
-  | [] => emp
-  | h :: hs => h ∗ seqHstar hs
-
-def HFormulaSets.set_of : HFormulaSets α -> Set α
-  | [] => ∅
-  | ⟨_, s⟩ :: hfs => s ∪ set_of hfs
-
-def hWp (hfs : HFormulaSets α) (Q : hval -> hhProp) : hhProp :=
-  h∃ (Qs : List (hval -> hhProp)) (Q' : hval -> hhProp),
-    ⌜List.Forall₂ (∀ hv, hhlocal ·.S $ · hv) hfs Qs⌝ ∗
-    ⌜∀ hv, hhlocal hfs.set_of.compl (Q' hv)⌝ ∗
-    (seqHstar $ List.zipWith (fun Q ⟨F, _⟩ => F Q) Qs hfs) ∗
-    ⌜∀ hv, seqHstar (Qs.map (· hv)) ∗ (Q' hv) ==> Q hv⌝
-
-
--- @[simp]
--- def hWp (hfs : HFormulaSets α) (Q : hval -> hhProp) : hhProp :=
---   match hfs with
---   | [] => h∃ hv, Q hv
---   | ⟨F,s⟩ :: hfs => F (fun hv => hWp hfs (fun hv' => Q $ hv ∪_s hv'))
-
-def flocal (s : Set α) (F : hformula) := ∀ (H : hhProp) s' (Q : hval -> hhProp), Disjoint s s' -> hhlocal s' H -> F (Q ∗ H) ==> F Q ∗ H
-
-lemma hWp_focus (i : Nat) (hfs : HFormulaSets α) (_ : i < hfs.length) :
-  (hfs.Forall (hstructural ·.F)) ->
-  let hf := hfs[i]
-  hf.F (fun hv => hWp (hfs.eraseIdx i) (fun hv' => Q $ hv ∪_hf.S hv')) ==> hWp hfs Q := by
-  elim: hfs i=> // [F s] hfs ih [] /==
-  { move=> sF ssF; sorry }
-
-
-
-lemma hWp_sound [HFSSound t s hfs] :
-  hWp hfs Q ==> hwp s t Q := by sorry
-
 
 end HWeakestPrecondition
