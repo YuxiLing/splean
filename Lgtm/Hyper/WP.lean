@@ -145,73 +145,56 @@ abbrev hformula := (hval -> hhProp) -> hhProp
 
 local notation "hformula" => @hformula α
 
-@[simp]
-abbrev hwand' (Q Q' : hval -> hhProp) := h∃ H : hhProp, H ∗ ⌜Q ∗ H ===> Q'⌝
+def hmkstruct (F : hformula) :=
+  fun (Q : hval -> hhProp) => h∃ Q' : hval -> hhProp, F Q' ∗ (Q' -∗ Q)
 
-def hmkstruct (s : Set α) (F : hformula) :=
-  fun (Q : hval -> hhProp) => h∃ Q' : hval -> hhProp, ⌜∀ hv, hhlocal s (Q' hv)⌝ ∗  F Q' ∗ hwand' Q' Q
+def hstructural (F : hformula) := forall Q, F Q ==> hmkstruct F Q
 
-def hstructural (F : hformula) := forall Q, F Q ==> hmkstruct s F Q
-
-def hstructuralPred (F : β -> hformula) := ∀ x, hstructural s (F x)
-
-def separable (s : Set α) (Q : hval -> hhProp) :=
-  ∃ (Qₛ Q' : hval -> hhProp),
-    ∀ hv,
-      Qₛ hv ∗ Q' hv ==> Q hv ∧
-      hhlocal s (Qₛ hv)      ∧
-      hhlocal s.compl (Q' hv)
+def hstructuralPred (F : β -> hformula) := ∀ x, hstructural (F x)
 
 /- [mkstruct F] transforms a formula [F] into one satisfying structural
    rules of Separation Logic. -/
 
--- lemma hmkstruct_ramified (Q1 Q2 : hval -> hhProp) F :
---   (hmkstruct s F Q1) ∗ (Q1 -∗ Q2) ==> (hmkstruct s F Q2) :=
--- by
---   srw ?hmkstruct
---   ysimp=> //
+lemma hmkstruct_ramified (Q1 Q2 : hval -> hhProp) F :
+  (hmkstruct F Q1) ∗ (Q1 -∗ Q2) ==> (hmkstruct F Q2) :=
+by
+  srw ?hmkstruct
+  ysimp
 
+lemma hmkstruct_erase Q (F : hformula) :
+  F Q ==> hmkstruct F Q :=
+by
+  srw hmkstruct ; ysimp
 
 lemma mkstruct_conseq F (Q1 Q2 : hval -> hhProp) :
   Q1 ===> Q2 →
-  hmkstruct s F Q1 ==> hmkstruct s F Q2 :=
+  hmkstruct F Q1 ==> hmkstruct F Q2 :=
 by
   srw ?hmkstruct => h
-  ypull=> Q ? H ?;
-  ysimp[Q, H]=> // ?; apply hhimpl_trans=> //
+  ypull=> ?
+  unfold hqimpl at *
+  ysimp
+  sdone
 
 lemma hmkstruct_frame F H (Q : hval -> hhProp) :
-  (hmkstruct s F Q) ∗ H ==> hmkstruct s F (Q ∗ H) :=
+  (hmkstruct F Q) ∗ H ==> hmkstruct F (Q ∗ H) :=
 by
   srw ?hmkstruct
-  ypull=> Q' ? H' Himpl
-  ysimp[Q', (H' ∗ H)]=> //
-  ychange Himpl; ysimp
+  ypull=> ?
+  /- TODO: fix ysimp -/
+  sorry
 
 lemma hmkstruct_monotone (F1 F2 : hformula) (Q : hval -> hhProp) :
   (forall Q, F1 Q ==> F2 Q) →
-  hmkstruct s F1 Q ==> hmkstruct s F2 Q :=
+  hmkstruct F1 Q ==> hmkstruct F2 Q :=
 by
   move=> Himpl
   srw ?hmkstruct
-  ypull=> Q' ? H' Himpl
-  ysimp[Q', H']=> //
-
-lemma hmkstruct_local (Q : hval -> hhProp) :
-  hhlocal s' H ->
-  Disjoint s s' ->
-  hmkstruct s F (Q ∗ H) ==> hmkstruct s F Q ∗ H := by
-  move=> lc dj; srw ?hmkstruct; ypull=> Q' lcQ' H' Himpl
-  -- let H'' := fun h =>
-  -- ysimp[Q']
+  ypull=> Q'
+  ysimp[Q']
+  /- TODO: fix ysimp -/
   sorry
 
-lemma hmkstruct_erase Q (F : hformula) :
-  separable s Q ->
-  F Q ==> hmkstruct s F Q :=
-by
-  srw hmkstruct=> ![Qₛ Q' hQ]; ysimp[Qₛ]=>//
-  ysimp[emp]; ysimp
 
 abbrev ctx (α : Type) := AList (fun _ : var ↦ α -> val)
 
@@ -273,66 +256,61 @@ def wpgen_while (F1 F2 : hformula) : hformula := hmkstruct fun Q =>
     let F := hwpgen_if_trm F1 (hwpgen_seq F2 R) (hwpgen_val fun _ => val_unit)
     ⌜hstructural R ∧ F ===> R⌝ -∗ R Q
 
-@[simp]
-abbrev isubst (E : ctx α) (a : α) (t : trm) : trm :=
-  match t with
-  | trm_val v =>
-      v
-  | trm_var x =>
-      match AList.lookup x E with
-      | none   => t
-      | some v => v a
-  | trm_fun x t1 =>
-      trm_fun x (isubst (AList.erase x E) a t1)
-  | trm_fix f x t1 =>
-      trm_fix f x (isubst (AList.erase x (AList.erase f E)) a t1)
-  | trm_if t0 t1 t2 =>
-      trm_if (isubst E a t0) (isubst E a t1) (isubst E a t2)
-  | trm_seq t1 t2 =>
-      trm_seq (isubst E a t1) (isubst E a t2)
-  | trm_let x t1 t2 =>
-      trm_let x (isubst E a t1) (isubst (AList.erase x E) a t2)
-  | trm_app t1 t2 =>
-      trm_app (isubst E a t1) (isubst E a t2)
-  | trm_for x n1 n2 t =>
-      trm_for x (isubst E a n1) (isubst E a n2) (isubst (AList.erase x E) a t)
-  | trm_while c t =>
-      trm_while (isubst E a c) (isubst E a t)
+-- @[simp]
+-- abbrev isubst (E : ctx α) (a : α) (t : trm) : trm :=
+--   match t with
+--   | trm_val v =>
+--       v
+--   | trm_var x =>
+--       match AList.lookup x E with
+--       | none   => t
+--       | some v => v a
+--   | trm_fun x t1 =>
+--       trm_fun x (isubst (AList.erase x E) a t1)
+--   | trm_fix f x t1 =>
+--       trm_fix f x (isubst (AList.erase x (AList.erase f E)) a t1)
+--   | trm_if t0 t1 t2 =>
+--       trm_if (isubst E a t0) (isubst E a t1) (isubst E a t2)
+--   | trm_seq t1 t2 =>
+--       trm_seq (isubst E a t1) (isubst E a t2)
+--   | trm_let x t1 t2 =>
+--       trm_let x (isubst E a t1) (isubst (AList.erase x E) a t2)
+--   | trm_app t1 t2 =>
+--       trm_app (isubst E a t1) (isubst E a t2)
+--   | trm_for x n1 n2 t =>
+--       trm_for x (isubst E a n1) (isubst E a n2) (isubst (AList.erase x E) a t)
+--   | trm_while c t =>
+--       trm_while (isubst E a c) (isubst E a t)
 
-@[simp]
-lemma isubst0 : isubst (∅ : ctx α) = fun _ x => x := by sorry
+-- @[simp]
+-- lemma isubst0 : isubst (∅ : ctx α) = fun _ x => x := by sorry
 
-@[simp]
-lemma subst_isubst (v : hval) (t : htrm) :
-  (fun a => subst x (v a) (isubst (AList.erase x E) a (t a))) =
-  fun a => isubst (AList.insert x v E) a (t a) := by sorry
+-- @[simp]
+-- lemma subst_isubst (v : hval) (t : htrm) :
+--   (fun a => subst x (v a) (isubst (AList.erase x E) a (t a))) =
+--   fun a => isubst (AList.insert x v E) a (t a) := by sorry
 
 
-class HWpSound (s : Set α) (t : htrm) (E : ctx α) (F : outParam hformula) :=
-  impl : ∀ Q, F Q ==> hwp s (fun a => isubst E a (t a)) Q
+class HWpSound (s : Set α) (t : htrm) (F : outParam hformula) :=
+  impl : ∀ Q, F Q ==> hwp s (fun a => t a) Q
 
 -- @[instance 0]
 -- instance : HWpSound (s : Set α) t (∅ : ctx α) (hwp s t) := ⟨by sby srw isubst0⟩
 
-instance : HWpSound s (fun a => trm_val (hv a)) E (hwpgen_val hv) := ⟨by sby move=> ? /==; apply htriple_val⟩
-instance : HWpSound s (fun _ => trm_var hr) E (hwpgen_var E hr) :=
-  ⟨by move=> ? /==
-      scase: (AList.lookup hr E)=> /==
-      { ysimp=> // }
-      move=> ?; apply htriple_val=> //⟩
+instance : HWpSound s (fun a => trm_val (hv a)) (hwpgen_val hv) := ⟨by sby move=> ? /==; apply htriple_val⟩
 
 @[simp]
-lemma hWpSoundTriple {inst: HWpSound s t E F} Q : htriple s (fun a => isubst E a (t a)) (F Q) Q = true := by
+lemma hWpSoundTriple {inst: HWpSound s t F} Q : htriple s (fun a => t a) (F Q) Q = true := by
   simp; apply inst.impl
 
 @[simp]
-lemma hWpSoundWp {inst: HWpSound s t E F} Q : (F Q) ==> hwp s (fun a => isubst E a (t a)) Q = true := by
+lemma hWpSoundWp {inst: HWpSound s t F} Q : (F Q) ==> hwp s (fun a => t a) Q = true := by
   simp; apply inst.impl
 
-instance [inst: HWpSound s t₁ E F₁] [HWpSound s t₂ E F₂] :
-  HWpSound s (fun a => trm_if (t₀ a) (t₁ a) (t₂ a)) E (hwpgen_if t₀ F₁ F₂) := ⟨by
+instance {t₁ t₂ : htrm} :
+  HWpSound s (fun a => trm_if (t₀ a) (t₁ a) (t₂ a)) (hwpgen_if t₀ (hwp s t₁) (hwp s t₂)) := ⟨by
   -- sby
-    move=> ?; srw hwpgen_if; ysimp=> b; scase_if=> ? /== <;> apply htriple_if=> /==⟩
+    move=> ?; srw hwpgen_if; ysimp=> b; scase_if=> ? /== <;> apply htriple_if=> //==⟩
 
 lemma hwp_sound_conseq (F : hformula) :
   F Q ==> hwp s t Q ->
@@ -341,32 +319,22 @@ lemma hwp_sound_conseq (F : hformula) :
     move=> ??
     sby ychange hwp_conseq
 
-instance [HWpSound s t₁ E F₁] [HWpSound s t₂ E F₂] :
-  HWpSound s (fun a => trm_seq (t₁ a) (t₂ a)) E (hwpgen_seq F₁ F₂) := ⟨by
-  move=> Q /==; ychange hwp_seq
-  srw hwpgen_seq; apply hwp_sound_conseq=> // ? //⟩
+instance {t₁ t₂ : htrm} :
+  HWpSound s (fun a => trm_seq (t₁ a) (t₂ a)) (hwpgen_seq (hwp s t₁) (hwp s t₂)) := ⟨by
+  move=> Q /==; ychange hwp_seq⟩
 
-instance {F₂ : hval -> hformula} {x : var} {t₂ : htrm}
-  [HWpSound s t₁ E F₁]
-  [inst: ∀ hv, HWpSound s t₂ (E.insert x hv) (F₂ hv)] :
-  HWpSound s (fun a => trm_let x (t₁ a) (t₂ a)) E (hwpgen_let F₁ F₂) := ⟨by
-  move=> Q /==; ychange hwp_let
-  srw hwpgen_let; apply hwp_sound_conseq=> // ? //⟩
-  -- srw seq at inst
-  -- move=> Q; ychange hwp_let
-  -- srw hwpgen_let; apply hwp_sound_conseq=> // ? //⟩
+instance {x : α -> var} {t₁ t₂ : htrm} :
+  HWpSound s (fun a => trm_let (x a) (t₁ a) (t₂ a)) (hwpgen_let (hwp s t₁) (fun hv => hwp s (fun a => subst (x a) (hv a) (t₂ a)))) := ⟨by
+  move=> Q /==; ychange hwp_let⟩
 
-instance {t₁ t₂ : htrm} : HWpSound s (fun a => trm_app (t₁ a) (t₂ a)) E (hwpgen_app s (fun a => isubst E a $ trm_app (t₁ a) (t₂ a))) := ⟨by
+instance {t₁ t₂ : htrm} : HWpSound s (fun a => trm_app (t₁ a) (t₂ a)) (hwpgen_app s (fun a => trm_app (t₁ a) (t₂ a))) := ⟨by
   sby move=> Q; srw hwpgen_app; ysimp⟩
 
--- TODO: Add instance for `hwpgen_for` and `hwpgen_while`
 
-lemma hwp_of_hwpgen [inst: HWpSound s t ∅ F] :
+lemma hwp_of_hwpgen [inst: HWpSound s t F] :
   H ==> F Q ->
   H ==> hwp s t Q := by
     move=> M; ychange M
-    shave->: t = fun a => isubst ∅ a $ t a
-    { srw isubst0 }
     sby srw hWpSoundWp
 
 example :
@@ -379,7 +347,7 @@ example :
     else
       y := x + 6;
       6 + 7]) (fun _ => ⌜False⌝) := by
-  apply hwp_of_hwpgen=> /==; simp [AList.lookup]
+  apply hwp_of_hwpgen=> /==
   ysimp=> //
 
 
@@ -388,7 +356,7 @@ example :
        let x := i + 1 in
        let y := 7 in
        x + y]) (fun _ => ⌜False⌝) := by
-  apply hwp_of_hwpgen; simp [AList.lookup]
+  apply hwp_of_hwpgen=> /==; simp[subst]
   ysimp=> //
 
 ------------------------------------------------------------------------------------------------------------------------
