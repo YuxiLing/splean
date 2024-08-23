@@ -145,18 +145,79 @@ abbrev hformula := (hval -> hhProp) -> hhProp
 
 local notation "hformula" => @hformula α
 
-def hmkstruct (F : hformula) :=
-  fun (Q : hval -> hhProp) => h∃ Q' : hval -> hhProp, F Q' ∗ (Q' -∗ Q)
+@[simp]
+abbrev hwand' (Q Q' : hval -> hhProp) := h∃ H : hhProp, H ∗ ⌜Q ∗ H ===> Q'⌝
 
-def hstructural (F : hformula) := forall Q, F Q ==> hmkstruct F Q
+def hmkstruct (s : Set α) (F : hformula) :=
+  fun (Q : hval -> hhProp) => h∃ Q' : hval -> hhProp, ⌜∀ hv, hhlocal s (Q' hv)⌝ ∗  F Q' ∗ hwand' Q' Q
 
-def hstructuralPred (F : β -> hformula) := ∀ x, hstructural (F x)
+def hstructural (F : hformula) := forall Q, F Q ==> hmkstruct s F Q
+
+def hstructuralPred (F : β -> hformula) := ∀ x, hstructural s (F x)
+
+def separable (s : Set α) (Q : hval -> hhProp) :=
+  ∃ (Qₛ Q' : hval -> hhProp),
+    ∀ hv,
+      Qₛ hv ∗ Q' hv ==> Q hv ∧
+      hhlocal s (Qₛ hv)      ∧
+      hhlocal s.compl (Q' hv)
+
+/- [mkstruct F] transforms a formula [F] into one satisfying structural
+   rules of Separation Logic. -/
+
+-- lemma hmkstruct_ramified (Q1 Q2 : hval -> hhProp) F :
+--   (hmkstruct s F Q1) ∗ (Q1 -∗ Q2) ==> (hmkstruct s F Q2) :=
+-- by
+--   srw ?hmkstruct
+--   ysimp=> //
+
+
+lemma mkstruct_conseq F (Q1 Q2 : hval -> hhProp) :
+  Q1 ===> Q2 →
+  hmkstruct s F Q1 ==> hmkstruct s F Q2 :=
+by
+  srw ?hmkstruct => h
+  ypull=> Q ? H ?;
+  ysimp[Q, H]=> // ?; apply hhimpl_trans=> //
+
+lemma hmkstruct_frame F H (Q : hval -> hhProp) :
+  (hmkstruct s F Q) ∗ H ==> hmkstruct s F (Q ∗ H) :=
+by
+  srw ?hmkstruct
+  ypull=> Q' ? H' Himpl
+  ysimp[Q', (H' ∗ H)]=> //
+  ychange Himpl; ysimp
+
+lemma hmkstruct_monotone (F1 F2 : hformula) (Q : hval -> hhProp) :
+  (forall Q, F1 Q ==> F2 Q) →
+  hmkstruct s F1 Q ==> hmkstruct s F2 Q :=
+by
+  move=> Himpl
+  srw ?hmkstruct
+  ypull=> Q' ? H' Himpl
+  ysimp[Q', H']=> //
+
+lemma hmkstruct_local (Q : hval -> hhProp) :
+  hhlocal s' H ->
+  Disjoint s s' ->
+  hmkstruct s F (Q ∗ H) ==> hmkstruct s F Q ∗ H := by
+  move=> lc dj; srw ?hmkstruct; ypull=> Q' lcQ' H' Himpl
+  -- let H'' := fun h =>
+  -- ysimp[Q']
+  sorry
+
+lemma hmkstruct_erase Q (F : hformula) :
+  separable s Q ->
+  F Q ==> hmkstruct s F Q :=
+by
+  srw hmkstruct=> ![Qₛ Q' hQ]; ysimp[Qₛ]=>//
+  ysimp[emp]; ysimp
+
+abbrev ctx (α : Type) := AList (fun _ : var ↦ α -> val)
 
 def hwpgen_fail : hformula := fun _ => ⌜False⌝
 
 def hwpgen_val  (v : hval) : hformula := (· v)
-
-abbrev ctx (α : Type) := AList (fun _ : var ↦ α -> val)
 
 def hwpgen_var (E : ctx α) (vr : var) : hformula := fun Q =>
   match AList.lookup vr E with
@@ -324,11 +385,64 @@ example :
 
 example :
   ⌜False⌝ ==> hwp {x : Int | x > 0} (fun i => [lang|
-       let x := 5 in
+       let x := i + 1 in
        let y := 7 in
        x + y]) (fun _ => ⌜False⌝) := by
-  apply hwp_of_hwpgen
+  apply hwp_of_hwpgen; simp [AList.lookup]
   ysimp=> //
+
+------------------------------------------------------------------------------------------------------------------------
+
+structure HFormulaSet where
+  F : hformula
+  S : Set α
+
+abbrev HFormulaSets (α : Type) := List $ @HFormulaSet α
+
+class inductive HFSSound (t : htrm) : Set α -> outParam (HFormulaSets α) -> Prop where
+  | nil : HFSSound t ∅ []
+  | cons (s ss : Set α) (F : hformula) : HFSSound t ss hfs -> HWpSound s t ∅ F -> HFSSound t (s ∪ ss) (⟨F, s⟩ :: hfs)
+
+instance : HFSSound t ∅ [] := HFSSound.nil
+
+instance [inst : HFSSound t ss hfs] [inst' : HWpSound s t ∅ F] : HFSSound t (s ∪ ss) (⟨F, s⟩ :: hfs) :=
+  HFSSound.cons (t := t) s ss F inst inst'
+
+def seqHstar : List hhProp -> hhProp
+  | [] => emp
+  | h :: hs => h ∗ seqHstar hs
+
+def HFormulaSets.set_of : HFormulaSets α -> Set α
+  | [] => ∅
+  | ⟨_, s⟩ :: hfs => s ∪ set_of hfs
+
+def hWp (hfs : HFormulaSets α) (Q : hval -> hhProp) : hhProp :=
+  h∃ (Qs : List (hval -> hhProp)) (Q' : hval -> hhProp),
+    ⌜List.Forall₂ (∀ hv, hhlocal ·.S $ · hv) hfs Qs⌝ ∗
+    ⌜∀ hv, hhlocal hfs.set_of.compl (Q' hv)⌝ ∗
+    (seqHstar $ List.zipWith (fun Q ⟨F, _⟩ => F Q) Qs hfs) ∗
+    ⌜∀ hv, seqHstar (Qs.map (· hv)) ∗ (Q' hv) ==> Q hv⌝
+
+
+-- @[simp]
+-- def hWp (hfs : HFormulaSets α) (Q : hval -> hhProp) : hhProp :=
+--   match hfs with
+--   | [] => h∃ hv, Q hv
+--   | ⟨F,s⟩ :: hfs => F (fun hv => hWp hfs (fun hv' => Q $ hv ∪_s hv'))
+
+def flocal (s : Set α) (F : hformula) := ∀ (H : hhProp) s' (Q : hval -> hhProp), Disjoint s s' -> hhlocal s' H -> F (Q ∗ H) ==> F Q ∗ H
+
+lemma hWp_focus (i : Nat) (hfs : HFormulaSets α) (_ : i < hfs.length) :
+  (hfs.Forall (hstructural ·.F)) ->
+  let hf := hfs[i]
+  hf.F (fun hv => hWp (hfs.eraseIdx i) (fun hv' => Q $ hv ∪_hf.S hv')) ==> hWp hfs Q := by
+  elim: hfs i=> // [F s] hfs ih [] /==
+  { move=> sF ssF; sorry }
+
+
+
+lemma hWp_sound [HFSSound t s hfs] :
+  hWp hfs Q ==> hwp s t Q := by sorry
 
 
 end HWeakestPrecondition
