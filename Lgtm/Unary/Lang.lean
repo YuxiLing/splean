@@ -459,7 +459,7 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
           Q (val_loc p) (sb ∪ sa) ) →
       eval sa (trm_app val_alloc n) Q
   | eval_for (n₁ n₂ : Int) (Q : val -> state -> Prop) :
-    eval s (if (n₁ <= n₂) then
+    eval s (if (n₁ < n₂) then
                (trm_seq (subst x n₁ t₁) (trm_for x (val_int (n₁ + 1)) n₂ t₁))
             else val_unit) Q ->
     eval s (trm_for x n₁ n₂ t₁) Q

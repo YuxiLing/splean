@@ -231,6 +231,16 @@ lemma heval_focus (s₁ s₂ : Set α) :
   move: (H' a)=> /==; scase_if=> ?; scase_if=> // ??
   sby apply hstr=> // a /[dup]/dj ? /hev /=; scase_if
 
+lemma heval_ht_imp :
+  (Set.EqOn ht₁ ht₂ s) ->
+  heval s hh ht₁ hQ -> heval s hh ht₂ hQ := by
+  sby move=> hteq ![*] ⟨|⟨? /[dup]/hteq<-|⟩⟩
+
+lemma heval_ht_eq :
+  (Set.EqOn ht₁ ht₂ s) ->
+  heval s hh ht₁ hQ = heval s hh ht₂ hQ := by
+  sby move=> hteq; apply propext=> ⟨|⟩ <;> apply heval_ht_imp
+
 
 end heval
 
@@ -439,6 +449,32 @@ lemma heval_let (x : α -> var) (ht₂ : α -> trm) :
     srw (bighstarDef_def_eq (h₀' := hh' ∪_s hh))=> //
     apply bighstarDef_himpl=> a /[dup]?/sPimp /(_ hv a)
     sby simp [hStrongestPostNonrel]; scase_if
+
+lemma heval_for (n₁ n₂ : α -> Int) (ht : α -> trm) (vr : α -> var) :
+  (∀ a ∈ s, n₁ a < n₂ a) ->
+  heval s hh (fun a => trm_seq (subst (vr a) (n₁ a) (ht a))
+                               (trm_for (vr a) (val.val_int $ n₁ a + 1) (n₂ a) (ht a))) Q ->
+  heval s hh (fun a => trm_for (vr a) (n₁ a) (n₂ a) (ht a)) Q := by
+  sby move=> ? ![*]⟨|⟨??⟨⟩|//⟩⟩; srw if_pos
+
+lemma heval_for' (n₁ n₂ : α -> Int) (ht : α -> trm) (vr : α -> var) (Q : hval α -> hhProp α) :
+  (∀ a ∈ s, n₁ a ≥ n₂ a) ->
+  Q (fun _ => val.val_unit) hh ->
+  heval s hh (fun a => trm_for (vr a) (n₁ a) (n₂ a) (ht a)) Q := by
+  move=> ge ![*]⟨|⟨? ain⟨⟩|//⟩⟩
+  { exact fun a v h => v = val.val_unit ∧ h = hh a }
+  { srw if_neg=> // }
+  move=> hv; ysimp=> hh' /= eq
+  shave->: hh' = hh;
+  { funext a; move: (eq a); scase_if=> // }
+  shave->//: (hv ∪_s fun _ => val.val_unit) = fun _ => val.val_unit
+  sby move=> !x /==; move: (eq x)
+
+
+
+
+
+
 
 open val
 

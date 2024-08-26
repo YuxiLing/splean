@@ -631,7 +631,7 @@ lemma ysimp_lr_exit :
   YSimp (Hla, emp, emp) (Hra, Hrg, emp) := by
   sby srw ?YSimp ; hsimp
 
-lemma hqstar_simp (Q1 : α -> hProp) :
+lemma hqstar_simp (Q1 : β -> hhProp) :
   (Q1 ∗ H) x = Q1 x ∗ H := by rfl
 
 
@@ -1201,7 +1201,7 @@ example :
   H1 ∗ H2 ∗ ((H1 ∗ H3) -∗ (H4 -∗ H5)) ∗ H4 ==> ((H2 -∗ H3) -∗ H5) := by
   ysimp
 
-local elab "put_hints" ls:hints : tactic => do
+elab "put_hints" ls:hints : tactic => do
   match ls with
   | `(hints| [ $[$hs],* ]) =>
     hintExt.set hs.toList

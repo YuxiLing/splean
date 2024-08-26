@@ -553,7 +553,7 @@ lemma triple_gt n1 n2 :
 by
   sby apply triple_binop
 
-lemma abs_nonneg n :
+private lemma abs_nonneg n :
   n ≥ 0 → Int.natAbs n = n :=
 by
   move=> ?

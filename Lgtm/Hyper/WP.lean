@@ -85,6 +85,19 @@ lemma hwp_union (s₁ s₂ : Set α) :
     { sby apply heval_unfocus }
     sby apply heval_focus
 
+lemma hwp_swap' (Q : hval -> hhProp) :
+  Disjoint s₁ s₂ ->
+  hwp s₁ ht (fun hv => hwp s₂ ht (fun hv' => Q (hv ∪_s₁ hv'))) =
+  hwp s₂ ht (fun hv => hwp s₁ ht (fun hv' => Q (hv ∪_s₂ hv'))) := by
+    move=> ?; sby srw -?hwp_union // Set.union_comm
+
+lemma hwp_swap (Q : hval -> hhProp) :
+  Disjoint s₁ s₂ ->
+  hwp s₁ ht₁ (fun hv => hwp s₂ ht₂ (fun hv' => Q (hv ∪_s₁ hv'))) =
+  hwp s₂ ht₂ (fun hv => hwp s₁ ht₁ (fun hv' => Q (hv ∪_s₂ hv'))) := by
+    sorry
+
+
 @[simp]
 lemma fun_insert0: (hv ∪_∅ hv') = hv' := by
   sby funext a; simp [hunion, fun_insert]
@@ -99,6 +112,10 @@ lemma hwp0_dep : hwp (∅ : Set α) ht Q = h∃ hv, Q hv := by
 
 lemma hwp0 : hwp (∅ : Set α) ht (fun _ => Q) = Q := by
   sby srw hwp0_dep; apply hhimpl_antisymm=> ?; scase!
+
+lemma hwp_ht_eq :
+  (Set.EqOn ht₁ ht₂ s) -> hwp s ht₁ Q = hwp s ht₂ Q := by
+  sby move=> ? !?; apply heval_ht_eq
 
 /- ---------- Hyper Weakest-Precondition Reasoning Rules for Hyper Terms ---------- -/
 
@@ -136,6 +153,18 @@ lemma hwp_let (x : α -> var) (ht₁ ht₂ : htrm) (Q : hval -> hhProp) :
   hwp s ht₁ (fun v ↦ hwp s (fun a => subst (x a) (v a) (ht₂ a)) Q) ==> hwp s (fun a => trm_let (x a) (ht₁ a) (ht₂ a)) Q :=
   by sby move=> ??; apply heval_let
 
+lemma hwp_for (n₁ n₂ : α -> Int) (ht : α -> trm) (vr : α -> var) :
+  (∀ a ∈ s, n₁ a < n₂ a) ->
+  hwp s (fun a => trm_seq (subst (vr a) (n₁ a) (ht a))
+                               (trm_for (vr a) (val.val_int $ n₁ a + 1) (n₂ a) (ht a))) Q ==>
+  hwp s (fun a => trm_for (vr a) (n₁ a) (n₂ a) (ht a)) Q := by
+  sby move=> ??; apply heval_for
+
+lemma hwp_for' (n₁ n₂ : α -> Int) (ht : α -> trm) (vr : α -> var) (Q : hval -> hhProp) :
+  (∀ a ∈ s, n₁ a ≥ n₂ a) ->
+  Q (fun _ => val.val_unit) ==>
+  hwp s (fun a => trm_for (vr a) (n₁ a) (n₂ a) (ht a)) Q := by
+  sby move=> ??; apply heval_for'
 
 /- ------------------ Definition of [hwpgen] ------------------ -/
 
@@ -180,9 +209,8 @@ lemma hmkstruct_frame F H (Q : hval -> hhProp) :
   (hmkstruct F Q) ∗ H ==> hmkstruct F (Q ∗ H) :=
 by
   srw ?hmkstruct
-  ypull=> ?
-  /- TODO: fix ysimp -/
-  sorry
+  ypull=> Q'
+  ysimp
 
 lemma hmkstruct_monotone (F1 F2 : hformula) (Q : hval -> hhProp) :
   (forall Q, F1 Q ==> F2 Q) →
@@ -191,9 +219,8 @@ by
   move=> Himpl
   srw ?hmkstruct
   ypull=> Q'
-  ysimp[Q']
+  ysimp; ychange Himpl; ysimp
   /- TODO: fix ysimp -/
-  sorry
 
 
 abbrev ctx (α : Type) := AList (fun _ : var ↦ α -> val)
@@ -359,5 +386,135 @@ example :
   apply hwp_of_hwpgen=> /==; simp[subst]
   ysimp=> //
 
+
+/- ------------------ LGTM Triple and Weakest Precondition ------------------ -/
+
+namespace LGTM
+
+-- Set and Hyper Term
+structure SHT where
+  s : Set α
+  ht : htrm
+
+instance : Inhabited (@SHT α) := ⟨⟨default, fun _ => default⟩⟩
+
+abbrev SHTs (α : Type) := List $ @SHT α
+
+@[simp]
+def SHTs.set : SHTs α -> Set α
+  | [] => ∅
+  | sht :: shts => sht.s ∪ SHTs.set shts
+
+@[simp]
+noncomputable def SHTs.htrm : SHTs α -> htrm
+  | [] => fun _ => trm_val val_unit
+  | sht :: shts => sht.ht ∪_sht.s SHTs.htrm shts
+
+@[simp]
+lemma SHT.set_append (shts₁ shts₂ : SHTs α) :
+  SHTs.set (shts₁ ++ shts₂) = SHTs.set shts₁ ∪ SHTs.set shts₂ := by
+  sby elim: shts₁=> //= ?? ->; srw ?Set.union_assoc
+
+@[simp]
+lemma SHT.htrm_append (shts₁ shts₂ : SHTs α) :
+  SHTs.htrm (shts₁ ++ shts₂) = SHTs.htrm shts₁ ∪_shts₁.set SHTs.htrm shts₂ := by
+  sby elim: shts₁=> //= ?? ->; srw fun_insert_assoc
+
+def wp (shts : SHTs α) (Q : hval -> hhProp) : hhProp := hwp shts.set shts.htrm Q
+
+lemma wp_cons (sht : SHT) (shts : SHTs α) :
+  Disjoint sht.s shts.set ->
+    wp (sht :: shts) Q =
+    hwp sht.s sht.ht (fun hv => wp shts (Q $ hv ∪_sht.s ·)) := by
+    move=> /[dup]? /Set.disjoint_left dij;
+    srw ?wp /== hwp_union // hwp_ht_eq
+    { sby apply congr=> // !?; apply hwp_ht_eq=> ??; srw fun_insert if_neg }
+    sdone
+
+@[simp]
+lemma disjoint_shts_set :
+  (∀ sht ∈ shts, Disjoint s sht.s) ->
+  Disjoint s (SHTs.set shts) = true := by
+  sby elim: shts
+
+lemma hwp_Q_eq (Q Q' : hval -> hhProp) :
+  (∀ hv, Q hv = Q' hv) -> hwp s ht Q = hwp s ht Q' := by
+  sby move=> ?; apply congr=> // !
+
+lemma wp_Q_eq (Q Q' : hval -> hhProp) :
+  (∀ hv, Q hv = Q' hv) -> wp sht Q = wp sht Q' := by
+  sby move=> ?; apply congr=> // !
+
+lemma fun_insert_comm :
+  Disjoint s s' ->
+  (f ∪_s g ∪_s' h) = g ∪_s' f ∪_s h := by
+    sby move=> /Set.disjoint_left dij !?/==; scase_if
+
+lemma wp_focus (i : Nat) (shts : SHTs α) (_ : i < shts.length) :
+  (List.Pairwise (Disjoint ·.s ·.s) shts) ->
+  wp shts Q = hwp shts[i].s shts[i].ht fun hv => wp (shts.eraseIdx i) (Q $ hv ∪_shts[i].s ·) := by
+  checkpoint (elim: shts Q i=> //= [] s ht shts ih Q [?|i] /==)
+  { move=> disj ?; apply wp_cons=> // }
+  move=> ? dij1 ?; srw ?wp_cons // hwp_Q_eq; rotate_right
+  { move=> ?; rewrite [ih i]
+    apply hwp_Q_eq; intros
+    apply wp_Q_eq; intros
+    rw [<-fun_insert_assoc]=> // }
+  srw (hwp_swap (Q := fun hv => wp _ (Q $ hv ∪__ ·)))
+  { apply hwp_Q_eq=> ?; srw wp_cons /=;
+    { apply hwp_Q_eq=> ?
+      apply wp_Q_eq=> ?; srw Set.union_comm fun_insert_assoc }
+    srw disjoint_shts_set List.mem_eraseIdx_iff_getElem
+    move=> ? ![[]/==???<-]; apply dij1
+    apply List.getElem_mem }
+  apply dij1; apply List.getElem_mem
+
+
+lemma wp_squash_tail (sht : SHT) (shts : SHTs α) :
+    wp (sht :: shts) Q =
+    wp [sht, ⟨shts.set, shts.htrm⟩] Q := by
+    sby srw ?wp /==; apply hwp_ht_eq=> ?/== []
+
+lemma wp_unfold_last (shts : SHTs α) :
+    shts.getLast? = .some ⟨s ∪ ss, ht ∪_s hts⟩ ->
+    wp shts Q =
+    wp (shts.dropLast ++ [⟨s, ht⟩, ⟨ss, hts⟩]) Q := by
+    move=> le; srw ?wp /==
+    srw -[1 2](List.dropLast_append_getLast? (l := shts)) /== -?le //== fun_insert_assoc
+
+
+lemma fun_insert_disjoint :
+  Disjoint s s' ->
+  ((f ∪_s g) ∪_s' h) = g ∪_s' h := by
+  sby move=> /Set.disjoint_left dij !?/==; scase_if=> // /dij
+
+
+lemma wp_swap :
+  Disjoint s s' ->
+  wp [⟨s, ht₁⟩, ⟨s', ht'⟩] Q = wp [⟨s', ht'⟩, ⟨s, ht₁⟩] Q := by
+  move=> ?
+  sby srw ?wp /== Set.union_comm fun_insert_comm
+
+lemma wp_align_step (ht₁ ht₂ ht' : htrm) :
+  Disjoint s s' ->
+  Disjoint s ss ->
+  Disjoint s' ss ->
+  wp [⟨s, ht₁⟩, ⟨s', ht'⟩] (fun hv => wp [⟨s, ht₂⟩, ⟨ss, ht'⟩] (Q $ hv ∪_s' ·)) ==>
+  wp ([⟨s,fun a => trm_seq (ht₁ a) (ht₂ a)⟩, ⟨s' ∪ ss, ht'⟩]) Q := by
+  move=> dij dij' ?
+  srw [2]wp_cons //==; ychange hwp_seq
+  apply hhimpl_trans_r
+  { eapply hwp_conseq=> ? /=; srw -(wp_cons (sht := ⟨s, ht₂⟩))
+    { rw [<-(fun_insert_ff (f := ht') (s := s'))]
+      srw wp_unfold_last; rotate_right; rfl
+      simp; srw (wp_focus 1)=> //== }
+    sdone }
+  srw wp_cons //= hwp_Q_eq // => ?
+  srw wp /= Set.union_empty hwp_ht_eq
+  { apply hwp_Q_eq=> ?; apply wp_Q_eq=> ?
+    sby srw fun_insert_disjoint }
+  sby move=> ?
+
+end LGTM
 
 end HWeakestPrecondition
