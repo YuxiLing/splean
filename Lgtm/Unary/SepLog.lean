@@ -53,11 +53,13 @@ by
   { sby apply eval.eval_ref }
   { sby apply eval.eval_get }
   { sby apply eval.eval_set }
-  apply eval.eval_free <;> try assumption
-  case eval_free.a Imp x y =>
-    apply Imp
-    apply y
-  sby apply eval.eval_alloc
+  { apply eval.eval_free <;> try assumption
+    case eval_free.a Imp x y =>
+      apply Imp
+      apply y }
+  { sby apply eval.eval_alloc }
+  { constructor=> //  }
+
 
 /- Useful Lemmas about disjointness and state operations -/
 lemma disjoint_update_not_r (h1 h2 : state) (x : loc) (v: val) :
@@ -161,7 +163,10 @@ by
     apply hstar_intro=>//
     srw Finmap.disjoint_union_left at *
     sby srw Finmap.Disjoint.symm_iff }
-  all_goals move=> //
+  { move=> // }
+  move=> > ?? ih₁ ih₂ ??; econstructor
+  { apply ih₁=> // }
+  sby move=> > ![]
 
 end evalProp
 
@@ -689,11 +694,15 @@ lemma sP_post :
     dsimp [sP]; apply himpl_hforall=> Q/=
     xsimp=> ev; srw hwand_hpure_l=> //
     sby scase: ev }
-  move=> ev₁ ev₂; constructor
-  apply eval_conseq=> // v
-  dsimp [sP]; apply himpl_hforall=> Q/=
+  move=> ev₁ ev₂ evsP ih ⟨|//|⟩ > ?
+  apply eval_conseq=> //; apply ih
+  { apply sP_strongest; apply ev₁=> // }
+  move=> v; dsimp [sP]; apply himpl_hforall=> Q/=
   xsimp=> ev; srw hwand_hpure_l=> //
-  sby scase: ev
+  scase: ev=> // ? ev; sapply
+  apply sP_strongest; apply ev=> //
+
+
 
 lemma finite_state (s : state) :
   ∃ p, p ∉ s := by sorry
@@ -716,4 +725,5 @@ lemma eval_sat :
     any_goals move=> pp; (sdo 2 econstructor); apply pp=> //
     any_goals move=> ? pp; (sdo 2 econstructor); apply pp=> // }
   { move=> ?; scase: (finite_state s)=> p /[swap]/[apply]// }
-  sby move=> ?; scase: (finite_state' n.natAbs sa)=> p ? /(_ p) H
+  { sby move=> ?; scase: (finite_state' n.natAbs sa)=> p ? /(_ p) H }
+  move=> ? /[swap]![>] /[swap] _ /[swap]/[apply]//

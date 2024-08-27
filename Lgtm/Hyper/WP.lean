@@ -41,6 +41,10 @@ lemma hwp_conseq (ht : htrm) (Q Q' : hval -> hhProp) :
   Q ===> Q' -> hwp s ht Q ==> hwp s ht Q' := by
   sby move=> ???/=; apply heval_conseq
 
+lemma hwp_conseq' (ht : htrm) (Q Q' : hval -> hhProp) :
+  Q ===> (h∃ hv, Q' $ · ∪_s hv) -> hwp s ht Q ==> hwp s ht Q' := by
+  sby move=> ???/=; apply heval_conseq'
+
 /- Frame rule for [hwp] -/
 
 lemma hwp_frame (ht : htrm) (Q : hval -> hhProp) (H : hhProp) :
@@ -159,6 +163,12 @@ lemma hwp_for (n₁ n₂ : α -> Int) (ht : α -> trm) (vr : α -> var) :
                                (trm_for (vr a) (val.val_int $ n₁ a + 1) (n₂ a) (ht a))) Q ==>
   hwp s (fun a => trm_for (vr a) (n₁ a) (n₂ a) (ht a)) Q := by
   sby move=> ??; apply heval_for
+
+lemma hwp_while (cnd ht : α -> trm) :
+  (hwp s cnd fun hv => hwp s (fun a => trm_if (hv a) ((ht a).trm_seq (trm_while (cnd a) (ht a))) val.val_unit) Q) ==>
+  hwp s (fun a => trm_while (cnd a) (ht a)) Q := by
+  sby move=> ?; apply heval_while
+
 
 lemma hwp_for' (n₁ n₂ : α -> Int) (ht : α -> trm) (vr : α -> var) (Q : hval -> hhProp) :
   (∀ a ∈ s, n₁ a ≥ n₂ a) ->
@@ -482,6 +492,12 @@ lemma wp_unfold_last (shts : SHTs α) :
     move=> le; srw ?wp /==
     srw -[1 2](List.dropLast_append_getLast? (l := shts)) /== -?le //== fun_insert_assoc
 
+lemma wp_unfold_first (shts : SHTs α) :
+    Disjoint s s' ->
+    wp (⟨s, ht⟩ :: ⟨s', ht'⟩ :: shts) Q =
+    wp (⟨s ∪ s', ht ∪_s ht'⟩ :: shts) Q := by
+    move=> ?
+    srw ?wp /== Set.union_assoc fun_insert_assoc
 
 lemma fun_insert_disjoint :
   Disjoint s s' ->

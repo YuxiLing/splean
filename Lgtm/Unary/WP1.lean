@@ -579,7 +579,7 @@ lemma qimpl_wp_of_triple t F :
 
 lemma triple_for_raw (x:var) (n1 n2: Int) t3 H (Q:val->hProp) :
   triple (
-    if (n1 <= n2)
+    if (n1 < n2)
       then (trm_seq (subst x n1 t3) (trm_for x (val_int $ n1+1) n2 t3))
       else val_unit) H Q ->
   triple (trm_for x n1 n2 t3) H Q := by

@@ -76,6 +76,16 @@ lemma heval_nonrel_conseq (s : Set α) :
   heval_nonrel s hh t Q2 := by
   sby move=> hev qimp a /[dup] ain/hev/eval_conseq /(_ (qimp a ain))
 
+lemma heval_conseq' :
+  heval s hh t Q1 →
+  Q1 ===> (h∃ hv : hval, Q2 $ · ∪_s hv) →
+  heval s hh t Q2 := by
+  scase! => ?? himp qimp ⟨//|⟩
+  constructor=> // hv
+  ychange himp=> ?; ychange qimp=> ?
+  srw fun_insert_ss; ysimp
+
+
 lemma heval_conseq :
   heval s hh t Q1 →
   Q1 ===> Q2 →
@@ -456,6 +466,46 @@ lemma heval_for (n₁ n₂ : α -> Int) (ht : α -> trm) (vr : α -> var) :
                                (trm_for (vr a) (val.val_int $ n₁ a + 1) (n₂ a) (ht a))) Q ->
   heval s hh (fun a => trm_for (vr a) (n₁ a) (n₂ a) (ht a)) Q := by
   sby move=> ? ![*]⟨|⟨??⟨⟩|//⟩⟩; srw if_pos
+
+-- lemma heval_while' (cnd ht : α -> trm) :
+--   heval s hh (fun a => (cnd a).trm_if ((ht a).trm_seq (trm_while (cnd a) (ht a))) val.val_unit) Q ->
+--   heval s hh (fun a => trm_while (cnd a) (ht a)) Q := by
+--   sby move=> ![*]⟨|⟨??⟨⟩|//⟩⟩
+
+lemma heval_while (cnd ht : α -> trm) :
+  (heval s hh cnd fun hv hh =>
+    heval s hh (fun a => (trm_val $ hv a).trm_if ((ht a).trm_seq (trm_while (cnd a) (ht a))) val.val_unit) Q) ->
+  heval s hh (fun a => trm_while (cnd a) (ht a)) Q := by
+  scase! => hQ₁ hev₁ /= himp
+  exists fun a v =>
+    hexists fun h' => hexists fun v' => hpure (hQ₁ a v' h') ∗ sP h'
+      (trm_if v' (trm_seq (ht a)  (trm_while (cnd a) (ht a))) (val.val_unit)) v
+  constructor=> /==
+  { move=> a /[dup] /hev₁ _ ain /= ⟨|//|⟩ h₂ v₂ ?
+    move: (heval_nonrel_sat' hev₁)=> ![hh₂' hv₂' hQH₁ hheq]
+    let hh₂ := fun b => if b = a then h₂ else hh₂' b
+    let hv₂ := fun b => if b = a then v₂ else hv₂' b
+    specialize himp hv₂ hh₂ ?_
+    { sby move=> b /=; scase_if <;> simp [hv₂, hh₂] <;> scase_if }
+    apply eval_conseq (Q1 := sP h₂ (trm_if v₂ (trm_seq (ht a) (trm_while (cnd a) (ht a))) val.val_unit))
+    { scase: himp=> /= ? ![hQ /(_ (ain))]; simp [hh₂, hv₂]=> /sP_post
+      sby srw ?if_pos }
+    sby move=> v /=; xsimp }
+  move=> hv; srw ?bighstarDef_hexists
+  apply hhimpl_hhexists_l=> hh'
+  apply hhimpl_hhexists_l=> hv'
+  srw -(empty_hunion hh) -bighstarDef_hhstar; rotate_left
+  { move=> ?; apply Finmap.disjoint_empty }
+  erw [bighstarDef_hpure]
+  apply hhimpl_hstar_hhpure_l=> hQ₁H
+  specialize himp hv' (hh' ∪_s hh) ?_
+  { sby move=> a; scase_if }
+  scase: himp=> /= ? ![hQ /hstrongest_postP sPimp imp]
+  apply hhimpl_trans_r; apply imp
+  srw (bighstarDef_def_eq (h₀' := hh' ∪_s hh))=> //
+  apply bighstarDef_himpl=> a /[dup]?/sPimp /(_ hv a)
+  sby simp [hStrongestPostNonrel]; scase_if
+
 
 lemma heval_for' (n₁ n₂ : α -> Int) (ht : α -> trm) (vr : α -> var) (Q : hval α -> hhProp α) :
   (∀ a ∈ s, n₁ a ≥ n₂ a) ->
