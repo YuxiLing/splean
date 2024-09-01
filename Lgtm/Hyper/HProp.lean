@@ -276,6 +276,20 @@ lemma hhstar_hhforall_l {A} {_ : Nonempty A} {P : A → hhProp} {hH : hhProp} :
   move=> ? ![] > /hhforall * ?
   sby exists w, w_1
 
+lemma choose_fun {α β : Type} (b₀ : β)  (p : α -> β -> Prop) (s : Set α) :
+  (∀ a ∈ s, ∃ b : β, p a b) -> (∃ f : α -> β, (∀ a ∈ s, p a (f a))) := by
+  move=> pH
+  exists (fun a => if h : a ∈ s then choose (pH a h) else b₀)=> /=
+  move=> a inS
+  srw dif_pos //; apply choose_spec
+
+-- lemma hhstar_hhforall_inc {A : Type} {_ : Nonempty A} {P : A → hhProp} {hH : hhProp} :
+--   hhforall (fun x => P x ∗ hH) ==> (hhforall P) ∗ hH := by
+--   move=> h /hhforall /HStar.hStar/instHStarHhProp/=
+--   unfold hhstar
+--   move=> /skolem[h₁]/skolem[h₂] hH
+
+
 lemma hhimpl_frame_l (hH₁ hH₂ hH₃ : hhProp) :
   hH₁ ==> hH₂ -> hH₁ ∗ hH₃ ==> hH₂ ∗ hH₃ := by
   srw hhimpl=> ?? ![] > *
@@ -595,13 +609,6 @@ lemma union0 (f₁ f₂ : heap) :  f₁ ∪ f₂ = ∅ <-> f₁ = ∅ ∧ f₂ =
     srw Finmap.lookup_eq_none
     sby move: hx=> /union_nonmem }
   sby move=> [] -> ->
-
-lemma choose_fun {α β : Type} (b₀ : β)  (p : α -> β -> Prop) (s : Set α) :
-  (∀ a ∈ s, ∃ b : β, p a b) -> (∃ f : α -> β, (∀ a ∈ s, p a (f a))) := by
-  move=> pH
-  exists (fun a => if h : a ∈ s then choose (pH a h) else b₀)=> /=
-  move=> a inS
-  srw dif_pos //; apply choose_spec
 
 lemma bighstar_intro (s : Set α) (H : α -> hProp) :
   (forall i, H i (h i)) -> [∗ i in s | H i] (extend s h) := by

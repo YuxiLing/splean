@@ -110,6 +110,16 @@ lemma heval_frame :
   srw -hhstar_hhexists_l
   sby apply hhimpl_hhstar_trans_l
 
+def hlocal (s : Set α) (h : hheap) := ∀ a, a ∉ s -> h a = ∅
+def hhlocal (s : Set α) (H : hhProp) := H ==> hlocal s
+
+@[simp]
+lemma hhlocal_bighstar  :
+  (hhlocal s (bighstar s' H)) = (s' ⊆ s) := by sorry
+
+@[simp]
+lemma hhlocal_hhstar  :
+  (hhlocal s (H₁ ∗ H₂)) = hhlocal s H₁ ∧ hhlocal s H₂ := by sorry
 
 /- **Prod** Rule -/
 
@@ -134,31 +144,31 @@ lemma heval_prod (hQ : α -> val -> hProp) :
 
 /- Stronges Hyper Post Condition -/
 
-abbrev isHStrongestPostNonrel (s : Set α) h t (sP : α -> _) :=
+abbrev ishsP (s : Set α) h t (sP : α -> _) :=
   ∀ Q, heval_nonrel s h t Q -> ∀ a ∈ s, qimpl (sP a) (Q a)
 
-abbrev hStrongestPostNonrel (hh : hheap) (ht : htrm) :=
+abbrev hsP (hh : hheap) (ht : htrm) :=
   fun a => sP (hh a) (ht a)
 
 
 lemma hstrongest_postP :
-  isHStrongestPostNonrel s hh ht (hStrongestPostNonrel hh ht) := by
+  ishsP s hh ht (hsP hh ht) := by
   move=> Q ? a ?? /=; apply himpl_hforall_l _ (Q a)
   sby srw hwand_hpure_l
 
 
 lemma hstrongest_post_provable :
-  heval_nonrel s hh ht hQ -> heval_nonrel s hh ht (hStrongestPostNonrel hh ht) := by
-  move=> hev a /hev; unfold hStrongestPostNonrel
+  heval_nonrel s hh ht hQ -> heval_nonrel s hh ht (hsP hh ht) := by
+  move=> hev a /hev; unfold hsP
   apply sP_post
 
 lemma heval_strongest :
   heval s hh ht hQ ->
   ∃ (hQ' : α -> val -> hProp),
-    isHStrongestPostNonrel s hh ht hQ' ∧
+    ishsP s hh ht hQ' ∧
     heval_nonrel s hh ht hQ' ∧
     ∀ hv, bighstarDef s (fun a => hQ' a (hv a)) hh ==> h∃ hv', hQ (hv ∪_s hv') := by
-  scase! => hQ ? himp; exists hStrongestPostNonrel hh ht
+  scase! => hQ ? himp; exists hsP hh ht
   repeat' constructor
   { sby apply hstrongest_postP }
   { sby apply hstrongest_post_provable }
@@ -166,6 +176,16 @@ lemma heval_strongest :
   apply bighstarDef_himpl=> ??
   sby apply hstrongest_postP
 
+lemma heval_strongest' :
+  heval s hh ht hQ ->
+    heval_nonrel s hh ht (hsP hh ht) ∧
+    ∀ hv, bighstarDef s (fun a => hsP hh ht a (hv a)) hh ==> h∃ hv', hQ (hv ∪_s hv') := by
+  scase! => hQ ? himp
+  repeat' constructor
+  { sby apply hstrongest_post_provable }
+  move=> hv; apply hhimpl_trans_r; apply himp
+  apply bighstarDef_himpl=> ??
+  sby apply hstrongest_postP
 
 /- **Unfocus** Rule -/
 
@@ -257,139 +277,6 @@ end heval
 
 end HSepLog
 
-
-/- ------------------ Function Substitution ------------------ -/
-open Function (partialInv)
-
-section hsubst
-
-open Classical
-
-variable {α β: Type}
-variable (σ : α -> β)
-
-def hlocal (s : Set α) (h : @hheap α) := ∀ a, a ∉ s -> h a = ∅
-def hhlocal (s : Set α) (H : @hhProp α) := H ==> hlocal s
-
-noncomputable def partialInvSet (s : Set α) (σ : α -> β) : β -> Option α :=
-  fun b =>
-    if h : ∃ a ∈ s, σ a = b then some (choose h) else none
-
-noncomputable def fsubst {γ : Type} [Inhabited γ] (s : Set α) (g : α -> γ) : β -> γ :=
-  fun b => (g <$> partialInvSet s σ b).get!
-
-instance (priority := high) : Inhabited Prop := ⟨False⟩
-
-@[inline] abbrev ssubst (s : Set α) : Set α -> Set β := fsubst σ s
-
-
-
-variable (s : Set α)
-
-def validSubst (g : α -> γ) : Prop :=
-  ∀ a ∈ s, ∀ b ∈ s, σ a = σ b -> g a = g b
-
-
-lemma fsubst_inE :
-  validSubst σ s s' ->
-  (b ∈ ssubst σ s s' <-> ∃ x ∈ s ∩ s', σ x = b) := by
-  move=> vs
-  srw Membership.mem Set.instMembership Set.Mem ssubst fsubst=> /==
-  unfold partialInvSet
-  scase: [∃ x ∈ s, σ x = b]=> h
-  { sby srw dif_neg /=; unfold default instInhabitedProp_lgtm }
-  srw dif_pos=> //==; constructor=> [|[]x[][]]
-  all_goals move: (choose_spec h)=> [] //
-  sby move=> /vs h ? /h h *; srw h
-
-@[simp]
-lemma valisSubstss : validSubst σ s s = True := by
-  sby move=> /== ?
-
-lemma fsubst_in : a ∈ s -> σ a ∈ ssubst σ s s := by
-  sby move=> ?; srw fsubst_inE
-
-def hsubst (s : Set α) : @hhProp α -> @hhProp β :=
-  fun H h =>
-    ∃ h',
-      h = fsubst σ s h' ∧
-      H h' ∧
-      validSubst σ s h'
-
-lemma fsubst_σ [Inhabited γ] (f : α -> γ) :
-  validSubst σ s f ->
-  x ∈ s ->
-  fsubst σ s f (σ x) = f x := by
-  move=> vs xin; srw fsubst partialInvSet
-  srw dif_pos
-  { move=> /=; move: (?hc)=> /choose_spec => []??
-    sby apply vs }
-  sdone
-
-lemma fsubst_heval_nonrel (s : Set α) :
-  validSubst σ s hh ->
-  validSubst σ s Q ->
-  heval_nonrel (ssubst σ s s) (fsubst σ s hh) ht (fsubst σ s Q) ->
-  heval_nonrel s hh (ht ∘ σ) Q := by
-  move=> ?? ev a /= /[dup]? /(fsubst_in (σ := σ)) /ev
-  sby srw ?fsubst_σ
-
-lemma fsubst_comp_σ [Inhabited γ] (f : β -> γ) :
-  ∀ x, x ∈ ssubst σ s s -> fsubst σ s (f ∘ σ) x = f x := by
-  sby move=> x /fsubst_inE /== ?? <-; srw fsubst_σ
-
-def injectiveSet (s : Set α) :=
-  ∀ a ∈ s, ∀ b ∈ s, σ a = σ b -> a = b
-
-@[simp]
-lemma injectiveSet_validSubst {inj : injectiveSet σ s} :
-  validSubst σ s f := by
-  move=> ? /inj/[apply]/[apply]/[apply]->
-
-lemma fsubst_out [Inhabited γ] (f : α -> γ) :
-  a ∉ ssubst σ s s -> fsubst σ s f a = default := by
-  srw fsubst_inE /== fsubst partialInvSet=> ?
-  sby srw dif_neg
-
-lemma fsubst_eq_local_eq [Inhabited γ] (f f' : α -> γ) :
-  validSubst σ s f ->
-  validSubst σ s f' ->
-  fsubst σ s f = fsubst σ s f' -> ∀ a ∈ s, f a = f' a := by
-    move=> ?? /[swap] a /(congr (a₁ := σ a) (a₂ := σ a)) /[swap] ?
-    sby srw ?fsubst_σ
-
-set_option maxHeartbeats 800000 in
-lemma heval_hsubst (s : Set α) :
-  injectiveSet σ s ->
-  (∀ hv h, Q hv h -> ∀ a ∉ s, h a = hh a) ->
-  -- (∀ hv hh₁ hh₂, (∀ a ∈ s, hh₁ a = hh₂ a) -> Q hv hh₁ = Q hv hh₂) ->
-  heval (ssubst σ s s) (fsubst σ s hh) ht (fun hv => hsubst σ s (Q (hv ∘ σ))) ->
-  heval s hh (ht ∘ σ) Q := by
-  move=> vs Ql ![hQ ev himp]
-  exists hQ ∘ σ; constructor
-  { apply fsubst_heval_nonrel=> //
-    apply heval_nonrel_conseq=> // ??
-    sby srw fsubst_comp_σ }
-  move=> hv /= h hQh
-  move: (himp (fsubst σ s hv) (fsubst σ s h))
-  shave H: bighstarDef (ssubst σ s s) (fun a ↦ hQ a (fsubst σ s hv a)) (fsubst σ s hh) (fsubst σ s h)
-  { move=> a; scase_if
-    { move=>/fsubst_inE /== a' ? <-
-      sby move: (hQh a'); srw if_pos //= ?fsubst_σ }
-    sby move=> ?; srw ?fsubst_out }
-  move=> /(_ H) ![hv' h' /=] /fsubst_eq_local_eq heq hQ _
-  let f := fun a => if σ a ∈ ssubst σ s s then fsubst σ s hv (σ a) else hv' (σ a)
-  exists f=> /=
-  shave->: (hv ∪_s f) = (fsubst σ s hv ∪_(ssubst σ s s) hv') ∘ σ
-  { move=> !a /=; scase_if=> ain //
-    sby (checkpoint srw if_pos // ?fsubst_σ //; apply fsubst_in) }
-  shave-> //: h = h'
-  move=> !a; scase: [a ∈ s]=> [|/heq//]
-  sby move: (hQh a) hQ; scase_if=> // ? -> /Ql
-
-
-end hsubst
-
 /- ------------------ Evaluation of Hyper Programs ------------------ -/
 
 section HEvalTrm
@@ -426,7 +313,7 @@ lemma heval_seq :
     apply hhimpl_trans_r; apply imp
     srw (bighstarDef_def_eq (h₀' := hh' ∪_s hh))=> //
     apply bighstarDef_himpl=> a /[dup]?/sPimp /(_ hv a)
-    sby simp [hStrongestPostNonrel]; scase_if
+    sby simp [hsP]; scase_if
 
 lemma heval_let (x : α -> var) (ht₂ : α -> trm) :
   heval s hh ht₁ (fun hv h₂ => heval s h₂ (fun d => subst (x d) (hv d) (ht₂ d)) Q) ->
@@ -458,7 +345,7 @@ lemma heval_let (x : α -> var) (ht₂ : α -> trm) :
     apply hhimpl_trans_r; apply imp
     srw (bighstarDef_def_eq (h₀' := hh' ∪_s hh))=> //
     apply bighstarDef_himpl=> a /[dup]?/sPimp /(_ hv a)
-    sby simp [hStrongestPostNonrel]; scase_if
+    sby simp [hsP]; scase_if
 
 lemma heval_for (n₁ n₂ : α -> Int) (ht : α -> trm) (vr : α -> var) :
   (∀ a ∈ s, n₁ a < n₂ a) ->
@@ -504,7 +391,7 @@ lemma heval_while (cnd ht : α -> trm) :
   apply hhimpl_trans_r; apply imp
   srw (bighstarDef_def_eq (h₀' := hh' ∪_s hh))=> //
   apply bighstarDef_himpl=> a /[dup]?/sPimp /(_ hv a)
-  sby simp [hStrongestPostNonrel]; scase_if
+  sby simp [hsP]; scase_if
 
 
 lemma heval_for' (n₁ n₂ : α -> Int) (ht : α -> trm) (vr : α -> var) (Q : hval α -> hhProp α) :
@@ -665,16 +552,6 @@ lemma htriple_prod (H : α -> hProp) (Q : α -> val -> hProp) :
     sby move=> a; move: (hH a)
 
 end
-
-lemma htriple_hsubst (ht : htrm β) (H : hhProp α) (Q : hval α -> hhProp α) (σ : α -> β) :
-  injectiveSet σ s ->
-  hhlocal s H ->
-  (∀ hv, hhlocal s $ Q hv) ->
-  htriple (ssubst σ s s) ht (hsubst σ s H) (fun hv => hsubst σ s (Q (hv ∘ σ))) ->
-  htriple s (ht ∘ σ) H Q := by
-  move=> inj Hl Ql htr hh Hh; apply heval_hsubst=>//
-  { sby move=> ?? /Ql hl ? /[dup]/hl-> /(Hl _ Hh) }
-  sby apply htr; exists hh
 
 /- -------------- Rules for Hyper terms -------------- -/
 section

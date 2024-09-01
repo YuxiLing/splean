@@ -144,6 +144,65 @@ lemma LGTM.wp_for_aux
   srw -fun_insert_assoc [2]sum_Ico_predr=> [//|]
   omega
 
+macro "auto" : tactic => `(tactic| try solve | omega | ((try simp); trivial) | solve_by_elim)
+
+set_option maxHeartbeats 1600000 in
+lemma LGTM.wp_for_aux_non_disj
+  (z i n : Int)
+  (Inv : Int -> hval -> hhProp)
+  (sᵢ : Int -> Set α)
+  (ht : htrm)
+  (Rᵢ Rᵢ' : α -> hProp) :
+  z <= i ∧ i <= n ->
+
+  (∀ j hv₁ hv₂, z <= j ∧ j <= n -> (∀ x, x ∈ ∑ i in [[z,j]], sᵢ i -> hv₁ x = hv₂ x) -> Inv j hv₁ ==> Inv j hv₂) ->
+  (∀ i hv, hhlocal s' $ Inv i hv) ->
+
+  -- (∀ i j, i != j -> z <= i ∧ i < n -> z <= j ∧ j < n -> Disjoint (sᵢ i) (sᵢ j)) ->
+  s = ∑ i in [[i, n]], sᵢ i ->
+  Disjoint s' s ->
+
+  (∀ j hv, z <= j ∧ j < n ->
+     Inv j hv ∗ [∗ i in sᵢ j| Rᵢ i] ==>
+      LGTM.wp
+           [⟨s', fun _ => subst vr j c⟩, ⟨sᵢ j, ht⟩]
+           ((Inv (j + 1) $ hv ∪_(∑ i in [[z, j]], sᵢ i) ·) ∗ [∗ i in sᵢ j| Rᵢ' i])) ->
+  Inv i hv₀ ∗ [∗ i in s| Rᵢ i] ==>
+    LGTM.wp
+         [⟨s', fun _ => trm_for vr i n c⟩, ⟨s, ht⟩]
+         (fun hv => Inv n (hv₀ ∪_(∑ i in [[z, i]], sᵢ i) hv) ∗ [∗ i in s| Rᵢ' i]) := by
+    move=> iin Heq loc seq sij' ind
+    shave H: i <= n; omega; move: i H hv₀ s seq iin
+    apply Int.le_induction_down
+    { move=> > ?-> ?
+      srw Finset.Ico_self /== wp_cons /=
+      ychange hwp_for'=> /==
+      srw wp /== hwp0_dep ?bighstar0; ysimp[hv₀]
+      apply Heq=> // }
+    move=> i ? ih hv₀ ? sij' seq ?
+    srw wp_cons /=; ychange hwp_for=> /==
+    { omega }
+    { sdone }
+    shave []??: Disjoint s' (sᵢ (i - 1)) ∧ Disjoint s' (∑ x ∈ [[i, n]], sᵢ x)
+    { sorry }
+    srw -(wp_cons (sht := ⟨_, _⟩) (Q := fun x ↦ Inv _ (_ ∪__ x) ∗ _)) <;> auto
+    srw sum_Ico_succl /== <;> try auto
+    apply LGTM.wp_align_step_non_disj (Q' := (Inv i $ hv₀ ∪_(∑ i in [[z, i-1]], sᵢ i) ·)) <;> auto
+    { srw triple; ychange ind
+      { simpNums; omega }
+      apply hwp_conseq=> hv /== }
+    move=> hv /==; srw triple
+    ychange (ih (s := ∑ i ∈ [[i, n]], sᵢ i)) <;> try auto
+    apply hwp_conseq=> hv' /=
+    srw -fun_insert_assoc [2]sum_Ico_predr=> [//|]
+    omega
+
+
+
+
+
+
+
 lemma LGTM.wp_conseq :
   Q ===> Q' ->
   LGTM.wp sht Q ==> LGTM.wp sht Q' := by
@@ -178,6 +237,8 @@ lemma LGTM.wp_for (Inv : Int -> hval -> hhProp) (sᵢ : Int -> Set α) (ht : htr
        move: h₂ h₁; srw mem_union=> ![]/== j' *
        shave/Set.disjoint_left//: Disjoint (sᵢ j) (sᵢ j')
        sby apply dij=> /==
+
+
 
 end ForLoop
 
