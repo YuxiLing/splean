@@ -81,8 +81,8 @@ example :
   xchanges M; sorry
 
 example (Q : α -> hProp) :
-  H1 ==> (h∃ x, Q x ∗ (H2 -∗ H3)) ->
-  H1 ∗ H2 ==> h∃ x, Q x ∗ H3 := by
+  H1 ==> (∃ʰ x, Q x ∗ (H2 -∗ H3)) ->
+  H1 ∗ H2 ==> ∃ʰ x, Q x ∗ H3 := by
   intro M
   dup 2
   { xchange M=> x; xsimp }

@@ -328,7 +328,7 @@
 --    rules of Separation Logic. -/
 
 -- def mkstruct (F : formula) :=
---   fun Q ↦ h∃ Q', F Q' ∗ (Q' -∗∗ Q)
+--   fun Q ↦ ∃ʰ Q', F Q' ∗ (Q' -∗∗ Q)
 
 -- lemma mkstruct_ramified Q1 Q2 F :
 --   (mkstruct F Q1) ∗ (Q1 -∗∗ Q2) ==> (mkstruct F Q2) :=
@@ -392,17 +392,28 @@
 --   fun Q ↦ F1 (fun v ↦ F2of v Q)
 
 -- def wpgen_if (t : trm) (F1 F2 : formula) : formula :=
---   fun Q ↦ h∃ (b : Bool),
+--   fun Q ↦ ∃ʰ (b : Bool),
 --     ⌜t = trm_val (val_bool b)⌝ ∗ (if b then F1 Q else F2 Q)
 
 -- def wpgen_if_trm (F0 F1 F2 : formula) : formula :=
 --   wpgen_let F0 (fun v ↦ mkstruct (wpgen_if v F1 F2))
 
 -- def wpgen_app (t : trm) : formula :=
---   fun Q ↦ h∃ H, H ∗ ⌜triple t H Q⌝
+--   fun Q ↦ ∃ʰ H, H ∗ ⌜triple t H Q⌝
 
 
 -- /- Recursive Definition of [wpgen] -/
+
+-- formula : (val → hProp) → hProp
+
+-- htrm : α -> trm
+-- hformula : (hval → hhProp) → hhProp
+
+
+-- def hwpgen (E : ctx) (t : htrm) : hformula :=
+
+
+-- fun i => get(x,i)
 
 -- def wpgen (E : ctx) (t : trm) : formula :=
 --   mkstruct (match t with

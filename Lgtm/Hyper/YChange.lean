@@ -82,8 +82,8 @@ example (H1 : hhProp α) :
   ychanges M; sorry
 
 example (Q : β -> hhProp α) :
-  H1 ==> (h∃ x, Q x ∗ (H2 -∗ H3)) ->
-  H1 ∗ H2 ==> h∃ x, Q x ∗ H3 := by
+  H1 ==> (∃ʰ x, Q x ∗ (H2 -∗ H3)) ->
+  H1 ∗ H2 ==> ∃ʰ x, Q x ∗ H3 := by
   intro M
   dup 2
   { ychange M=> x; ysimp }

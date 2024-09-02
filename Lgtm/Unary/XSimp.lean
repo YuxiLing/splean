@@ -422,8 +422,7 @@ lemma xsimp_l_hpure :
 lemma xsimp_l_acc_wand :
   XSimp (hla, h ∗ hlw, hlt) hr ->
   XSimp (hla, hlw, h ∗ hlt) hr := by
-  xsimp_l_start
-  apply himpl_trans=>// ; hstars_simp ; try hstars_simp
+  xsimp_l_start'
 
 lemma xsimp_l_acc_other :
   XSimp (h ∗ hla, hlw, hlt) hr ->
@@ -467,6 +466,8 @@ lemma xsimp_l_hwand_reorder :
 lemma xsimp_l_cancel_hwand_hstar :
   XSimp (Hla, Hlw, (H2 -∗ H3) ∗ Hlt) HR →
   XSimp ((H1 ∗ Hla), (((H1 ∗ H2) -∗ H3) ∗ Hlw), Hlt) HR := by
+  -- srw ?XSimp
+  -- hsimp
   xsimp_l_start'
   srw hwand_curry_eq
   apply hwand_cancel
@@ -1021,7 +1022,7 @@ local elab "xsimpr" : tactic => do
   xsimp_step_r (<- XSimpRIni)
 
 example :
-  (H1 ∗ emp ∗ (H2 ∗ (h∃ (y:Int) (z : Int) (n:Int), ⌜y = y + z + n⌝)) ∗ H3) ==> H :=
+  (H1 ∗ emp ∗ (H2 ∗ (∃ʰ (y:Int) (z : Int) (n:Int), ⌜y = y + z + n⌝)) ∗ H3) ==> H :=
   by
     dup 2
     { xpull0; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1;
@@ -1064,7 +1065,7 @@ example :
 
 example (Q : Int -> _) :
   Q 4 ==> Q 3 ->
-  H1 ∗ Q 4 ==> h∃ x, Q x ∗ H1 :=
+  H1 ∗ Q 4 ==> ∃ʰ x, Q x ∗ H1 :=
   by intro; xsimp[3]=> // /- TODO: handle hints -/
 
 example :
@@ -1172,12 +1173,12 @@ local elab "put_hints" ls:hints : tactic => do
 
 example (Q : Int -> Bool -> _) :
   Q 4 true ==> Q 3 false ->
-  H1 ∗ Q 4 true ==> h∃ x b, Q x b ∗ H1 := by
+  H1 ∗ Q 4 true ==> ∃ʰ x b, Q x b ∗ H1 := by
   move=> ?
   xsimp
 
 -- example :
---   emp ==> (h∃ x, x ~~> 1) ∗ (h∃ x, x ~~> 2) := by
+--   emp ==> (∃ʰ x, x ~~> 1) ∗ (∃ʰ x, x ~~> 2) := by
 --   xsimp_start
 --   xsimp_step
 --   xsimp_step

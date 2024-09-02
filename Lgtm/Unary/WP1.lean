@@ -341,7 +341,7 @@ abbrev formula := (val → hProp) → hProp
    rules of Separation Logic. -/
 
 def mkstruct (F : formula) :=
-  fun (Q : val -> hProp) ↦ h∃ Q', F Q' ∗ (Q' -∗ Q)
+  fun (Q : val -> hProp) ↦ ∃ʰ Q', F Q' ∗ (Q' -∗ Q)
 
 def structural (F : formula) :=
   forall Q, mkstruct F Q ==> F Q
@@ -417,7 +417,7 @@ def wpgen_let (F1 : formula) (F2of : val → formula) : formula :=
   fun Q ↦ F1 (fun v ↦ F2of v Q)
 
 def wpgen_if (t : trm) (F1 F2 : formula) : formula :=
-  fun Q ↦ h∃ (b : Bool),
+  fun Q ↦ ∃ʰ (b : Bool),
     ⌜t = trm_val (val_bool b)⌝ ∗ (if b then F1 Q else F2 Q)
 
 def wpgen_if_trm (F0 F1 F2 : formula) : formula :=
@@ -425,11 +425,11 @@ def wpgen_if_trm (F0 F1 F2 : formula) : formula :=
 
 @[simp]
 def wpgen_app (t : trm) : formula :=
-  fun Q ↦ h∃ H, H ∗ ⌜triple t H Q⌝
+  fun Q ↦ ∃ʰ H, H ∗ ⌜triple t H Q⌝
 
 def wpgen_for (v₁ v₂ : trm) (F1 : val -> formula) : formula :=
   mkstruct fun Q =>
-    h∃ n₁ n₂ : Int, ⌜v₁ = n₁⌝ ∗ ⌜v₂ = n₂⌝ ∗
+    ∃ʰ n₁ n₂ : Int, ⌜v₁ = n₁⌝ ∗ ⌜v₂ = n₂⌝ ∗
       h∀ (S : Int -> formula),
         (let F i :=
           if i < n₂ then
@@ -1159,11 +1159,11 @@ macro "xfor" I:term : tactic => do
 lemma xwhile_inv_lemma (I : Bool -> α -> hProp)
   (F1 F2 : formula) :
     WellFounded R ->
-    (H ==> h∃ b a, I b a) ->
+    (H ==> ∃ʰ b a, I b a) ->
     (∀ (S: formula) b X, structural S ->
-        (∀ b a', R a' X -> (I b a') ==> S fun _ => h∃ a, I false a) ->
-        I b X ==> wpgen_if_trm F1 (wpgen_seq F2 S) (wpgen_val val_unit) fun _ => h∃ a, I false a) ->
-    H ==> wpgen_while F1 F2 (fun _ => h∃ a, I false a) := by
+        (∀ b a', R a' X -> (I b a') ==> S fun _ => ∃ʰ a, I false a) ->
+        I b X ==> wpgen_if_trm F1 (wpgen_seq F2 S) (wpgen_val val_unit) fun _ => ∃ʰ a, I false a) ->
+    H ==> wpgen_while F1 F2 (fun _ => ∃ʰ a, I false a) := by
 
   move=> wf hh hs; xchange hh=> >
   unfold wpgen_while; xchange mkstruct_erase=> [rs fs]
@@ -1184,10 +1184,10 @@ lemma xwhile_inv_basic_lemma (I : Bool -> α -> hProp) R
   WellFounded R ->
   structural F1 ->
   structural F2 ->
-  (H ==> H' ∗ h∃ b a, I b a) ->
+  (H ==> H' ∗ ∃ʰ b a, I b a) ->
   (∀ b X, I b X ==> F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
-  (∀ X, I true X ==> F2 (fun _ => h∃ b X', ⌜R X' X⌝ ∗ I b X')) ->
-  H ==> wpgen_while F1 F2 (fun _ => H' ∗ h∃ a, I false a) := by
+  (∀ X, I true X ==> F2 (fun _ => ∃ʰ b X', ⌜R X' X⌝ ∗ I b X')) ->
+  H ==> wpgen_while F1 F2 (fun _ => H' ∗ ∃ʰ a, I false a) := by
   move=> wf sf1 sf2 hh hf1 hf2
   sorry
   -- apply xwhile_inv_lemma _ _ _ wf=> // > ls fs
@@ -1202,10 +1202,10 @@ lemma xwhile_inv_basic_lemmaQ (I : Bool -> α -> hProp) R
   WellFounded R ->
   structural F1 ->
   structural F2 ->
-  (H ==> H' ∗ h∃ b a, I b a) ->
+  (H ==> H' ∗ ∃ʰ b a, I b a) ->
   (∀ b X, I b X ==> F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
-  (∀ X, I true X ==> F2 (fun _ => h∃ b X', ⌜R X' X⌝ ∗ I b X')) ->
-  ((fun _ => H' ∗ h∃ a, I false a) ===> Q) ->
+  (∀ X, I true X ==> F2 (fun _ => ∃ʰ b X', ⌜R X' X⌝ ∗ I b X')) ->
+  ((fun _ => H' ∗ ∃ʰ a, I false a) ===> Q) ->
   H ==> wpgen_while F1 F2 Q := by
   move=> *
   sorry
@@ -1214,10 +1214,10 @@ lemma xwhile_inv_measure_lemma_down (Xbot : Int) (I : Bool -> Int -> hProp)
   (F1 F2 : formula) :
   structural F1 ->
   structural F2 ->
-  (H ==> H' ∗ h∃ b a, I b a) ->
+  (H ==> H' ∗ ∃ʰ b a, I b a) ->
   (∀ b X, I b X ==> F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
-  (∀ X, I true X ==> F2 (fun _ => h∃ b X', ⌜Xbot <= X' /\ X' < X⌝ ∗ I b X')) ->
-  ((fun _ => H' ∗ h∃ a, I false a) ===> Q) ->
+  (∀ X, I true X ==> F2 (fun _ => ∃ʰ b X', ⌜Xbot <= X' /\ X' < X⌝ ∗ I b X')) ->
+  ((fun _ => H' ∗ ∃ʰ a, I false a) ===> Q) ->
   H ==> wpgen_while F1 F2 Q := by
   apply xwhile_inv_basic_lemmaQ
   sorry -- wf?
@@ -1226,10 +1226,10 @@ lemma xwhile_inv_measure_lemma_up (Xtop : Int) (I : Bool -> Int -> hProp)
   (F1 F2 : formula) :
   structural F1 ->
   structural F2 ->
-  (H ==> H' ∗ h∃ b a, I b a) ->
+  (H ==> H' ∗ ∃ʰ b a, I b a) ->
   (∀ b X, I b X ==> F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
-  (∀ X, I true X ==> F2 (fun _ => h∃ b X', ⌜X < X' ∧ X' <= Xtop⌝ ∗ I b X')) ->
-  ((fun _ => H' ∗ h∃ a, I false a) ===> Q) ->
+  (∀ X, I true X ==> F2 (fun _ => ∃ʰ b X', ⌜X < X' ∧ X' <= Xtop⌝ ∗ I b X')) ->
+  ((fun _ => H' ∗ ∃ʰ a, I false a) ===> Q) ->
   H ==> wpgen_while F1 F2 Q := by
   apply xwhile_inv_basic_lemmaQ
   sorry -- wf?

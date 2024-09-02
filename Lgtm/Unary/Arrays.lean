@@ -37,7 +37,7 @@ def harray (L : List val) (p : loc) : hProp :=
   hheader (L.length) p ∗ hseg L p 0
 
 lemma harray_eq p L :
-  harray L p = h∃ n, ⌜n = L.length⌝ ∗ hheader n p ∗ hseg L p 0 := by
+  harray L p = ∃ʰ n, ⌜n = L.length⌝ ∗ hheader n p ∗ hseg L p 0 := by
   sby srw harray ; sorry
 
 /- inversion lemma for hseg -/

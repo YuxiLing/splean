@@ -43,7 +43,7 @@ lemma hwp_conseq (ht : htrm) (Q Q' : hval -> hhProp) :
   sby move=> ???/=; apply heval_conseq
 
 lemma hwp_conseq' (ht : htrm) (Q Q' : hval -> hhProp) :
-  Q ===> (h∃ hv, Q' $ · ∪_s hv) -> hwp s ht Q ==> hwp s ht Q' := by
+  Q ===> (∃ʰ hv, Q' $ · ∪_s hv) -> hwp s ht Q ==> hwp s ht Q' := by
   sby move=> ???/=; apply heval_conseq'
 
 /- Frame rule for [hwp] -/
@@ -108,7 +108,7 @@ lemma hwp_swap (Q : hval -> hhProp) :
 lemma fun_insert0: (hv ∪_∅ hv') = hv' := by
   sby funext a; simp [hunion, fun_insert]
 
-lemma hwp0_dep : hwp (∅ : Set α) ht Q = h∃ hv, Q hv := by
+lemma hwp0_dep : hwp (∅ : Set α) ht Q = ∃ʰ hv, Q hv := by
   apply hhimpl_antisymm=> h <;> unfold hwp
   { scase! => hQ _ /(_ (fun _ : α => val_unit)) /(_ h) H
     specialize H ?_=> //
@@ -187,7 +187,7 @@ abbrev hformula := (hval -> hhProp) -> hhProp
 local notation "hformula" => @hformula α
 
 def hmkstruct (F : hformula) :=
-  fun (Q : hval -> hhProp) => h∃ Q' : hval -> hhProp, F Q' ∗ (Q' -∗ Q)
+  fun (Q : hval -> hhProp) => ∃ʰ Q' : hval -> hhProp, F Q' ∗ (Q' -∗ Q)
 
 def hstructural (F : hformula) := forall Q, F Q ==> hmkstruct F Q
 
@@ -274,15 +274,15 @@ def hwpgen_let (F₁ : hformula) (F₂of : hval -> hformula) : hformula :=
   fun Q ↦ F₁ (fun v ↦ F₂of v Q)
 
 def hwpgen_if (t : htrm) (F₁ F₂ : hformula) : hformula :=
-  fun Q ↦ h∃ b : Bool, ⌜t = fun _ => trm_val b⌝ ∗ (if b then F₁ Q else F₂ Q)
+  fun Q ↦ ∃ʰ b : Bool, ⌜t = fun _ => trm_val b⌝ ∗ (if b then F₁ Q else F₂ Q)
 
 def hwpgen_if_trm (F₀ F₁ F₂ : hformula) : hformula := hwpgen_let F₀ (fun v => hmkstruct $ hwpgen_if (trm_val ∘ v) F₁ F₂)
 
-def hwpgen_app (s : Set α) (t : htrm) : hformula := fun Q => h∃ H, H ∗ ⌜htriple s t H Q⌝
+def hwpgen_app (s : Set α) (t : htrm) : hformula := fun Q => ∃ʰ H, H ∗ ⌜htriple s t H Q⌝
 
 def hwpgen_for (v₁ v₂ : htrm) (F1 : hval -> hformula) : hformula :=
   hmkstruct fun Q =>
-    h∃ n₁ n₂ : Int, ⌜v₁ = fun _ => trm_val n₁⌝ ∗ ⌜v₂ = fun _ => trm_val n₂⌝ ∗
+    ∃ʰ n₁ n₂ : Int, ⌜v₁ = fun _ => trm_val n₁⌝ ∗ ⌜v₂ = fun _ => trm_val n₂⌝ ∗
       h∀ (S : Int -> hformula),
         (let F i :=
           if i < n₂ then

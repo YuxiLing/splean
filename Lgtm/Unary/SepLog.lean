@@ -383,7 +383,7 @@ by
 lemma triple_ref (v : val) :
   triple (trm_app val_ref v)
     emp
-    (fun r ↦ h∃ p, ⌜r = val_loc p⌝ ∗ (p ~~> v)) :=
+    (fun r ↦ ∃ʰ p, ⌜r = val_loc p⌝ ∗ (p ~~> v)) :=
 by
   move=> ? []
   apply eval.eval_ref=>// p ?

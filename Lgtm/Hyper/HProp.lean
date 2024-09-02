@@ -95,14 +95,14 @@ def hhforall {A} (P : A → hhProp) : hhProp :=
 
 section
 open Lean.TSyntax.Compat
-macro (priority := high) "h∃" xs:Lean.explicitBinders ", " b:term : term => Lean.expandExplicitBinders ``hhexists xs b
+macro (priority := high) "∃ʰ" xs:Lean.explicitBinders ", " b:term : term => Lean.expandExplicitBinders ``hhexists xs b
 macro (priority := high) "h∀" xs:Lean.explicitBinders ", " b:term : term => Lean.expandExplicitBinders ``hhforall xs b
 end
 
 @[app_unexpander hhexists] def unexpandHHExists : Lean.PrettyPrinter.Unexpander
-  | `($(_) fun $x:ident => h∃ $xs:binderIdent*, $b) => `(h∃ $x:ident $xs:binderIdent*, $b)
-  | `($(_) fun $x:ident => $b)                     => `(h∃ $x:ident, $b)
-  | `($(_) fun ($x:ident : $t) => $b)              => `(h∃ ($x:ident : $t), $b)
+  | `($(_) fun $x:ident => ∃ʰ $xs:binderIdent*, $b) => `(∃ʰ $x:ident $xs:binderIdent*, $b)
+  | `($(_) fun $x:ident => $b)                     => `(∃ʰ $x:ident, $b)
+  | `($(_) fun ($x:ident : $t) => $b)              => `(∃ʰ ($x:ident : $t), $b)
   | t                                              => pure t
 
 @[app_unexpander hhforall] def unexpandHHForall : Lean.PrettyPrinter.Unexpander
@@ -210,10 +210,11 @@ lemma hhempty_intro : emp (∅ : hheap) :=
 lemma hhempty_inv {h : hheap} : emp h -> h = ∅ :=
   by simp [hhempty, hEmpty]
 
+@[simp]
 lemma bighstarDef0 (h : α -> _) : bighstarDef ∅ h h₀ = (· = h₀) :=
   by sby unfold bighstarDef=> !? /== ⟨?!|->⟩
 
-
+@[simp]
 lemma bighstar0 (h : α -> _) : [∗ i in ∅ | h i] = (emp : hhProp) :=
   by sby srw bighstar bighstarDef0
 
@@ -583,7 +584,7 @@ lemma hhimpl_hhtop_r {H : hhProp} :
 by sdone
 
 lemma hhtop_eq :
-  (⊤ : hhProp) = h∃ H, H :=
+  (⊤ : hhProp) = ∃ʰ H, H :=
 by
   srw hhtop
 
@@ -686,7 +687,7 @@ lemma bighstar_hhstar_disj
     apply Finmap.disjoint_empty
 
 lemma bighstarDef_hexists [Inhabited β] {P : α -> β -> hProp} {hh₀ : hheap} :
-  bighstarDef s (fun a => hexists (P a)) hh₀  = h∃ (x : α -> β), bighstarDef s (fun a => P a (x a)) hh₀ := by
+  bighstarDef s (fun a => hexists (P a)) hh₀  = ∃ʰ (x : α -> β), bighstarDef s (fun a => P a (x a)) hh₀ := by
   apply hhimpl_antisymm
   { move=> hh hhH; unfold hhexists=> /=
     srw -(skolem (p := fun a v => if a ∈ s then P a v (hh a) else hh a = hh₀ a))=> x
@@ -697,7 +698,7 @@ lemma bighstarDef_hexists [Inhabited β] {P : α -> β -> hProp} {hh₀ : hheap}
   sby move=> j [x] /= /[swap] a /(_ a); scase_if
 
 lemma bighstar_hexists [Inhabited β] {P : α -> β -> hProp} :
-  bighstar s (fun a => hexists (P a))  = h∃ (x : α -> β), bighstar s (fun a => P a (x a)) := by
+  bighstar s (fun a => hexists (P a))  = ∃ʰ (x : α -> β), bighstar s (fun a => P a (x a)) := by
   apply bighstarDef_hexists
 
 

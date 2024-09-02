@@ -64,7 +64,7 @@ lemma fun_insert_assoc :
 def heval (s : Set α) (hh : hheap) (ht : htrm) (hQ : hval -> hhProp) : Prop :=
   ∃ (hQ' : α -> val -> hProp),
     heval_nonrel s hh ht hQ' ∧
-    ∀ hv, bighstarDef s (fun a => hQ' a (hv a)) hh ==> h∃ hv', hQ (hv ∪_s hv')
+    ∀ hv, bighstarDef s (fun a => hQ' a (hv a)) hh ==> ∃ʰ hv', hQ (hv ∪_s hv')
     /-                    hQ'                      ==>         hQ -/
 
 /- -------------- Hyper-Evaluation Properties -------------- -/
@@ -78,7 +78,7 @@ lemma heval_nonrel_conseq (s : Set α) :
 
 lemma heval_conseq' :
   heval s hh t Q1 →
-  Q1 ===> (h∃ hv : hval, Q2 $ · ∪_s hv) →
+  Q1 ===> (∃ʰ hv : hval, Q2 $ · ∪_s hv) →
   heval s hh t Q2 := by
   scase! => ?? himp qimp ⟨//|⟩
   constructor=> // hv
@@ -167,7 +167,7 @@ lemma heval_strongest :
   ∃ (hQ' : α -> val -> hProp),
     ishsP s hh ht hQ' ∧
     heval_nonrel s hh ht hQ' ∧
-    ∀ hv, bighstarDef s (fun a => hQ' a (hv a)) hh ==> h∃ hv', hQ (hv ∪_s hv') := by
+    ∀ hv, bighstarDef s (fun a => hQ' a (hv a)) hh ==> ∃ʰ hv', hQ (hv ∪_s hv') := by
   scase! => hQ ? himp; exists hsP hh ht
   repeat' constructor
   { sby apply hstrongest_postP }
@@ -179,7 +179,7 @@ lemma heval_strongest :
 lemma heval_strongest' :
   heval s hh ht hQ ->
     heval_nonrel s hh ht (hsP hh ht) ∧
-    ∀ hv, bighstarDef s (fun a => hsP hh ht a (hv a)) hh ==> h∃ hv', hQ (hv ∪_s hv') := by
+    ∀ hv, bighstarDef s (fun a => hsP hh ht a (hv a)) hh ==> ∃ʰ hv', hQ (hv ∪_s hv') := by
   scase! => hQ ? himp
   repeat' constructor
   { sby apply hstrongest_post_provable }
@@ -504,7 +504,7 @@ lemma htriple_frame (t : htrm) (H : hhProp) (Q : hval → hhProp) :
 
 lemma htriple_hhexists (H : β -> hhProp) :
   (∀ x, htriple s t (H x) Q) →
-  htriple s t (h∃ x, H x) Q := by
+  htriple s t (∃ʰ x, H x) Q := by
   sby move=> htr hh ![x /htr]
 
 lemma htriple_hhpure :
@@ -606,7 +606,7 @@ lemma htriple_app_fix (Q : hval -> hhProp) (hv₁ : hval) (x f : α -> var) (ht�
 
 /- -------------- Hyper Triple-Style Specification for Primitive Hyper Functions -------------- -/
 
-notation (priority := high) "funloc" p "=>" H => fun hv => h∃ p, ⌜ hv = val_loc ∘ p ⌝ ∗ H
+notation (priority := high) "funloc" p "=>" H => fun hv => ∃ʰ p, ⌜ hv = val_loc ∘ p ⌝ ∗ H
 
 open Classical
 
@@ -618,7 +618,7 @@ lemma htriple_ref' (v : α -> val) :
     move=> ??; apply triple_ref
 
 lemma htriple_hv_ext :
-  htriple s ht H (fun hv => h∃ hv', Q (hv ∪_s hv')) ->
+  htriple s ht H (fun hv => ∃ʰ hv', Q (hv ∪_s hv')) ->
   htriple s ht H Q := by
   move=> htr ? /htr ![hQ ? imp] ⟨//|⟨//|?⟩⟩
   apply hhimpl_trans=> //=

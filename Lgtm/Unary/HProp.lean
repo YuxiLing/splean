@@ -75,14 +75,14 @@ instance : HStar hProp hProp hProp where
    But I dunno know what would be a better one -/
 section
 open Lean.TSyntax.Compat
-macro "h∃" xs:Lean.explicitBinders ", " b:term : term => Lean.expandExplicitBinders ``hexists xs b
+macro "∃ʰ" xs:Lean.explicitBinders ", " b:term : term => Lean.expandExplicitBinders ``hexists xs b
 macro "h∀" xs:Lean.explicitBinders ", " b:term : term => Lean.expandExplicitBinders ``hforall xs b
 end
 
 @[app_unexpander hexists] def unexpandHExists : Lean.PrettyPrinter.Unexpander
-  | `($(_) fun $x:ident => h∃ $xs:binderIdent*, $b) => `(h∃ $x:ident $xs:binderIdent*, $b)
-  | `($(_) fun $x:ident => $b)                     => `(h∃ $x:ident, $b)
-  | `($(_) fun ($x:ident : $t) => $b)              => `(h∃ ($x:ident : $t), $b)
+  | `($(_) fun $x:ident => ∃ʰ $xs:binderIdent*, $b) => `(∃ʰ $x:ident $xs:binderIdent*, $b)
+  | `($(_) fun $x:ident => $b)                     => `(∃ʰ $x:ident, $b)
+  | `($(_) fun ($x:ident : $t) => $b)              => `(∃ʰ ($x:ident : $t), $b)
   | t                                              => pure t
 
 @[app_unexpander hforall] def unexpandHForall : Lean.PrettyPrinter.Unexpander
@@ -268,6 +268,8 @@ lemma hstar_hforall A (J : A → hProp) H :
 by
   move=> ? [h1 ![h2 /hforall] * ?]
   sby exists h1, h2
+
+
 
 lemma himpl_frame_l H1 H1' H2 :
   H1 ==> H1' →
@@ -596,7 +598,7 @@ lemma himpl_htop_r H :
 by sdone
 
 lemma htop_eq :
-  ⊤ = h∃ H, H :=
+  ⊤ = ∃ʰ H, H :=
 by
   srw htop
 
