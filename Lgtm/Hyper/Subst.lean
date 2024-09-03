@@ -364,13 +364,13 @@ lemma wp_hsubst_some [Inhabited α] (Q : hval α -> hhProp α) :
 attribute [simp] Option.any
 
 @[simp]
-private lemma ssubst_some_inE [Inhabited α] (s s' : Set α) (x : Option α) :
+lemma ssubst_some_inE [Inhabited α] (s s' : Set α) (x : Option α) :
   x ∈ ssubst some s s' ↔ (∃ y ∈ x, (y ∈ s ∩ s')) := by
   srw fsubst_inE => [⟨|⟩|?//] /==
   { move=> ??? <- /== // }
   sby scase: x
 
-private lemma lem (s₁ s₂) [Inhabited α] (H₁ H₂ : α -> hProp) :
+lemma hsubst_some_hhstar (s₁ s₂) [Inhabited α] (H₁ H₂ : α -> hProp) :
   Disjoint s₁ s₂ ->
   s = s₁ ∪ s₂ ->
   hsubst some s (bighstar s₁ H₁ ∗ bighstar s₂ H₂) =
@@ -390,12 +390,12 @@ private lemma lem (s₁ s₂) [Inhabited α] (H₁ H₂ : α -> hProp) :
   { move=> // }
   subst_vars=> /== //
 
-private lemma ssubst_some_union [Inhabited α] (s s₁ s₂ : Set α) :
+lemma ssubst_some_union [Inhabited α] (s s₁ s₂ : Set α) :
   ssubst some s (s₁ ∪ s₂) =
   ssubst some s s₁ ∪ ssubst some s s₂ := by
   move=> ! [] /== v ⟨|⟩ // [] //
 
-private lemma ssubst_some_disjoint [Inhabited α] :
+lemma ssubst_some_disjoint [Inhabited α] :
   Disjoint s₁ s₂ ->
   Disjoint (ssubst some s s₁) (ssubst some s s₂) := by
   move=> /Set.disjoint_left dj
