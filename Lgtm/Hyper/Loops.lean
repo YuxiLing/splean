@@ -982,7 +982,7 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
   move: n; apply Int.le_induction
   { srw Finset.Ico_self /== => ! // }
   move=> n ? ih; srw sum_Ico_predr /== //' ssubst_some_union ih
-  srw [2]sum_Ico_predr /==
+  srw [2]sum_Ico_predr /== //
 
 
 
