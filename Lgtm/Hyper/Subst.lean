@@ -10,6 +10,7 @@ import Lgtm.Hyper.HProp
 import Lgtm.Hyper.YSimp
 import Lgtm.Hyper.YChange
 import Lgtm.Hyper.SepLog
+import Lgtm.Hyper.WP
 
 /- ------------------ Function Substitution ------------------ -/
 open Function (partialInv)
@@ -313,6 +314,92 @@ lemma hsubst_hhstar (s₁ s₂ s) :
   { srw ?fsubst_out // }
   srw fsubst_inE /== => ? /[swap] <- xin
   srw ?fsubst_σ //
+
+lemma hsubst_hwp (Q : hval α -> hhProp α) (σ : α -> β) :
+  (∀ᵉ (a ∈ s) (a' ∉ s), σ a ≠ σ a') ->
+  (hhlocal s H) ->
+  (∀ hv₁ hv₂, Set.EqOn hv₁ hv₂ s -> Q hv₁ = Q hv₂) ->
+  H ==> hwp s (ht ∘ σ) Q ->
+  hsubst σ s H ==> hwp (ssubst σ s s) ht fun hv => hsubst σ s (Q (hv ∘ σ)) := by
+  sby move=> ? Hl ?? ? ![h -> ??]; apply hsubst_heval
+
+lemma hwp_hsubst (Q : hval α -> hhProp α) (σ : α -> β) :
+  hhlocal s H ->
+  (∀ hv, hhlocal s (Q hv)) ->
+  Set.InjOn σ s ->
+  (hsubst σ s H ==> hwp (ssubst σ s s) ht fun hv => hsubst σ s (Q (hv ∘ σ))) ->
+  H ==> hwp s (ht ∘ σ) Q := by
+  move=> hl ql inj wp h /[dup] /hl {}hl Hh; apply heval_hsubst=> //
+  { sby move=> > /ql hl' ? /[dup] /hl -> }
+  sby apply wp; exists h=> ⟨//|⟨//|⟩⟩; apply injectiveSet_validSubst
+
+lemma hsubst_wp (Q' : hval β -> hhProp α) (Q : hval α -> hhProp α) (σ : α -> β) :
+  (∀ᵉ (a ∈ s) (a' ∉ s), σ a ≠ σ a') ->
+  (hhlocal s H) ->
+  (s = s₁ ∪ s₂) ->
+  (∀ hv₁ hv₂, Set.EqOn hv₁ hv₂ s -> Q hv₁ = Q hv₂) ->
+  (∀ hv, Q' hv = Q (hv ∘ σ)) ->
+  LGTM.triple
+    [⟨s₁, ht₁ ∘ σ⟩, ⟨s₂, ht₂ ∘ σ⟩]
+    H
+    Q ->
+  LGTM.triple
+    [⟨ssubst σ s s₁, ht₁⟩, ⟨ssubst σ s s₂, ht₂⟩]
+    (hsubst σ s H)
+    fun hv => hsubst σ s (Q' hv) := by sorry
+
+lemma wp_hsubst_some [Inhabited α] (Q : hval α -> hhProp α) :
+  s = s₁ ∪ s₂ ->
+  hhlocal s H ->
+  (∀ hv, hhlocal s (Q hv)) ->
+  LGTM.triple
+    [⟨ssubst some s s₁, ht₁ ∘ Option.get!⟩, ⟨ssubst some s s₂, ht₂ ∘ Option.get!⟩]
+    (hsubst some s H)
+    (fun hv => hsubst some s (Q (hv ∘ some))) ->
+  LGTM.triple
+    [⟨s₁, ht₁⟩, ⟨s₂, ht₂⟩]
+    H
+    Q := by sorry
+
+attribute [simp] Option.any
+
+@[simp]
+private lemma ssubst_some_inE [Inhabited α] (s s' : Set α) (x : Option α) :
+  x ∈ ssubst some s s' ↔ (∃ y ∈ x, (y ∈ s ∩ s')) := by
+  srw fsubst_inE => [⟨|⟩|?//] /==
+  { move=> ??? <- /== // }
+  sby scase: x
+
+private lemma lem (s₁ s₂) [Inhabited α] (H₁ H₂ : α -> hProp) :
+  Disjoint s₁ s₂ ->
+  s = s₁ ∪ s₂ ->
+  hsubst some s (bighstar s₁ H₁ ∗ bighstar s₂ H₂) =
+  [∗ i in ssubst some s s₁| H₁ i.get!] ∗
+  [∗ i in ssubst some s s₂| H₂ i.get!] := by
+  move=> /[dup] /Set.disjoint_left ?? ->
+  srw -(hsubst_hhstar (s₁ := s₁) (s₂ := s₂)) //'; rotate_left
+  { move=> ?? ?? [] // }
+  srw (bighstar_eq (H' := (H₁ ∘ Option.get!) ∘ some)) //
+  srw [2](bighstar_eq (H' := (H₂ ∘ Option.get!) ∘ some)) //
+  generalize heq: (H₁ ∘ Option.get!) = H'
+  generalize req: (H₂ ∘ Option.get!) = R'=> /=
+  srw ?hsubst_bighstar //'; rotate_left
+  { move=> * [] // }
+  { move=> // }
+  { move=> * [] // }
+  { move=> // }
+  subst_vars=> /== //
+
+private lemma ssubst_some_union [Inhabited α] (s s₁ s₂ : Set α) :
+  ssubst some s (s₁ ∪ s₂) =
+  ssubst some s s₁ ∪ ssubst some s s₂ := by
+  move=> ! [] /== v ⟨|⟩ // [] //
+
+private lemma ssubst_some_disjoint [Inhabited α] :
+  Disjoint s₁ s₂ ->
+  Disjoint (ssubst some s s₁) (ssubst some s s₂) := by
+  move=> /Set.disjoint_left dj
+  srw Set.disjoint_left=> /== ?? -> //
 
 
 end hsubst
