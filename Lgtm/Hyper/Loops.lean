@@ -19,6 +19,7 @@ import Lgtm.Unary.WP
 import Lgtm.Hyper.YSimp
 import Lgtm.Hyper.YChange
 import Lgtm.Hyper.WP
+import Lgtm.Hyper.Subst
 
 open Classical trm val prim
 open SetSemiring
@@ -792,6 +793,16 @@ private lemma hsubst_H' :
 
 local notation "hsubst_H'" => hsubst_H' s z n sᵢ s' disj seq df
 
+lemma triple_Q_eq :
+  (∀ hv, Q hv = Q' hv) ->
+  triple sht H Q = triple sht H Q' := by
+  sby move=> /hwp_Q_eq=> eq; srw triple wp eq
+
+lemma wp2_ht_eq :
+  Set.EqOn ht₁ ht₁' s₁ ->
+  Set.EqOn ht₂ ht₂' s₂ ->
+  wp [⟨s₁, ht₁⟩, ⟨s₂, ht₂⟩] Q =
+  wp [⟨s₁, ht₁'⟩, ⟨s₂, ht₂'⟩] Q := by sorry
 
 set_option maxHeartbeats 1600000 in
 lemma wp_for_bighop (β : Type)  [inst : Inhabited β]
@@ -833,7 +844,7 @@ lemma wp_for_bighop (β : Type)  [inst : Inhabited β]
     congr 1; apply Finset.sum_congr (s₂ := [[z, n]])=> [//|]/==
     move=> i *; apply eqQ=> //' /= ??
     unfold π'=> /=; srw if_pos //' }
-  srw triple_Q_eq; rotate_left 2
+  srw triple_Q_eq; rotate_left
   { move=> ?;
     rewrite [<-bighstar_hhstar, <-Disjoint.sum_bighstar]
     rfl }
