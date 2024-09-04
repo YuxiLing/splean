@@ -12,7 +12,7 @@ import Lgtm.Unary.WPUtil
 
 open trm val prim
 
-section
+namespace Unary
 
 local instance : Coe val trm where
   coe v := trm.trm_val v
@@ -1043,7 +1043,9 @@ macro "xwp" : tactic =>
            | apply wp_of_wpgen
      all_goals try simp [wpgen, subst, isubst, subst, trm_apps, AList.lookup, List.dlookup]))
 
-end
+end Unary
+
+open Unary
 
 macro "lang_def" n:ident ":=" l:lang : command => do
   `(def $n:ident : val := [lang| $l])
