@@ -121,6 +121,11 @@ lemma hhlocal_bighstar  :
 lemma hhlocal_hhstar  :
   (hhlocal s (H₁ ∗ H₂)) = hhlocal s H₁ ∧ hhlocal s H₂ := by sorry
 
+@[simp]
+lemma hhlocal_hhexists  :
+  (hhlocal s (hhexists H)) = ∀ x, hhlocal s (H x) := by sorry
+
+
 /- **Prod** Rule -/
 
 /-   ∀ i ∈ s, { Hᵢ } [P i] { Qᵢ }

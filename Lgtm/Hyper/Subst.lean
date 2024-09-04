@@ -315,6 +315,10 @@ lemma hsubst_hhstar (s₁ s₂ s) :
   srw fsubst_inE /== => ? /[swap] <- xin
   srw ?fsubst_σ //
 
+lemma hsubst_hhexists :
+  hsubst σ s (hhexists H) = hhexists (fun x => hsubst σ s (H x)) := by
+  move=> !h !⟨![h -> [?] ?? ⟨//|/= ⟨|⟩ //⟩]| [?] /= ![?->??]⟨|⟩ //⟩
+
 lemma hsubst_hwp (Q : hval α -> hhProp α) (σ : α -> β) :
   (∀ᵉ (a ∈ s) (a' ∉ s), σ a ≠ σ a') ->
   (hhlocal s H) ->
@@ -332,6 +336,21 @@ lemma hwp_hsubst (Q : hval α -> hhProp α) (σ : α -> β) :
   move=> hl ql inj wp h /[dup] /hl {}hl Hh; apply heval_hsubst=> //
   { sby move=> > /ql hl' ? /[dup] /hl -> }
   sby apply wp; exists h=> ⟨//|⟨//|⟩⟩; apply injectiveSet_validSubst
+
+lemma hsubst_wp1 (Q' : hval β -> hhProp α) (Q : hval α -> hhProp α) (σ : α -> β) :
+  (∀ᵉ (a ∈ s) (a' ∉ s), σ a ≠ σ a') ->
+  (hhlocal s H) ->
+  (s = s₁ ∪ s₂) ->
+  (∀ hv₁ hv₂, Set.EqOn hv₁ hv₂ s -> Q hv₁ = Q hv₂) ->
+  (∀ hv, Q' hv = Q (hv ∘ σ)) ->
+  LGTM.triple
+    [⟨s₁, ht₁ ∘ σ⟩]
+    H
+    Q ->
+  LGTM.triple
+    [⟨ssubst σ s s₁, ht₁⟩]
+    (hsubst σ s H)
+    fun hv => hsubst σ s (Q' hv) := by sorry
 
 lemma hsubst_wp (Q' : hval β -> hhProp α) (Q : hval α -> hhProp α) (σ : α -> β) :
   (∀ᵉ (a ∈ s) (a' ∉ s), σ a ≠ σ a') ->

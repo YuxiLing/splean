@@ -491,13 +491,13 @@ lemma LGTM.wp_while_bighop (β : Type) [inst : Inhabited β]
     [∗ i in s'| Qgen j (v i) i] ∗ (Inv true j ∗↑ s') ∗ (R ∗↑ (sᵢ j)) ==>
     LGTM.wp
           [⟨s', fun _ => c⟩, ⟨sᵢ j, ht⟩]
-          (fun hv' =>
-          Q j hv' ∗↑ s' + [∗ i in s'| Qgen j (v i) i] ∗ (∃ʰ b, (Inv b (j + 1) ∗↑ s'))) ∗ (R' ∗↑ (sᵢ j))) ->
+          fun hv' =>
+          Q j hv' ∗↑ s' + [∗ i in s'| Qgen j (v i) i] ∗ (∃ʰ b, (Inv b (j + 1) ∗↑ s')) ∗ R' ∗↑ (sᵢ j)) ->
   (∀ j (v : α -> β), z <= j ∧ j < n ->
     [∗ i in s'| Qgen j (v i) i] ∗ (Inv false j ∗↑ s') ∗ (R ∗↑ (sᵢ j)) ==>
     LGTM.wp
           [⟨sᵢ j, ht⟩]
-          (fun hv' => Q j hv' ∗↑ s' + [∗ i in s'| Qgen j (v i) i] ∗ (Inv false (j + 1) ∗↑ s')) ∗ (R' ∗↑ (sᵢ j))) ->
+          (fun hv' => Q j hv' ∗↑ s' + [∗ i in s'| Qgen j (v i) i] ∗ (Inv false (j + 1) ∗↑ s') ∗ (R' ∗↑ (sᵢ j)))) ->
   (∀ j b, ∀ a ∈ s', z <= j ∧ j <= n ->
     triple cnd (Inv b j a) (fun bv => hpure (bv = val.val_bool b) ∗ Inv b j a)) ->
   (∀ b, ∀ a ∈ s', himpl (Inv b n a) (hpure (b = false) ∗ Inv b n a)) ->
@@ -920,6 +920,34 @@ private lemma hsubst_H' :
 
 local notation "hsubst_H'" => hsubst_H' s z n sᵢ s' disj seq df
 
+private lemma hsubst_H'' (β : Type) (H₂ : β -> _) :
+  z <= i ->
+  i < n ->
+  hsubst (ι i) (s' ∪ sᵢ i) ((H₁ ∘ (ι i)) ∗↑ s' ∗ (∃ʰ x, (H₂ x ∘ (ι i)) ∗↑ s') ∗ (H₃ ∘ (ι i)) ∗↑ sᵢ i) =
+  (H₁ ∗↑ ⟪n,s'⟫ ∗ (∃ʰ x, H₂ x ∗↑ ⟪n,s'⟫) ∗ H₃ ∗↑ ⟪i,sᵢ i⟫) := by
+  move=> h h'
+  move: (lem5 s z n sᵢ s' disj seq df i h h')=> ?
+  move: (lem6 s z n sᵢ s' disj seq df i h h')=> ?
+  move: (lem9 z n sᵢ s' df i h h')=> ?
+  move: (lem12 s z n sᵢ s' disj seq df i h h')=> ?
+  -- move: (lem7 s z n sᵢ s' disj seq df i h h')=> ?
+  move: (lem10 n sᵢ s' df i)=> ?
+  move: (lem11 n sᵢ s' df i)=> ?
+  move: (lem13 n sᵢ s' df i)=> ?
+  move: (lem14 s z n sᵢ s' disj seq df i h h')=> h₂
+  srw -hhstar_assoc [2]hhstar_comm hhstar_hhexists_l
+  srw -(hsubst_hhstar (s₁ := s') (s₂ := sᵢ i))=> //'
+  { erw [hsubst_bighstar];
+    simp_rw [bighstar_hhstar]
+    erw [hsubst_hhexists]=> //'
+    srw h₂ -hhstar_assoc [3]hhstar_comm [2]hhstar_hhexists_l;
+    congr; apply congr_arg=> !x
+    erw [hsubst_bighstar (H := (fun i_1 ↦ (H₂ x) i_1 ∗ (H₁) i_1))]
+    simp_rw [bighstar_hhstar]=> // }
+  move: seq disj=> ->; srw -disjoint_union=> /== //'
+
+local notation "hsubst_H''" => hsubst_H'' s z n sᵢ s' disj seq df
+
 lemma LGTM.triple_Q_eq :
   (∀ hv, Q hv = Q' hv) ->
   LGTM.triple sht H Q = LGTM.triple sht H Q' := by
@@ -1026,7 +1054,154 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
     srw ι' if_pos //'  π_in_s' //' }
   move=> /= ??;srw ι' if_pos //'
 
+lemma labSet_nonempty :
+  s'.Nonempty ->
+  ⟪n, s'⟫.Nonempty := by scase=> w ? ⟨⟨|⟩|//⟩
 
+-- set_option maxHeartbeats 1600000 in
+-- lemma LGTM.wp_while_bighop_aux [Inhabited α] (β : Type) [inst : Inhabited β]
+--   (Q : Int -> hval -> α -> hProp)
+--   (R R' : α -> hProp)
+--   (H₀ : α -> hProp)
+--   (Inv : Bool -> Int -> α -> hProp)
+--   (Qgen : Int -> β -> α -> hProp)
+--   (ht : htrm) :
+--   s'.Nonempty ->
+--   z <= n ->
+--   (∀ j hv₁ hv₂, ∀ a ∈ s', z <= j ∧ j < n -> (∀ x, x ∈ sᵢ j -> hv₁ x = hv₂ x) -> (Q j hv₁ a) = (Q j hv₂ a)) ->
+--   s = ∑ i in [[z, n]], sᵢ i ->
+--   (∀ (hv : Int -> hval), ∀ j ∈ [[z,n]], ∀ a ∈ s', ∃ v, H₀ a + ∑ i in [[z, j]], Q i (hv i) a = Qgen j v a) ->
+--   Disjoint s' s ->
+--   (∀ j (v : α -> β), z <= j ∧ j < n ->
+--     [∗ i in s'| Qgen j (v i) i] ∗ (Inv true j ∗↑ s') ∗ (R ∗↑ (sᵢ j)) ==>
+--     LGTM.wp
+--           [⟨s', fun _ => c⟩, ⟨sᵢ j, ht⟩]
+--           (fun hv' =>
+--           Q j hv' ∗↑ s' + [∗ i in s'| Qgen j (v i) i] ∗ (∃ʰ b, (Inv b (j + 1) ∗↑ s')) ∗ (R' ∗↑ (sᵢ j)))) ->
+--   (∀ j (v : α -> β), z <= j ∧ j < n ->
+--     [∗ i in s'| Qgen j (v i) i] ∗ (Inv false j ∗↑ s') ∗ (R ∗↑ (sᵢ j)) ==>
+--     LGTM.wp
+--           [⟨sᵢ j, ht⟩]
+--           (fun hv' => Q j hv' ∗↑ s' + [∗ i in s'| Qgen j (v i) i] ∗ (Inv false (j + 1) ∗↑ s')) ∗ (R' ∗↑ (sᵢ j))) ->
+--   (∀ j b, ∀ a ∈ s', z <= j ∧ j <= n ->
+--     triple cnd (Inv b j a) (fun bv => hpure (bv = val.val_bool b) ∗ Inv b j a)) ->
+--   (∀ b, ∀ a ∈ s', himpl (Inv b n a) (hpure (b = false) ∗ Inv b n a)) ->
+--   H₀ ∗↑ s' ∗ Inv b₀ z ∗↑ s' ∗ R ∗↑ s ==>
+--     LGTM.wp [⟨s', fun _ => trm_while cnd c⟩, ⟨s, ht⟩]
+--       fun hv => H₀ ∗↑ s' + (∑ j in [[z, n]], Q j hv ∗↑ s') ∗ Inv false n ∗↑ s' ∗ R' ∗↑ s := by
+--   move=> ?? eqQ ? gen ? indt indf *
+--   srw -(hsubst_H) LGTM.wp_Q_eq; rotate_left 2
+--   { move=> ?
+--     rewrite [Disjoint.sum_bighstar, hhProp_add_def, bighstar_hhstar]
+--     srw -(hsubst_H) }
+--   srw -[8](ssubst_s' s z n sᵢ s' disj seq df) //'
+--   srw -(ssubst_s s z n sᵢ s' disj seq df) //'
+--   apply hsubst_wp (Q :=
+--     fun hv => [∗ i in ⟪n,s'⟫| H₀ (π i) ∗ ∑ j in [[z, n]], Q j (hv ∘ (j,·)) (π i)] ∗ (Inv false n ∘ π) ∗↑ ⟪n, s'⟫ ∗ (R' ∘ π) ∗↑ fs)=>//'
+--   { apply lem4=> //' }
+--   { move=> > hveq; congr 1; apply bighstar_eq
+--     move=> [] /== ? a -> /[dup]?/π_in_s'-> //'
+--     congr 1; apply Finset.sum_congr (s₂ := [[z, n]])=> [//|]/==
+--     move=> i ?? ; apply eqQ=> //' /= ??; apply hveq=> /==; right
+--     exists i }
+--   { move=> hv; congr 1; apply bighstar_eq=> /=
+--     move=> [] /== ? a -> /[dup]?/π_in_s'-> //'
+--     congr 1; apply Finset.sum_congr (s₂ := [[z, n]])=> [//|]/==
+--     move=> i *; apply eqQ=> //' /= ??
+--     unfold π'=> /=; srw if_pos //' }
+--   srw LGTM.triple_Q_eq; rotate_left
+--   { move=> ?;
+--     rewrite [<-bighstar_hhstar, <-Disjoint.sum_bighstar]
+--     rfl }
+--   eapply Disjoint.LGTM.wp_while_bighop (s := fs)
+--     (sᵢ := fun i => ⟪i, sᵢ i⟫)
+--     (inst := inst)
+--     (Inv := fun b i => Inv b i ∘ π)
+--     (Qgen := fun i v a => Qgen i v a.2)
+--     (Q := fun i hv a => Q i (hv ∘ (i,·)) (π a)) => //'
+--   { apply labSet_nonempty=> // }
+--   { move=> j ?? [] /== ? a -> /[dup]? /π_in_s'-> //' ??
+--     move=> hveq; apply eqQ=> //' }
+--   { move=> hv j ? [] /== ? a -> /[dup]? /π_in_s'-> //' }
+--   { simp; srw -disjoint_union /== => *
+--     move: seq disj=> ->; srw -disjoint_union=> /== //' }
+--   { move=> /== //' }
+--   { move=> > ?
+--     srw -(hsubst_H') //' /= LGTM.wp_Q_eq; rotate_left 2
+--     { move=> ?
+--       rewrite [hhProp_add_def, bighstar_hhstar]
+--       srw -(hsubst_H'') //' }
+--     srw -(lem13 n sᵢ s' df) //' -(lem14 s z n sᵢ s') //'
+--     eapply hsubst_wp
+--       (Q := fun hv => (((fun i ↦ Q j (hv) i ∗ Qgen j (v (ι j i)) (ι j i).2)) ∗↑ s' ∗ (∃ʰ b, Inv b (j+1) ∗↑ s') ∗ R' ∗↑ sᵢ j))=> //'
+--     { apply lem5=> // }
+--     { move=> > hveq; congr 1; apply bighstar_eq
+--       move=> ??; congr 1; apply eqQ=> //' /= ??; apply hveq=> /== //' }
+--     { move=> hv; congr 2
+--       { apply bighstar_eq=> ?? /=; congr 1
+--         srw ι' if_pos //' π_in_s' //'
+--         apply eqQ=> //' /= ??; srw ι' if_neg ?if_pos //' => ?
+--         move: (disj')=> //' }
+--       { apply congr_arg=> !x
+--         apply bighstar_eq=> /= ??
+--         srw ι' if_pos //'  π_in_s' //' }
+--       apply bighstar_eq=> /= ??
+--       srw ι' if_neg ?if_pos //'
+--       { srw π' /= if_pos //' }
+--       move: (disj')=> ?? //'}
+--     srw bighstar_eq
+--     { srw [2]bighstar_eq
+--       { srw [3]bighstar_eq
+--         apply hhimpl_trans
+--         apply indt (v := fun a => v (n, a))=> //'
+--         { srw wp2_ht_eq; apply hwp_conseq
+--           { move=> hv /=; srw -bighstar_hhstar hhProp_add_def
+--             ysimp=> ?; apply Disjoint.hhimpl_bighstar_himpl=> z ?
+--             srw ι' if_pos //' }
+--           { sdone }
+--           apply lem7=> // }
+--         move=> ??; apply Eq.symm; apply lem7=>// }
+--       move=> ?? /=
+--       srw ι' if_pos //'  π_in_s' //' }
+--     move=> /= ??;srw ι' if_pos //' }
+--   { move=> > ?
+--     srw -(hsubst_H') //' /= LGTM.wp_Q_eq; rotate_left 2
+--     { move=> ?
+--       rewrite [hhProp_add_def, bighstar_hhstar]
+--       srw -(hsubst_H') //' }
+--     srw -(lem14 s z n sᵢ s') //'
+--     eapply hsubst_wp1
+--       (Q := fun hv => (((fun i ↦ Q j (hv) i ∗ Qgen j (v (ι j i)) (ι j i).2)) ∗↑ s' ∗ (Inv false (j+1) ∗↑ s') ∗ R' ∗↑ sᵢ j))=> //'
+--     { apply lem5=> // }
+--     {  }
+--     { move=> > hveq; congr 1; apply bighstar_eq
+--       move=> ??; congr 1; apply eqQ=> //' /= ??; apply hveq=> /== //' }
+--     { move=> hv; congr 2
+--       { apply bighstar_eq=> ?? /=; congr 1
+--         srw ι' if_pos //' π_in_s' //'
+--         apply eqQ=> //' /= ??; srw ι' if_neg ?if_pos //' => ?
+--         move: (disj')=> //' }
+--       { apply bighstar_eq=> /= ??
+--         srw ι' if_pos //'  π_in_s' //' }
+--       apply bighstar_eq=> /= ??
+--       srw ι' if_neg ?if_pos //'
+--       { srw π' /= if_pos //' }
+--       move: (disj')=> ?? //'}
+--     srw bighstar_eq
+--     { srw [2]bighstar_eq
+--       { srw [3]bighstar_eq
+--         apply hhimpl_trans
+--         apply indt (v := fun a => v (n, a))=> //'
+--         { srw wp2_ht_eq; apply hwp_conseq
+--           { move=> hv /=; srw -bighstar_hhstar hhProp_add_def
+--             ysimp=> ?; apply Disjoint.hhimpl_bighstar_himpl=> z ?
+--             srw ι' if_pos //' }
+--           { sdone }
+--           apply lem7=> // }
+--         move=> ??; apply Eq.symm; apply lem7=>// }
+--       move=> ?? /=
+--       srw ι' if_pos //'  π_in_s' //' }
+--     move=> /= ??;srw ι' if_pos //' }
 
 end ForLoopAux
 
