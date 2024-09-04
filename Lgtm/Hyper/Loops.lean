@@ -219,12 +219,13 @@ lemma choose_fun2 {α α' β : Type} (b₀ : β)  (p : α -> α' -> β -> Prop) 
   -- move=> a inS
   -- srw dif_pos //; apply choose_spec
   sorry
-
+set_option maxHeartbeats 1600000 in
 lemma wp_for_bighop (β : Type) [inst : Inhabited β]
   (z n : Int)
   (Q : Int -> hval -> α -> hProp)
   (R R' : α -> hProp)
   (H₀ : α -> hProp)
+  (Inv : Int -> α -> hProp)
   (Qgen : Int -> β -> α -> hProp)
   (sᵢ : Int -> Set α)
   (ht : htrm) :
@@ -235,21 +236,22 @@ lemma wp_for_bighop (β : Type) [inst : Inhabited β]
   Disjoint s' s ->
   (∀ i j, i != j -> z <= i ∧ i < n -> z <= j ∧ j < n -> Disjoint (sᵢ i) (sᵢ j)) ->
   (∀ j (v : α -> β), z <= j ∧ j < n ->
-    [∗ i in s'| Qgen j (v i) i] ∗ (R ∗↑ (sᵢ j)) ==>
+    [∗ i in s'| Qgen j (v i) i] ∗ Inv j ∗↑ s' ∗ (R ∗↑ (sᵢ j)) ==>
       LGTM.wp
            [⟨s', fun _ => subst vr j c⟩, ⟨sᵢ j, ht⟩]
            (fun hv' =>
-             Q j hv' ∗↑ s' + [∗ i in s'| Qgen j (v i) i] ∗ R' ∗↑ sᵢ j)) ->
-  H₀ ∗↑ s' ∗ R ∗↑ s ==>
+             Q j hv' ∗↑ s' + [∗ i in s'| Qgen j (v i) i] ∗ Inv (j+1) ∗↑ s' ∗ R' ∗↑ sᵢ j)) ->
+  H₀ ∗↑ s' ∗ Inv z ∗↑ s' ∗ R ∗↑ s ==>
     LGTM.wp
          [⟨s', fun _ => trm_for vr z n c⟩, ⟨s, ht⟩]
-         (fun hv => H₀ ∗↑ s' + (∑ j in [[z, n]], Q j hv ∗↑ s') ∗ R' ∗↑ s) := by
+         (fun hv => H₀ ∗↑ s' + (∑ j in [[z, n]], Q j hv ∗↑ s') ∗ Inv n ∗↑ s' ∗ R' ∗↑ s) := by
   move=> ? eqQ ? gen dj dij' ind *
   eapply wp_for
     (hv₀ := fun _ => default)
     (Inv := fun i hv =>
       H₀ ∗↑ s' ∗
       (∑ j in [[z, i]], Q j hv ∗↑ s') ∗
+       Inv i ∗↑ s' ∗
       ((∑ j in [[z, i]], R' ∗↑ sᵢ j) ∗ (∑ j in [[i, n]], R ∗↑ sᵢ j)))=> //'
   { move=> > ? hveq; ysimp; srw ?sum_bighstar; apply hhimpl_bighstar_himpl=> a ?
     srw (Finset.sum_congr (s₂ := [[z,j]])); rotate_right 2
@@ -280,8 +282,8 @@ lemma wp_for_bighop (β : Type) [inst : Inhabited β]
     apply eqQ=> //' }
   { srw Finset.Ico_self /== //'; subst_vars; srw -sum_bighstar_set
     ysimp }
-  move=> hv' /=; subst_vars; srw sum_bighstar_set Finset.Ico_self /==; ysimp
-  ysimp
+  move=> hv' /=; subst_vars; srw sum_bighstar_set Finset.Ico_self /==;
+  ysimp; ysimp
 
 
 end ForLoop
@@ -412,7 +414,7 @@ lemma LGTM.wp_while_aux
     omega
 
 set_option maxHeartbeats 1600000 in
-lemma LGTM.wp_while
+lemma wp_while
   (z n : Int)
   (Inv : Bool -> Int -> hval -> hhProp)
   (sᵢ : Int -> Set α)
@@ -443,7 +445,7 @@ lemma LGTM.wp_while
     ychange LGTM.wp_conseq; apply implq
     ychange (LGTM.wp_while_aux (sᵢ := sᵢ) (n := n) (z := z)) <;> try trivial
     rotate_right
-    { sby apply wp_conseq=> ? }
+    { sby apply LGTM.wp_conseq=> ? }
     { move=> > ?; ychange indt=> //
       apply hwp_conseq'=> hv' /==
       ypull=> b
@@ -466,6 +468,35 @@ lemma LGTM.wp_while
       shave/Set.disjoint_left//: Disjoint (sᵢ j) (sᵢ j')
       sby apply disj=> /==
 
+-- set_option maxHeartbeats 1600000 in
+-- lemma wp_while_bighop
+--   (z n : Int)
+--   (Q : Int -> hval -> α -> hProp)
+--   (R R' : α -> hProp)
+--   (H₀ : α -> Bool -> hProp)
+--   (Qgen : Int -> β -> α -> hProp)
+--   (sᵢ : Int -> Set α)
+--   (ht : htrm) :
+--   z <= n ->
+--   (∀ j hv₁ hv₂, ∀ a ∈ s', z <= j ∧ j < n -> (∀ x, x ∈ sᵢ j -> hv₁ x = hv₂ x) -> (Q j hv₁ a) = (Q j hv₂ a)) ->
+--   s = ∑ i in [[z, n]], sᵢ i ->
+--   Disjoint s' s ->
+--   (∀ j hv, z <= j ∧ j < n ->
+--     Inv true j hv ==>
+--     LGTM.wp
+--           [⟨s', fun _ => c⟩, ⟨sᵢ j, ht⟩]
+--           (fun hv' => ∃ʰ b, Inv b (j + 1) (hv' ∪_(sᵢ j) hv))) ->
+--   (∀ j hv, z <= j ∧ j < n ->
+--     Inv false j hv ==>
+--     LGTM.wp
+--           [⟨sᵢ j, ht⟩]
+--           (fun hv' => Inv false (j + 1) (hv' ∪_(sᵢ j) hv))) ->
+--   (∀ j b hv, z <= j ∧ j <= n ->
+--     Inv b j hv ==> hwp s' (fun _ => cnd) (fun bv => ⌜bv = fun _ => val.val_bool b⌝ ∗ Inv b j hv)) ->
+--   (∀ hv b, Inv b n hv ==> ⌜b = false⌝ ∗ Inv b n hv) ->
+--   (P ==> Inv b₀ z hv₀) ->
+--   (Inv false n ===> Q) ->
+--   P ==> LGTM.wp [⟨s', fun _ => trm_while cnd c⟩, ⟨s, ht⟩] Q := by sorry
 
 end WhileLoop
 
@@ -639,7 +670,7 @@ lemma disjoint_labSet :
 --   { move=> [] // /(Set.disjoint_left.mp dj₁) // }
 --   move=> /(Set.disjoint_left.mp dj₁) //
 set_option maxHeartbeats 1600000 in
-private lemma hsubst_H :
+private lemma hsubst_H_aux :
   hsubst π (⟪n, s'⟫ ∪ fs) ((H₁ ∘ π) ∗↑ ⟪n,s'⟫ ∗ (H₂ ∘ π) ∗↑ fs) =
   (H₁ ∗↑ s' ∗ H₂ ∗↑ s) := by
   move: (lem1 s z n sᵢ s' disj seq)=> ?
@@ -653,6 +684,12 @@ private lemma hsubst_H :
     srw (ssubst_s' s z n sᵢ s' disj seq) //' (ssubst_s s z n sᵢ s' disj seq) //' }
   simp; srw -disjoint_union /== => *
   move: seq disj=> ->; srw -disjoint_union=> /== //'
+
+set_option maxHeartbeats 1600000 in
+private lemma hsubst_H :
+  hsubst π (⟪n, s'⟫ ∪ fs) ((H₁ ∘ π) ∗↑ ⟪n,s'⟫ ∗ (H₂ ∘ π) ∗↑ ⟪n,s'⟫ ∗ (H₃ ∘ π) ∗↑ fs) =
+  (H₁ ∗↑ s' ∗ H₂ ∗↑ s' ∗ H₃ ∗↑ s) := by
+  srw -?hhstar_assoc ?bighstar_hhstar  -(hsubst_H_aux s z n sᵢ s' disj seq df dfN) //
 
 local notation "hsubst_H" => hsubst_H s z n sᵢ s' disj seq df dfN
 
@@ -772,7 +809,7 @@ private lemma lem14 i :
 
 attribute [-simp] π'
 
-private lemma hsubst_H' :
+private lemma hsubst_H'_aux :
   z <= i ->
   i < n ->
   hsubst (ι i) (s' ∪ sᵢ i) ((H₁ ∘ (ι i)) ∗↑ s' ∗ (H₂ ∘ (ι i)) ∗↑ sᵢ i) =
@@ -790,6 +827,14 @@ private lemma hsubst_H' :
   srw -(hsubst_hhstar (s₁ := s') (s₂ := sᵢ i))=> //'
   { checkpoint (erw [hsubst_bighstar]; erw [hsubst_bighstar]=> //') }
   move: seq disj=> ->; srw -disjoint_union=> /== //'
+
+private lemma hsubst_H' :
+  z <= i ->
+  i < n ->
+  hsubst (ι i) (s' ∪ sᵢ i) ((H₁ ∘ (ι i)) ∗↑ s' ∗ (H₂ ∘ (ι i)) ∗↑ s' ∗ (H₃ ∘ (ι i)) ∗↑ sᵢ i) =
+  (H₁ ∗↑ ⟪n,s'⟫ ∗ H₂ ∗↑ ⟪n,s'⟫ ∗ H₃ ∗↑ ⟪i,sᵢ i⟫) := by
+  move=> ??
+  srw -?hhstar_assoc ?bighstar_hhstar  -(hsubst_H'_aux s z n sᵢ s' disj seq df) //
 
 local notation "hsubst_H'" => hsubst_H' s z n sᵢ s' disj seq df
 
@@ -809,30 +854,31 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
   (Q : Int -> hval -> α -> hProp)
   (R R' : α -> hProp)
   (H₀ : α -> hProp)
+  (Inv : Int -> α -> hProp)
   (Qgen : Int -> β -> α -> hProp)
   (ht : htrm) :
   z <= n ->
   (∀ j hv₁ hv₂, ∀ a ∈ s', z <= j ∧ j < n -> (∀ x, x ∈ sᵢ j -> hv₁ x = hv₂ x) -> (Q j hv₁ a) = (Q j hv₂ a)) ->
   (∀ (hv : Int -> hval), ∀ j ∈ [[z,n]], ∀ a ∈ s', ∃ v, H₀ a + ∑ i in [[z, j]], Q i (hv i) a = Qgen j v a) ->
   (∀ j (v : α -> β), z <= j ∧ j < n ->
-    [∗ i in s'| Qgen j (v i) i] ∗ (R ∗↑ (sᵢ j)) ==>
+    [∗ i in s'| Qgen j (v i) i] ∗ Inv j ∗↑ s' ∗ (R ∗↑ (sᵢ j)) ==>
       LGTM.wp
            [⟨s', fun _ => subst vr j c⟩, ⟨sᵢ j, ht⟩]
            (fun hv' =>
-             Q j hv' ∗↑ s' + [∗ i in s'| Qgen j (v i) i] ∗ R' ∗↑ sᵢ j)) ->
-  H₀ ∗↑ s' ∗ R ∗↑ s ==>
+             Q j hv' ∗↑ s' + [∗ i in s'| Qgen j (v i) i] ∗ Inv (j+1) ∗↑ s' ∗ R' ∗↑ sᵢ j)) ->
+  H₀ ∗↑ s' ∗ Inv z ∗↑ s' ∗  R ∗↑ s ==>
     LGTM.wp
          [⟨s', fun _ => trm_for vr z n c⟩, ⟨s, ht⟩]
-         (fun hv => H₀ ∗↑ s' + (∑ j in [[z, n]], Q j hv ∗↑ s') ∗ R' ∗↑ s) := by
+         (fun hv => H₀ ∗↑ s' + (∑ j in [[z, n]], Q j hv ∗↑ s') ∗ Inv n ∗↑ s' ∗ R' ∗↑ s) := by
   move=> ? eqQ gen ind *
   srw -(hsubst_H) wp_Q_eq; rotate_left 2
   { move=> ?
     rewrite [Disjoint.sum_bighstar, hhProp_add_def, bighstar_hhstar]
     srw -(hsubst_H) }
-  srw -[6](ssubst_s' s z n sᵢ s' disj seq df) //'
+  srw -[8](ssubst_s' s z n sᵢ s' disj seq df) //'
   srw -(ssubst_s s z n sᵢ s' disj seq df) //'
   apply hsubst_wp (Q :=
-    fun hv => [∗ i in ⟪n,s'⟫| H₀ (π i) ∗ ∑ j in [[z, n]], Q j (hv ∘ (j,·)) (π i)] ∗ (R' ∘ π) ∗↑ fs)=>//'
+    fun hv => [∗ i in ⟪n,s'⟫| H₀ (π i) ∗ ∑ j in [[z, n]], Q j (hv ∘ (j,·)) (π i)] ∗ (Inv n ∘ π) ∗↑ ⟪n, s'⟫ ∗ (R' ∘ π) ∗↑ fs)=>//'
   { apply lem4=> //' }
   { move=> > hveq; congr 1; apply bighstar_eq
     move=> [] /== ? a -> /[dup]?/π_in_s'-> //'
@@ -851,6 +897,7 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
   eapply Disjoint.wp_for_bighop (s := fs)
     (sᵢ := fun i => ⟪i, sᵢ i⟫)
     (inst := inst)
+    (Inv := fun i => Inv i ∘ π)
     (Qgen := fun i v a => Qgen i v a.2)
     (Q := fun i hv a => Q i (hv ∘ (i,·)) (π a)) => //'
   { move=> j ?? [] /== ? a -> /[dup]? /π_in_s'-> //' ??
@@ -866,29 +913,35 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
     srw -(hsubst_H') //' }
   srw -(lem13 n sᵢ s' df) //' -(lem14 s z n sᵢ s') //'
   eapply hsubst_wp
-    (Q := fun hv => (((fun i ↦ Q j (hv) i ∗ Qgen j (v (ι j i)) (ι j i).2)) ∗↑ s' ∗ R' ∗↑ sᵢ j))=> //'
+    (Q := fun hv => (((fun i ↦ Q j (hv) i ∗ Qgen j (v (ι j i)) (ι j i).2)) ∗↑ s' ∗ Inv (j+1) ∗↑ s' ∗ R' ∗↑ sᵢ j))=> //'
   { apply lem5=> // }
   { move=> > hveq; congr 1; apply bighstar_eq
     move=> ??; congr 1; apply eqQ=> //' /= ??; apply hveq=> /== //' }
-  { move=> hv; congr 1
+  { move=> hv; congr 2
     { apply bighstar_eq=> ?? /=; congr 1
       srw ι' if_pos //' π_in_s' //'
       apply eqQ=> //' /= ??; srw ι' if_neg ?if_pos //' => ?
       move: (disj')=> //' }
+    { apply bighstar_eq=> /= ??
+      srw ι' if_pos //'  π_in_s' //' }
     apply bighstar_eq=> /= ??
     srw ι' if_neg ?if_pos //'
     { srw π' /= if_pos //' }
     move: (disj')=> ?? //'}
   srw bighstar_eq
-  { srw [2]bighstar_eq; apply hhimpl_trans
-    apply ind (v := fun a => v (n, a))=> //'
-    { srw wp2_ht_eq; apply hwp_conseq
-      { move=> hv /=; srw -bighstar_hhstar hhProp_add_def
-        ysimp; apply Disjoint.hhimpl_bighstar_himpl=> z ?
-        srw ι' if_pos //' }
-      { sdone }
-      apply lem7=> // }
-    move=> ??; apply Eq.symm; apply lem7=>// }
+  { srw [2]bighstar_eq
+    { srw [3]bighstar_eq
+      apply hhimpl_trans
+      apply ind (v := fun a => v (n, a))=> //'
+      { srw wp2_ht_eq; apply hwp_conseq
+        { move=> hv /=; srw -bighstar_hhstar hhProp_add_def
+          ysimp; apply Disjoint.hhimpl_bighstar_himpl=> z ?
+          srw ι' if_pos //' }
+        { sdone }
+        apply lem7=> // }
+      move=> ??; apply Eq.symm; apply lem7=>// }
+    move=> ?? /=
+    srw ι' if_pos //'  π_in_s' //' }
   move=> /= ??;srw ι' if_pos //'
 
 
@@ -923,28 +976,29 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
   (Q : Int -> hval -> α -> hProp)
   (R R' : α -> hProp)
   (H₀ : α -> hProp)
+  (Inv : Int -> α -> hProp)
   (Qgen : Int -> β -> α -> hProp)
   (ht : htrm) :
   z <= n ->
   (∀ j hv₁ hv₂, ∀ a ∈ s', z <= j ∧ j < n -> (∀ x, x ∈ sᵢ j -> hv₁ x = hv₂ x) -> (Q j hv₁ a) = (Q j hv₂ a)) ->
   (∀ (hv : Int -> hval), ∀ j ∈ [[z,n]], ∀ a ∈ s', ∃ v, H₀ a + ∑ i in [[z, j]], Q i (hv i) a = Qgen j v a) ->
   (∀ j (v : α -> β), z <= j ∧ j < n ->
-    [∗ i in s'| Qgen j (v i) i] ∗ (R ∗↑ (sᵢ j)) ==>
+    [∗ i in s'| Qgen j (v i) i] ∗ Inv j ∗↑ s' ∗ (R ∗↑ (sᵢ j)) ==>
       LGTM.wp
            [⟨s', fun _ => subst vr j c⟩, ⟨sᵢ j, ht⟩]
            (fun hv' =>
-             Q j hv' ∗↑ s' + [∗ i in s'| Qgen j (v i) i] ∗ R' ∗↑ sᵢ j)) ->
-  H₀ ∗↑ s' ∗ R ∗↑ s ==>
+             Q j hv' ∗↑ s' + [∗ i in s'| Qgen j (v i) i] ∗ Inv (j+1) ∗↑ s' ∗ R' ∗↑ sᵢ j)) ->
+  H₀ ∗↑ s' ∗ Inv z ∗↑ s' ∗  R ∗↑ s ==>
     LGTM.wp
          [⟨s', fun _ => trm_for vr z n c⟩, ⟨s, ht⟩]
-         (fun hv => H₀ ∗↑ s' + (∑ j in [[z, n]], Q j hv ∗↑ s') ∗ R' ∗↑ s) := by
+         (fun hv => H₀ ∗↑ s' + (∑ j in [[z, n]], Q j hv ∗↑ s') ∗ Inv n ∗↑ s' ∗ R' ∗↑ s) := by
   move=> L eqQ *
   eapply wp_hsubst_some=> //'
   { move=> ?; srw hhProp_add_def=> //' }
-  srw hsubst_some_hhstar //' ForLoopAux.triple_Q_eq;  rotate_left
+  srw hsubst_some_hhstar' //' ForLoopAux.triple_Q_eq;  rotate_left
   {  move=> hv;
      rewrite [Disjoint.sum_bighstar, hhProp_add_def, bighstar_hhstar]
-     apply hsubst_some_hhstar=> // }
+     apply hsubst_some_hhstar'=> // }
   srw Function.comp /=
   srw ForLoopAux.triple_Q_eq; rotate_left
   { move=> ?;
@@ -954,6 +1008,7 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
     (df := none)
     (fun i => ssubst some (s' ∪ s) $ sᵢ i)
     (Qgen := fun i v a => Qgen i v a.get!)
+    (Inv := fun i a => Inv i a.get!)
     (inst := inst)
     (Q := fun j hv a => Q j (hv ∘ some) a.get!)=> //'
   { move=> j hv₁ hv₂ [] /== a _ ? ?? hveq; apply eqQ=> //'
@@ -965,18 +1020,21 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
     shave ?: ∀ a ∈ ssubst some (s' ∪ sᵢ j) s', Qgen j (v a) a.get! = Qgen j (v (some a.get!)) a.get!
     { move=> [] /== }
     srw (lem_s' s z n sᵢ) //' (lem_s s z n sᵢ) //' bighstar_eq
-    rw [<-(hsubst_some_hhstar _ s' (sᵢ j)
-      (H₁ := fun i ↦ Qgen j (v i) i)
-      (H₂ := fun i ↦ R i))]=> //'
-    srw wp_Q_eq; rotate_left 2
-    { move=> hv
-      rewrite [hhProp_add_def, bighstar_hhstar]
-      srw -(hsubst_some_hhstar (H₁ := fun i => Q j _ i ∗ Qgen j (v i) i)) //' }
-    apply hsubst_wp=> //'
-    { move=> * [] // }
-    { move=> > hveq; congr; apply bighstar_eq=> ??; apply eqQ=> //' ??
-      apply hveq=> //' }
-    move=> ?; srw -bighstar_hhstar hhProp_add_def }
+    { srw [2]bighstar_eq
+      rw [<-(hsubst_some_hhstar' _ s' (sᵢ j)
+        (H₁ := fun i ↦ Qgen j (v i) i)
+        (H₂ := fun i ↦ Inv j i)
+        (H₃ := fun i ↦ R i))]=> //'
+      srw wp_Q_eq; rotate_left 2
+      { move=> hv
+        rewrite [hhProp_add_def, bighstar_hhstar]
+        srw -(hsubst_some_hhstar' (H₁ := fun i => Q j _ i ∗ Qgen j (v i) i)) //' }
+      apply hsubst_wp=> //'
+      { move=> * [] // }
+      { move=> > hveq; congr; apply bighstar_eq=> ??; apply eqQ=> //' ??
+        apply hveq=> //' }
+      move=> ?; srw -bighstar_hhstar hhProp_add_def }
+    sdone }
   { apply ssubst_some_disjoint=> // }
   srw [2]seq; clear *-L
   move: n; apply Int.le_induction
@@ -1014,5 +1072,5 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
   -- srw -fun_insert_assoc [2]sum_Ico_predr=> [//|]
   -- omega
 
-
+-/
 end LGTM

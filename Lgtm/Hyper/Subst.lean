@@ -390,6 +390,16 @@ lemma hsubst_some_hhstar (s₁ s₂) [Inhabited α] (H₁ H₂ : α -> hProp) :
   { move=> // }
   subst_vars=> /== //
 
+lemma hsubst_some_hhstar' (s₁ s₂) [Inhabited α] (H₁ H₂ : α -> hProp) :
+  Disjoint s₁ s₂ ->
+  s = s₁ ∪ s₂ ->
+  hsubst some s (bighstar s₁ H₁ ∗ bighstar s₁ H₂ ∗ bighstar s₂ H₃) =
+  [∗ i in ssubst some s s₁| H₁ i.get!] ∗
+  [∗ i in ssubst some s s₁| H₂ i.get!] ∗
+  [∗ i in ssubst some s s₂| H₃ i.get!] := by
+  move=> *; srw -?hhstar_assoc ?bighstar_hhstar
+  apply hsubst_some_hhstar=> //
+
 lemma ssubst_some_union [Inhabited α] (s s₁ s₂ : Set α) :
   ssubst some s (s₁ ∪ s₂) =
   ssubst some s s₁ ∪ ssubst some s s₂ := by
