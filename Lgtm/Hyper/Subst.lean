@@ -570,5 +570,46 @@ lemma ssubst_some_disjoint [Inhabited α] :
   move=> /Set.disjoint_left dj
   srw Set.disjoint_left=> /== ?? -> //
 
+lemma hhlocal_some :
+  s' ⊆ s ->
+  hhlocal s' H₀ ->
+  hhlocal (ssubst some s s') (hsubst some s H₀) := by
+  move=> ? l ? ![h -> ? _] ??
+  apply fsubst_local_out=> //'
+  move=> ? //
+
+lemma hhlocal_subset (s'') :
+  s'' ⊆ s' ->
+  hhlocal s'' H -> hhlocal s' H := by
+  move=> ss hl ? /hl /[swap] a /(_ a) /[swap]? -> //
+
+lemma fsubst_subset_set_local :
+  s' ⊆ s ->
+  hlocal s' H ->
+  fsubst some s' H = fsubst some s H := by
+  move=> ? l !
+  shave ?: hlocal s H
+  { apply hhlocal_subset s'=> //' }
+  shave ?: validSubst some s H
+  { move=> ? // }
+  shave ?: validSubst some s' H
+  { move=> ? // }
+  shave ?:  ∀ (s s' : Set α), validSubst some s' s
+  { move=> ??? // }
+  shave ?: ∀ (s s' : Set α), none ∉ ssubst some s s'
+  { move=> ??; srw fsubst_inE // }
+  shave ?: none ∉ ssubst some s' s
+  { srw fsubst_inE // }
+  scase
+  { srw ?fsubst_local_out // }
+  move=> a
+  scase: [a ∈ s]
+  { move=> ?; srw ?fsubst_local_out // fsubst_inE //  }
+  move=> ?; srw [2]fsubst_σ //
+  scase: [a ∈ s']
+  { move=> /[dup] /l-> ?; srw ?fsubst_local_out // fsubst_inE // }
+  move=> ?; srw fsubst_σ //
+
+
 
 end hsubst

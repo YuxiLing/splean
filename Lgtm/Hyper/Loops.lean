@@ -1059,11 +1059,6 @@ lemma hhlocal_hsubst_κ :
   hhlocal (⟪n, s'⟫ ∪ fs) (hsubst κ s' H) := by
   move=> hl h ![h -> ??]; apply hlocal_fsubst_κ=> //
 
-lemma hhlocal_subset (s'') :
-  s'' ⊆ s' ->
-  hhlocal s'' H -> hhlocal s' H := by
-  move=> ss hl ? /hl /[swap] a /(_ a) /[swap]? -> //
-
 set_option maxHeartbeats 1600000 in
 lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
   (Q : Int -> hval -> hhProp)
@@ -1144,7 +1139,7 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
   eapply hsubst_wp
     (Q := fun hv => ((Q j hv ∗ Qgen j v) ∗ Inv (j+1) ∗ R' ∗↑ sᵢ j))=> //'
   { apply lem5=> // }
-  { apply (hhlocal_subset _ s')=> //' }
+  { apply (hhlocal_subset s')=> //' }
   { move=> > hveq; congr 2; apply eqQ=> //' /= ??; apply hveq=> /== //' }
   { move=> hv; congr! 2
     { apply eqQ=> //' /= ??; srw ι' if_neg ?if_pos //' => ?
@@ -1343,7 +1338,11 @@ private lemma lem_fsubst [Inhabited α] :
   i < n ->
   hlocal s' H ->
   fsubst some (s' ∪ s) H = fsubst some (s' ∪ sᵢ i) H := by
-  move=> * !h; sorry
+  move=> *;
+  apply Eq.symm; apply fsubst_subset_set_local=> /==//
+  { srw seq; apply Set.subset_union_of_subset_right=> ? /== ?
+    exists i }
+  apply hhlocal_subset s'=> //
 
 private lemma lem_hsubst [Inhabited α] :
   z <= i ->
@@ -1354,11 +1353,6 @@ private lemma lem_hsubst [Inhabited α] :
 
 @[simp]
 lemma inj_some : Set.InjOn some s' = true := by move=> /== ? * //
-
-lemma hhlocal_some :
-  s' ⊆ s ->
-  hhlocal s' H₀ ->
-  hhlocal (ssubst some s s') (hsubst some s H₀) := by sorry
 
 set_option maxHeartbeats 1600000 in
 lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
@@ -1387,9 +1381,9 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
          (fun hv => H₀ + (∑ j in [[z, n]], Q j hv) ∗ Inv n ∗ R' ∗↑ s) := by
   move=> L ???? eqQ gen *
   eapply wp_hsubst_some=> //'
-  { simp; apply ForLoopAux.hhlocal_subset _ s'=> //' }
+  { simp; apply hhlocal_subset s'=> //' }
   { move=> ?; srw hhProp_add_def /==
-    apply ForLoopAux.hhlocal_subset _ s'=> //' }
+    apply hhlocal_subset s'=> //' }
   srw hsubst_some_hhstar' //' ForLoopAux.LGTM.triple_Q_eq;  rotate_left
   {  move=> hv;
      rewrite [hhProp_add_def]
@@ -1433,7 +1427,7 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
       move=> * [] //' }
     apply hsubst_wp=> //' /==
     { move=> * [] // }
-    { apply ForLoopAux.hhlocal_subset _ s'=> //' }
+    { apply hhlocal_subset s'=> //' }
     { move=> > hveq ?; congr; apply eqQ=> //' }
     move=> ?; rfl }
   { apply ssubst_some_disjoint=> // }
@@ -1490,4 +1484,3 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
   -- apply hwp_conseq=> hv' /=
   -- srw -fun_insert_assoc [2]sum_Ico_predr=> [//|]
   -- omega
--/
