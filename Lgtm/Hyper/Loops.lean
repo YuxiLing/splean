@@ -473,7 +473,7 @@ lemma LGTM.wp_while_bighop (β : Type) [inst : Inhabited β]
       (∑ j in [[z, i]], Q j hv) ∗
        Inv b i ∗
       ((∑ j in [[z, i]], R' ∗↑ sᵢ j) ∗ (∑ j in [[i, n]], R ∗↑ sᵢ j)))=> //'
-  { move=> > ? hveq; ysimp; srw ?sum_bighstar
+  { move=> > ? hveq; ysimp
     srw (Finset.sum_congr (s₂ := [[z,j]])); rotate_right 2
     { move=> /== k ??; apply eqQ
       { auto }
