@@ -1475,9 +1475,9 @@ class RestrictToIndex (shts:LGTM.SHTs α) (shtsᵢ : outParam (Int -> LGTM.SHTs 
 instance : RestrictToIndex z n [⟨∑ i in [[z,n]], sᵢ i, ht⟩] (fun i => [⟨sᵢ i, ht⟩]) := by
   sdone
 
-instance [RestrictToIndex z n shts shtsᵢ] :
+instance [r:RestrictToIndex z n shts shtsᵢ] :
    RestrictToIndex z n (⟨∑ i in [[z,n]], sᵢ i, ht⟩ :: shts) (fun i => (⟨sᵢ i, ht⟩ :: shtsᵢ i)) := by
-  sorry
+  scase: r=> ??; constructor=> //== [] //
 
 class IsGeneralisedSum (H₀ : hhProp) (Q : Int -> hval -> hhProp) (β : outParam Type) (Qgen : outParam (Int -> β -> hhProp)) where
   eq : ∀ (hv : Int -> hval), ∀ j ∈ [[z,n]], ∃ v H, H₀ + ∑ i in [[z, j]], Q i (hv i) = Qgen j v ∗ H
