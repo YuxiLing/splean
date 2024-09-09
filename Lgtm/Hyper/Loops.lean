@@ -441,11 +441,11 @@ lemma LGTM.wp_while_bighop (β : Type) [inst : Inhabited β]
   (Qgen : Int -> β -> hhProp)
   (sᵢ : Int -> Set α)
   (ht : htrm) :
-  s'.Nonempty ->
+  -- s'.Nonempty ->
   z <= n ->
   (∀ j hv₁ hv₂, z <= j ∧ j < n -> (∀ x, x ∈ sᵢ j -> hv₁ x = hv₂ x) -> (Q j hv₁) = (Q j hv₂)) ->
   s = ∑ i in [[z, n]], sᵢ i ->
-  (∀ (hv : hval), ∀ j ∈ [[z,n]], ∃ v, H₀ + ∑ i in [[z, j]], Q i hv = Qgen j v) ->
+  (∀ (hv : hval), ∀ j ∈ [[z,n]], ∃ v H, H₀ + ∑ i in [[z, j]], Q i hv = Qgen j v ∗ H) ->
   Disjoint s' s ->
   (∀ (i j : ℤ), (i != j) = true → z ≤ i ∧ i < n → z ≤ j ∧ j < n → Disjoint (sᵢ i) (sᵢ j)) ->
   (∀ j (v : β), z <= j ∧ j < n ->
@@ -465,7 +465,7 @@ lemma LGTM.wp_while_bighop (β : Type) [inst : Inhabited β]
   H₀ ∗ Inv b₀ z ∗ R ∗↑ s ==>
     LGTM.wp [⟨s', fun _ => trm_while cnd c⟩, ⟨s, ht⟩]
       fun hv => H₀ + (∑ j in [[z, n]], Q j hv) ∗ Inv false n ∗ R' ∗↑ s := by
-  move=> ?? eqQ ? gen dj dij' indt indf cndE cndn
+  move=> ? eqQ ? gen dj dij' indt indf cndE cndn
   eapply LGTM.wp_while
     (z := z)
     (n := n)
@@ -485,32 +485,32 @@ lemma LGTM.wp_while_bighop (β : Type) [inst : Inhabited β]
     all_goals auto }
   { move=> j hv ?
     specialize gen hv=> //'
-    move: gen=> /(choose_fun (b₀ := default))/(_ inst)
-    scase=> hv' /[dup] gen -> //'
+    move: gen=> /choose_fun2
+    scase! => v H' /== /[dup] gen -> //'
     srw //' [2]sum_Ico_succl //' hhProp_add_def
     ychange indt=> //'; apply hhimpl_trans; apply LGTM.wp_frame; apply hwp_conseq=> hv' /=
-    srw -gen //'
-    srw [5]sum_Ico_predr //' /== ?hhProp_add_def
-    ysimp;
-    srw [2]sum_Ico_predr //' /== hhProp_add_def hhstar_comm
-    srw eqQ; ysimp=> //'; srw Finset.sum_congr; apply hhimpl_refl=> //'
+    -- srw -gen //'
+    srw [4]sum_Ico_predr //' /== ?hhProp_add_def; ysimp
+    srw sum_Ico_predr //' /== hhProp_add_def hhstar_comm eqQ; ysimp=> //'
+    srw -gen //' hhProp_add_def; ysimp
+    srw Finset.sum_congr; apply hhimpl_refl=> //'
     move=> /== k ??; apply eqQ=> //' ? f /==
     specialize dij' k j ?_ ?_ ?_=> //'; simp; omega
     move: (Set.disjoint_left.mp dij' f)=> //'  }
   { move=> j hv ?
     specialize gen hv=> //'
-    move: gen=> /(choose_fun (b₀ := default))/(_ inst)
-    scase=> hv' /[dup] gen -> //'
+    move: gen=> /choose_fun2
+    scase! => v H' /== /[dup] gen -> //'
     srw //' [2]sum_Ico_succl //' hhProp_add_def
     ychange indf=> //'; apply hhimpl_trans; apply LGTM.wp_frame; apply hwp_conseq=> hv' /=
-    srw -gen //'
-    srw [5]sum_Ico_predr //' /== ?hhProp_add_def
-    ysimp;
-    srw [2]sum_Ico_predr //' /== hhProp_add_def hhstar_comm
-    srw eqQ; ysimp=> //'; srw Finset.sum_congr; apply hhimpl_refl=> //'
+    -- srw -gen //'
+    srw [4]sum_Ico_predr //' /== ?hhProp_add_def; ysimp
+    srw sum_Ico_predr //' /== hhProp_add_def hhstar_comm eqQ; ysimp=> //'
+    srw -gen //' hhProp_add_def; ysimp
+    srw Finset.sum_congr; apply hhimpl_refl=> //'
     move=> /== k ??; apply eqQ=> //' ? f /==
     specialize dij' k j ?_ ?_ ?_=> //'; simp; omega
-    move: (Set.disjoint_left.mp dij' f)=> //' }
+    move: (Set.disjoint_left.mp dij' f)=> //'  }
   { move=> > ?; specialize cndE j b
     srw -hwp_equiv at cndE; ychange cndE=> //'
     apply hhimpl_trans; apply hwp_frame;
@@ -1049,6 +1049,11 @@ lemma wp2_ht_eq :
   LGTM.wp [⟨s₁, ht₁⟩, ⟨s₂, ht₂⟩] Q =
   LGTM.wp [⟨s₁, ht₁'⟩, ⟨s₂, ht₂'⟩] Q := by sorry
 
+lemma wp1_ht_eq :
+  Set.EqOn ht₂ ht₂' s₂ ->
+  LGTM.wp [⟨s₂, ht₂⟩] Q =
+  LGTM.wp [⟨s₂, ht₂'⟩] Q := by sorry
+
 lemma hlocal_fsubst_κ :
   hlocal s' H ->
   hlocal (⟪n, s'⟫ ∪ fs) (fsubst κ s' H) := by
@@ -1549,7 +1554,7 @@ lemma RestrictToIndex.htrm_eq (restr: @RestrictToIndex α z n shts shtsᵢ)
       exists h=> //; srw getElem!_pos // }
     srw rstr.sets_eq // mem_union; exists i=> //
 
-lemma xfor_lemma
+lemma yfor_lemma
   [Inhabited α]
   [Inhabited β]
   [rstr : RestrictToIndex z n shts shtsᵢ]
@@ -1586,34 +1591,52 @@ lemma xfor_lemma
   srw ForLoopAux.wp2_ht_eq; { sapply }=> //'
   sby apply rstr.htrm_eq
 
-
-
--- class htrmIsBigUnion (shts : LGTM.SHTs α) (sᵢ : outParam htrm) where
-
-
--- instance :
-
--- @[default_instance]
--- instance : CoeFun (α -> hProp) (fun _ => Set α -> hhProp) where
---   coe x := fun s => [∗ i in s| x i]
-
-  -- ychange wp_align_step
-  -- { srw -disjoint_union at sij'; apply sij'=> /==; omega }
-  -- { move: sij'; srw sum_Ico_succl /==; omega }
-  -- { simp; srw -disjoint_union=> /== *; apply dij=> /== <;> omega }
-  -- { omega }
-  -- { simp=> ⟨|⟩
-  --   { srw -disjoint_union at sij'; apply sij'=> /==; omega }
-  --   move: sij'; srw sum_Ico_succl /==; omega }
-  -- { omega }
-  -- ychange ind
-  -- { simpNums; omega }
-  -- apply hwp_conseq=> hv /==
-  -- -- scase: [i = n]=> [?|->]
-  -- ychange (ih (s := ∑ i ∈ [[i, n]], sᵢ i)) <;> try trivial
-  -- { move: sij'; srw sum_Ico_succl /==; omega }
-  -- { omega }
-  -- { move=> ???? /Heq; sapply; omega }
-  -- apply hwp_conseq=> hv' /=
-  -- srw -fun_insert_assoc [2]sum_Ico_predr=> [//|]
-  -- omega
+lemma ywhile_lemma
+  [Inhabited α]
+  [Inhabited β]
+  [rstr : RestrictToIndex z n shts shtsᵢ]
+  [gen: IsGeneralisedSum z n H₀ Q β Qgen]
+  (R R' : α -> hProp)
+  (Inv : Bool -> Int -> hhProp) :
+  shts.Forall (Disjoint s' ·.s) ->
+  shts.Pairwise (Disjoint ·.s ·.s) ->
+  z <= n ->
+  hhlocal s' H₀ ->
+  (∀ i hv, hhlocal s' (Q i hv)) ->
+  (∀ i b, hhlocal s' (Inv b i)) ->
+  (∀ i b, hhlocal s' (Qgen i b)) ->
+  (∀ j hv₁ hv₂, z <= j ∧ j < n -> (shtsᵢ j).Forall (Set.EqOn hv₁ hv₂ ·.s) -> Q j hv₁ = Q j hv₂) ->
+  (∀ (i j : ℤ), (i != j) = true → z ≤ i ∧ i < n → z ≤ j ∧ j < n → Disjoint (shtsᵢ i).set (shtsᵢ j).set) ->
+  (∀ j (v : β), z <= j ∧ j < n ->
+    LGTM.triple
+        (⟨s', fun _ => c⟩:: shtsᵢ j)
+        (Qgen j v ∗ (Inv true j) ∗ (R ∗↑ (shtsᵢ j).set))
+        fun hv' =>
+        Q j hv' + Qgen j v ∗ (∃ʰ b, (Inv b (j + 1))) ∗ R' ∗↑ (shtsᵢ j).set) ->
+  (∀ j (v : β), z <= j ∧ j < n ->
+    LGTM.triple
+        (shtsᵢ j)
+        (Qgen j v ∗ (Inv false j) ∗ (R ∗↑ (shtsᵢ j).set))
+        fun hv' => Q j hv' + Qgen j v ∗ (Inv false (j + 1)) ∗ (R' ∗↑ (shtsᵢ j).set)) ->
+  (∀ j b, z <= j ∧ j <= n ->
+    htriple s' (fun _ => cnd) (Inv b j) (fun bv => ⌜(bv = fun _ => val.val_bool b)⌝ ∗ Inv b j)) ->
+  (∀ b, Inv b n ==> ⌜b = false⌝ ∗ Inv b n) ->
+    LGTM.triple
+      (⟨s', fun _ => trm_while cnd c⟩ :: shts)
+      (H₀ ∗ Inv b₀ z ∗ R ∗↑ shts.set)
+      fun hv => H₀ + (∑ j in [[z, n]], Q j hv) ∗ Inv false n ∗ R' ∗↑ shts.set := by
+  move=> dj ?????? eqQ dj' indt indf cndE cndN
+  srw LGTM.triple LGTM.wp_squash_tail rstr.set_eq
+  apply Disjoint.LGTM.wp_while_bighop (Qgen := Qgen)  (sᵢ := fun j => (shtsᵢ j).set)=> //'
+  { move=>> ? hev; apply eqQ=> //'
+    srw List.forall_iff_forall_mem=> ?; srw List.mem_iff_getElem
+    scase! => i ? <- a ?; apply hev; srw shts_set_eq_sum mem_union
+    exists i=> ⟨//|⟩; srw getElem!_pos // }
+  { move=> ?; apply gen.eq }
+  { srw -rstr.set_eq; clear *-dj; clear rstr gen; elim: shts=> // }
+  { move=>> hj; move: (indt j v hj); srw LGTM.triple LGTM.wp_squash_tail
+    srw ForLoopAux.wp2_ht_eq; { sapply }=> //'
+    sby apply rstr.htrm_eq }
+  move=>> hj; move: (indf j v hj)
+  srw LGTM.triple ?LGTM.wp hwp_ht_eq /==; { sapply }=> //'
+  move=> ??; srw rstr.htrm_eq //'
