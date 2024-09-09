@@ -177,13 +177,15 @@ lemma hhimpl_bighstar_himpl
   [∗ i in s| Q i] ==> [∗ i in s| R i] := by
   sorry
 
-lemma choose_fun2 {α α' β : Type} (b₀ : β)  (p : α -> α' -> β -> Prop) (s : Set α) (s' : Set α') :
-  (∀ᵉ (a ∈ s) (a' ∈ s'), ∃ b : β, p a a' b) -> (∃ f : α -> α' -> β, (∀ᵉ (a ∈ s) (a' ∈ s'), p a a' (f a a'))) := by
-  -- move=> pH
-  -- exists (fun a => if h : a ∈ s then choose (pH a h) else b₀)=> /=
-  -- move=> a inS
-  -- srw dif_pos //; apply choose_spec
-  sorry
+lemma choose_fun2 {α β γ : Type}  [Inhabited β] [Inhabited γ]
+   (p : α -> β -> γ -> Prop) (s : Set α) :
+  (∀ a ∈ s, ∃ b c, p a b c) -> (∃ (f : α -> β) (g : α -> γ), (∀ a ∈ s, p a (f a) (g a))) := by
+  move=> pH
+  shave: (∀ a ∈ s, ∃ (bc : β×γ), p a bc.fst bc.snd)
+  { move=> ? /pH ![b c] ?; exists (b,c)=> //  }
+  move=> /choose_fun /(_ ((default : β), (default : γ)))[f] ?
+  exists (f · |>.fst), (f · |>.snd)
+
 set_option maxHeartbeats 1600000 in
 lemma LGTM.wp_for_bighop (β : Type) [inst : Inhabited β]
   (z n : Int)
@@ -197,7 +199,7 @@ lemma LGTM.wp_for_bighop (β : Type) [inst : Inhabited β]
   z <= n ->
   (∀ j hv₁ hv₂, z <= j ∧ j < n -> (∀ x, x ∈ sᵢ j -> hv₁ x = hv₂ x) -> (Q j hv₁) = (Q j hv₂)) ->
   s = ∑ i in [[z, n]], sᵢ i ->
-  (∀ (hv : hval), ∀ j ∈ [[z,n]], ∃ v, H₀ + ∑ i in [[z, j]], Q i hv = Qgen j v) ->
+  (∀ (hv : hval), ∀ j ∈ [[z,n]], ∃ v H, H₀ + ∑ i in [[z, j]], Q i hv = Qgen j v ∗ H) ->
   Disjoint s' s ->
   (∀ i j, i != j -> z <= i ∧ i < n -> z <= j ∧ j < n -> Disjoint (sᵢ i) (sᵢ j)) ->
   (∀ j v, z <= j ∧ j < n ->
@@ -228,18 +230,18 @@ lemma LGTM.wp_for_bighop (β : Type) [inst : Inhabited β]
     all_goals auto }
   { move=> j hv ?
     specialize gen hv=> //'
-    move: gen=> /(choose_fun (b₀ := default))/(_ inst)
-    scase=> hv' /== /[dup] gen -> //'
+    move: gen=> /choose_fun2
+    scase! => v H' /== /[dup] gen -> //'
     srw //' [2]sum_Ico_succl //' hhProp_add_def
     ychange ind=> //'; apply hhimpl_trans; apply LGTM.wp_frame; apply hwp_conseq=> hv' /=
-    srw -gen //'
-    srw [5]sum_Ico_predr //' /== ?hhProp_add_def
-    ysimp;
-    srw [2]sum_Ico_predr //' /== hhProp_add_def hhstar_comm
-    srw eqQ; ysimp=> //'; srw Finset.sum_congr; apply hhimpl_refl=> //'
+    -- srw -gen //'
+    srw [4]sum_Ico_predr //' /== ?hhProp_add_def; ysimp
+    srw sum_Ico_predr //' /== hhProp_add_def hhstar_comm eqQ; ysimp=> //'
+    srw -gen //' hhProp_add_def; ysimp
+    srw Finset.sum_congr; apply hhimpl_refl=> //'
     move=> /== k ??; apply eqQ=> //' ? f /==
     specialize dij' k j ?_ ?_ ?_=> //'; simp; omega
-    move: (Set.disjoint_left.mp dij' f)=> //' }
+    move: (Set.disjoint_left.mp dij' f)=> //'  }
   { srw Finset.Ico_self /== //'; subst_vars; srw -sum_bighstar_set hhProp_add_def
     ysimp }
   move=> hv' /=; subst_vars; srw sum_bighstar_set Finset.Ico_self /==;
@@ -1073,7 +1075,7 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
   (∀ i b, hhlocal s' (Qgen i b)) ->
   z <= n ->
   (∀ j hv₁ hv₂, z <= j ∧ j < n -> (∀ x, x ∈ sᵢ j -> hv₁ x = hv₂ x) -> (Q j hv₁) = (Q j hv₂)) ->
-  (∀ (hv : Int -> hval), ∀ j ∈ [[z,n]], ∃ v, H₀ + ∑ i in [[z, j]], Q i (hv i) = Qgen j v) ->
+  (∀ (hv : Int -> hval), ∀ j ∈ [[z,n]], ∃ v H, H₀ + ∑ i in [[z, j]], Q i (hv i) = Qgen j v ∗ H) ->
   (∀ j (v : β), z <= j ∧ j < n ->
     Qgen j v ∗ Inv j ∗ (R ∗↑ (sᵢ j)) ==>
       LGTM.wp
@@ -1092,7 +1094,7 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
   apply hsubst_wp (Q :=
     fun hv => hsubst κ s' (H₀ ∗ ∑ j in [[z, n]], Q j (hv ∘ (j,·))) ∗ hsubst κ s' (Inv n) ∗ (R' ∘ π) ∗↑ fs)=>//'
   { apply lem4=> //' }
-  { simp; apply hhlocal_hsubst_κ=> //' }
+  { simp=> ⟨|⟩ <;> apply hhlocal_hsubst_κ=> //' }
   { move=> > hveq; congr! 3
     apply Finset.sum_congr (s₂ := [[z, n]])=> [//|]/==
     move=> i ?? ; apply eqQ=> //' /= ??; apply hveq=> /==; right
@@ -1107,7 +1109,6 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
     rfl
     all_goals auto
     { move=> ????; srw ?κ' ?if_pos // }
-    { apply hhlocal_sum=> //' }
     move=> ????; srw ?κ' ?if_pos // }
   eapply Disjoint.LGTM.wp_for_bighop (s := fs)
     (sᵢ := fun i => ⟪i, sᵢ i⟫)
@@ -1116,11 +1117,15 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
     (Qgen := fun i v =>  hsubst κ s' $ Qgen i v)
     (Q := fun i hv =>  hsubst κ s' $ Q i (hv ∘ (i,·))) => //'
   { move=> > /== ?? hveq; apply congr_arg; apply eqQ=> //' }
-  { move=> hv j /gen /(_ (fun i => hv ∘ (i, ·)))[v] eq
-    exists v; srw -eq ?hhProp_add_def -hsubst_hhstar_same //'
+  { move=> hv j /gen /(_ (fun i => hv ∘ (i, ·))) ![v H] eq
+    exists v, (hsubst κ s' H);
+    srw hsubst_hhstar_same //'; rotate_left
+    { shave /==: hhlocal s' (Qgen j v ∗ H)
+      srw -eq hhProp_add_def //= }
+    { move=> ????; srw ?κ' ?if_pos // }
+    srw -eq ?hhProp_add_def -hsubst_hhstar_same //'
     { srw hsubst_hhstar_sum_same //'
       move=> ????; srw ?κ' ?if_pos // }
-    { apply hhlocal_sum=> //' }
     move=> ????; srw ?κ' ?if_pos // }
   { simp; srw -disjoint_union /== => *
     move: seq disj=> ->; srw -disjoint_union=> /== //' }
@@ -1139,7 +1144,7 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
   eapply hsubst_wp
     (Q := fun hv => ((Q j hv ∗ Qgen j v) ∗ Inv (j+1) ∗ R' ∗↑ sᵢ j))=> //'
   { apply lem5=> // }
-  { apply (hhlocal_subset s')=> //' }
+  { srw ?hhlocal_hhstar=> /== ⟨|⟩ <;> apply hhlocal_subset s'=> //' }
   { move=> > hveq; congr 2; apply eqQ=> //' /= ??; apply hveq=> /== //' }
   { move=> hv; congr! 2
     { apply eqQ=> //' /= ??; srw ι' if_neg ?if_pos //' => ?
@@ -1368,21 +1373,23 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
   (∀ hv i, hhlocal s' (Q i hv)) ->
   (∀ i b, hhlocal s' (Qgen i b)) ->
   (∀ j hv₁ hv₂, z <= j ∧ j < n -> (∀ x, x ∈ sᵢ j -> hv₁ x = hv₂ x) -> (Q j hv₁) = (Q j hv₂)) ->
-  (∀ (hv : Int -> hval), ∀ j ∈ [[z,n]], ∃ v, H₀ + ∑ i in [[z, j]], Q i (hv i) = Qgen j v) ->
-  (∀ j (v : α -> β), z <= j ∧ j < n ->
-    Qgen j (v i) ∗ Inv j ∗ (R ∗↑ (sᵢ j)) ==>
+  (∀ (hv : Int -> hval), ∀ j ∈ [[z,n]], ∃ v H, H₀ + ∑ i in [[z, j]], Q i (hv i) = Qgen j v ∗ H) ->
+  (∀ j (v : β), z <= j ∧ j < n ->
+    Qgen j v ∗ Inv j ∗ (R ∗↑ (sᵢ j)) ==>
       LGTM.wp
            [⟨s', fun _ => subst vr j c⟩, ⟨sᵢ j, ht⟩]
            (fun hv' =>
-             Q j hv' + Qgen j (v i) ∗ Inv (j+1) ∗ R' ∗↑ sᵢ j)) ->
+             Q j hv' + Qgen j v ∗ Inv (j+1) ∗ R' ∗↑ sᵢ j)) ->
   H₀ ∗ Inv z ∗  R ∗↑ s ==>
     LGTM.wp
          [⟨s', fun _ => trm_for vr z n c⟩, ⟨s, ht⟩]
          (fun hv => H₀ + (∑ j in [[z, n]], Q j hv) ∗ Inv n ∗ R' ∗↑ s) := by
   move=> L ???? eqQ gen *
   eapply wp_hsubst_some=> //'
-  { simp; apply hhlocal_subset s'=> //' }
-  { move=> ?; srw hhProp_add_def /==
+  { simp=> ⟨|⟩ <;> apply hhlocal_subset s'=> //' }
+  { move=> ?; srw hhProp_add_def /== => ⟨⟨|⟩|⟩
+    { apply hhlocal_subset s'=> //' }
+    { move=> *; apply hhlocal_subset s'=> //' }
     apply hhlocal_subset s'=> //' }
   srw hsubst_some_hhstar' //' ForLoopAux.LGTM.triple_Q_eq;  rotate_left
   {  move=> hv;
@@ -1392,7 +1399,6 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
      rewrite [hsubst_hhstar_sum_same]
      rfl=> //'
      { move=> * [] //' }
-     { apply hhlocal_sum=> //' }
      move=> * [] //' }
   srw Function.comp /=
   apply ForLoopAux.wp_for_bighop_aux _ _ _
@@ -1408,10 +1414,14 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
   { move=> ??; apply hhlocal_some=> //' }
   { move=> j hv₁ hv₂ ? hveq; congr! 1; apply eqQ=> //'
     move=> x ?; apply hveq=> //' /== ⟨|//'⟩; right; srw seq /==; exists j=> //' }
-  { move=> > hj; scase: (gen (hv · ∘ some) j hj)=> v eq ⟨//|⟩
-    srw -eq ?hhProp_add_def -hsubst_hhstar_same //'
-    { srw hsubst_hhstar_sum_same //' => * [] //' }
-    { apply hhlocal_sum=> //' }
+  { move=> > hj; scase!: (gen (hv · ∘ some) j hj)=> v H eq ⟨//|⟩
+    exists hsubst some (s' ∪ s) H
+    srw hsubst_hhstar_same //'
+    { srw -eq ?hhProp_add_def -hsubst_hhstar_same //'
+      { srw hsubst_hhstar_sum_same //' => * [] //' }
+      move=> * [] //' }
+    { shave/==: hhlocal s' (Qgen j v ∗ H)
+      srw -eq ?hhProp_add_def //' }
     move=> * [] //' }
   { move=> > ?
     shave ?: Disjoint s' (sᵢ j)
@@ -1427,7 +1437,7 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
       move=> * [] //' }
     apply hsubst_wp=> //' /==
     { move=> * [] // }
-    { apply hhlocal_subset s'=> //' }
+    { constructor <;> apply hhlocal_subset s'=> //' }
     { move=> > hveq ?; congr; apply eqQ=> //' }
     move=> ?; rfl }
   { apply ssubst_some_disjoint=> // }
@@ -1439,21 +1449,144 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
 
 /- ------------------ [yfor] and [ywhile] tactics ------------------ -/
 
--- class setIsBigUnion (shts : LGTM.SHTs α) (sᵢ : outParam (Int -> Set α)) where
---   bigUnion : shts.set = ∑ i in [[z, n]], sᵢ i
+-- class SetIsBigUnion (shts : LGTM.SHTs α) (sᵢ : outParam (Int -> Set α)) where
+--   eq : shts.set = ∑ i in [[z, n]], sᵢ i
 
 -- instance {sᵢ' : Int -> Set α} :
---   setIsBigUnion z n [⟨∑ i in [[z,n]], sᵢ' i, ht⟩] sᵢ' where
---   bigUnion := by sdone
+--   SetIsBigUnion z n [⟨∑ i in [[z,n]], sᵢ' i, ht⟩] sᵢ' where
+--   eq := by sdone
 
 
--- instance {sᵢ' : Int -> Set α} [h : setIsBigUnion z n shts sᵢ] :
---   setIsBigUnion z n
---     (⟨∑ i in [[z,n]], sᵢ' i, ht⟩ :: shts)
+-- instance {sᵢ' : Int -> Set α} [h : SetIsBigUnion z n shts sᵢ] :
+--   SetIsBigUnion z n
+--     (⟨∑ i in [[z,n]], sᵢ' i, ht⟩ :: shts)List.Forall₂.length_eq
 --     (fun i => sᵢ i ∪ sᵢ' i) where
---   bigUnion := by
---     srw /== h.bigUnion -set_plusE -Finset.sum_add_distrib
+--   eq := by
+--     srw /== h.eq -set_plusE -Finset.sum_add_distrib
 --     apply Finset.sum_congr=> // *; srw Set.union_comm //
+
+class RestrictToIndex (shts:LGTM.SHTs α) (shtsᵢ : outParam (Int -> LGTM.SHTs α)) : Prop where
+  sets_eq : ∀ (j : ℕ),
+    j < shts.length ->
+    shts[j]!.s = ∑ i in [[z,n]], (shtsᵢ i)[j]!.s
+  ht_eq : ∀ i, z <= i ∧ i < n -> List.Forall₂ (fun s sᵢ => s.ht = sᵢ.ht) shts (shtsᵢ i)
+
+
+instance : RestrictToIndex z n [⟨∑ i in [[z,n]], sᵢ i, ht⟩] (fun i => [⟨sᵢ i, ht⟩]) := by
+  sdone
+
+instance [RestrictToIndex z n shts shtsᵢ] :
+   RestrictToIndex z n (⟨∑ i in [[z,n]], sᵢ i, ht⟩ :: shts) (fun i => (⟨sᵢ i, ht⟩ :: shtsᵢ i)) := by
+  sorry
+
+class IsGeneralisedSum (H₀ : hhProp) (Q : Int -> hval -> hhProp) (β : outParam Type) (Qgen : outParam (Int -> β -> hhProp)) where
+  eq : ∀ (hv : Int -> hval), ∀ j ∈ [[z,n]], ∃ v H, H₀ + ∑ i in [[z, j]], Q i (hv i) = Qgen j v ∗ H
+
+lemma shts_set_eq_sum (shts : LGTM.SHTs α) :
+  shts.set = ∑ i in [[0, shts.length]], shts[i]!.s := by
+  elim: shts=> //== sht shts ->; srw Finset.range_add_one' //
+
+lemma RestrictToIndex.eq_length (restr: RestrictToIndex z n shts shtsᵢ) :
+  ∀ i ∈ [[z,n]], shts.length = (shtsᵢ i).length := by
+  move=> *;
+  apply List.Forall₂.length_eq; apply restr.ht_eq=> //
+
+lemma RestrictToIndex.set_eq
+  (restr: RestrictToIndex z n shts shtsᵢ) :
+  shts.set = ∑ i in [[z,n]], (shtsᵢ i).set := by
+  srw shts_set_eq_sum (Finset.sum_congr rfl); rotate_left
+  { move=> /== > /restr.sets_eq -> }
+  srw Finset.sum_comm; apply (Finset.sum_congr rfl)=> *
+  srw shts_set_eq_sum // restr.eq_length //;
+
+lemma RestrictToIndex.cons_inv (restr: RestrictToIndex z n (sht :: shts) shtsᵢ') :
+  ∃ (shtᵢ : Int -> LGTM.SHT) (shtsᵢ : Int -> LGTM.SHTs α),
+   (∀ i ∈ [[z,n]], shtsᵢ' i = shtᵢ i :: shtsᵢ i) ∧
+   sht.s = ∑ i in [[z,n]], (shtᵢ i).s ∧
+   RestrictToIndex z n shts shtsᵢ ∧
+   (∀ i ∈ [[z,n]], sht.ht = (shtᵢ i).ht)  := by
+  exists (fun i => (shtsᵢ' i).head!), (fun i => (shtsᵢ' i).tail)
+  scase: (restr)=> seq heq
+  shave sE: ∀ i ∈ [[z, n]], shtsᵢ' i = List.head! (shtsᵢ' i) :: List.tail (shtsᵢ' i)
+  { move=> > ?; srw List.cons_head!_tail -List.length_pos -restr.eq_length //' }
+  repeat' constructor=> /= //';
+  { move: (seq 0)=> /== ->; congr!; scase: (shtsᵢ' _)=> //== }
+  { move=> j hj; move: (seq (j+1))=> /== -> //; apply Finset.sum_congr=> // i /== ??
+    shave ?: j + 1 < (shtsᵢ' i).length
+    { srw -restr.eq_length //== }
+    srw ?getElem!_pos //== -List.drop_one -List.getElem_drop; congr! 2=> // }
+  { move=> i /[dup] hi /heq; srw sE //' /== }
+  move=> i /== ??
+  specialize heq i ?_=> //; srw sE //' at heq; move: heq=> /== //
+
+
+
+
+set_option maxHeartbeats 1600000 in
+lemma RestrictToIndex.htrm_eq (restr: @RestrictToIndex α z n shts shtsᵢ)
+  : shts.Pairwise (Disjoint ·.s ·.s) ->
+    ∀ i ∈ [[z,n]], Set.EqOn (shtsᵢ i).htrm shts.htrm  (shtsᵢ i).set := by
+    elim: shts shtsᵢ=> //==
+    { move=>> [] /== eq ? /eq/[apply] -> // }
+    move=> sht shts ih > /RestrictToIndex.cons_inv ![shtᵢ shtsᵢ] e /=->
+    move=> /[dup] rstr /ih {}ih hteq dj₁ dj₂ i zi ni; srw e //' => a /== []
+    { move=> ?; srw ?if_pos //' ?hteq //'
+      exists i }
+    move=> /[dup]?; srw shts_set_eq_sum /===> j ??
+    shave h : j < shts.length
+    { srw rstr.eq_length // }
+    srw ?if_neg; { apply ih=> // }
+    { simp=> k ??; move: (dj₁ shts[j]!);
+      srw disjoint_comm -disjoint_union=> dj₁;
+      apply Set.disjoint_left.mp
+      { apply dj₁=> //'; srw List.mem_iff_getElem; exists j=> //'
+        exists h=> //'; srw getElem!_pos // }
+      srw rstr.sets_eq //' mem_union; exists i=> // }
+    move: (dj₁ shts[j]!);
+    srw disjoint_comm -disjoint_union=> dj₁;
+    apply Set.disjoint_left.mp
+    { apply dj₁=> //; srw List.mem_iff_getElem; exists j=> //
+      exists h=> //; srw getElem!_pos // }
+    srw rstr.sets_eq // mem_union; exists i=> //
+
+lemma xfor_lemma
+  [Inhabited α]
+  [Inhabited β]
+  [rstr : RestrictToIndex z n shts shtsᵢ]
+  [gen: IsGeneralisedSum z n H₀ Q β Qgen]
+  (R R' : α -> hProp)
+  (Inv : Int -> hhProp) :
+  shts.Forall (Disjoint s' ·.s) ->
+  shts.Pairwise (Disjoint ·.s ·.s) ->
+  z <= n ->
+  hhlocal s' H₀ ->
+  (∀ i hv, hhlocal s' (Q i hv)) ->
+  (∀ i, hhlocal s' (Inv i)) ->
+  (∀ i b, hhlocal s' (Qgen i b)) ->
+  (∀ j hv₁ hv₂, z <= j ∧ j < n -> (shtsᵢ j).Forall (Set.EqOn hv₁ hv₂ ·.s) -> Q j hv₁ = Q j hv₂) ->
+  (∀ i (v : β), z <= i ∧ i < n ->
+    LGTM.triple
+      (⟨s', fun _ => subst vr i c⟩ :: shtsᵢ i)
+      (Qgen i v ∗ Inv i ∗ R ∗↑ (shtsᵢ i).set /- split with type classes? -/)
+      (Q i · + Qgen i v ∗ Inv (i+1) ∗ R' ∗↑ (shtsᵢ i).set) /- split with type classes? -/) ->
+  LGTM.triple (⟨s', fun _ => trm_for vr z n c⟩ :: shts)
+    (H₀ ∗ Inv z ∗  R ∗↑ shts.set)
+    (fun hv => H₀ + (∑ j in [[z, n]], Q j hv) ∗ Inv n ∗ R' ∗↑ shts.set) := by
+  move=> dj dj' ? ???? eqQ ind
+  srw LGTM.triple LGTM.wp_squash_tail rstr.set_eq
+  apply wp_for_bighop (Qgen := Qgen) (sᵢ := fun j => (shtsᵢ j).set)=> //'
+  { move=>> ? hev; apply eqQ=> //'
+    srw List.forall_iff_forall_mem=> ?; srw List.mem_iff_getElem
+    scase! => i ? <- a ?; apply hev; srw shts_set_eq_sum mem_union
+    exists i=> ⟨//|⟩; srw getElem!_pos // }
+  { apply gen.eq }
+  rotate_left
+  { srw -rstr.set_eq; clear *-dj; clear rstr gen; elim: shts=> // }
+  move=>> hj; move: (ind j v hj); srw LGTM.triple LGTM.wp_squash_tail
+  srw ForLoopAux.wp2_ht_eq; { sapply }=> //'
+  sby apply rstr.htrm_eq
+
+
 
 -- class htrmIsBigUnion (shts : LGTM.SHTs α) (sᵢ : outParam htrm) where
 

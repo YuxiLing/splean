@@ -119,7 +119,7 @@ lemma hhlocal_bighstar  :
 
 @[simp]
 lemma hhlocal_hhstar  :
-  (hhlocal s (H₁ ∗ H₂)) = hhlocal s H₁ ∧ hhlocal s H₂ := by sorry
+  (hhlocal s (H₁ ∗ H₂)) = (hhlocal s H₁ ∧ hhlocal s H₂) := by sorry
 
 @[simp]
 lemma hhlocal_hhexists  :

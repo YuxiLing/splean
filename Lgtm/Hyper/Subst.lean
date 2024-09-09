@@ -432,9 +432,9 @@ lemma hsubst0 : hsubst σ s emp = emp := by
   move=> !h !⟨![h -> -> ?] |->⟩ //
   exists ∅=> ⟨//|⟨//| ? //⟩⟩
 
+@[simp]
 lemma hhlocal_sum (H : γ -> _) :
-  (∀ x ∈ fs, hhlocal s' (H x)) ->
-  hhlocal s' (∑ x ∈ fs, H x) := by
+  hhlocal s' (∑ x ∈ fs, H x) = (∀ x ∈ fs, hhlocal s' (H x)) := by
   induction fs using Finset.induction=> /==
   { move=> ? // }
   srw Finset.sum_insert ?hhProp_add_def //
@@ -450,8 +450,7 @@ lemma hsubst_hhstar_sum_same (fs : Finset γ) (H : γ -> _) (s' s) :
   induction fs using Finset.induction=> /==
   rename_i b fs _ ih=> ???
   srw ?Finset.sum_insert //' ?hhProp_add_def
-  srw -(hsubst_hhstar_same σ s') //'
-  apply hhlocal_sum => //'
+  srw -(hsubst_hhstar_same σ s') //' //
 
 
 lemma hsubst_hhexists :
