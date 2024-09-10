@@ -1,3 +1,5 @@
+import Lean.Elab.Tactic
+
 import Mathlib.Data.Finmap
 
 import Mathlib.Algebra.BigOperators.Group.Finset
@@ -855,6 +857,23 @@ instance [PartialCommMonoidWRT val add valid] : AddCommMonoidWRT (hhProp α) hha
 @[simp]
 lemma hzeroE : (0 : hhProp α) = emp := rfl
 
+lemma validInter_of_disjoint [PartialCommMonoid val] (h₁ h₂ : hheap α) :
+  hdisjoint h₁ h₂ ->  h₁ ⊥ʰ h₂ := by sorry
+
+lemma hhaddE_of_disjoint [PartialCommMonoid val] (h₁ h₂ : hheap α) :
+  hdisjoint h₁ h₂ ->  h₁ +ʰ h₂ = h₁ ∪ h₂ := by sorry
+
+lemma hdisjoint_hhadd_eq [PartialCommMonoid val] (h₁ h₂ h₃ : hheap α) :
+  hdisjoint (h₁ +ʰ h₂) h₃ -> hdisjoint h₁ h₃ ∧ hdisjoint h₂ h₃ := by sorry
+
+lemma hhadd_hhsatr  [PartialCommMonoid val] (H₁ H₂ Q : hhProp α) :
+  H₁ + H₂ ∗ Q ==> H₁ + (H₂ ∗ Q) := by
+  move=> h ![h q] ![h₁ h₂] ?? -> ?? -> /hdisjoint_hhadd_eq [??]
+  exists h₁, (h₂ ∪ q); sdo 3 constructor=> //
+  admit
+  admit
+
+
 namespace EmptyPCM
 
 @[simp]
@@ -870,7 +889,8 @@ def hhaddE : (fun (H₁ H₂ : hhProp α) => H₁ + H₂) = (fun (H₁ H₂ : hh
 instance (priority := high) : AddCommMonoidWRT hProp hadd where
   addE := by rfl
 
-notation "hhstarInst" => (@ofPCM _ (@EPCM val instInhabitedVal))
+notation "hhstarInst" => (@ofPCM _
+      (@PartialCommMonoidWRT.toPartialCommMonoid val EmptyPCM.add EmptyPCM.valid EPCM'))
 
 namespace BigOperators
 open Batteries.ExtendedBinder Lean Meta
@@ -889,14 +909,40 @@ macro_rules (kind := bighhstar)
     | some p => `(@Finset.sum _ _ hhstarInst (Finset.filter (fun $x ↦ $p) $s) (fun $x ↦ $v))
     | none => `(@Finset.sum _ _ hhstarInst $s (fun $x ↦ $v))
 
+syntax (name := bighhstarin) "∗∗ " extBinder " in " term ", " term:67 : term
+macro_rules (kind := bighhstarin)
+  | `(∗∗ $x:ident in $s, $r) => `(∗∗ $x:ident ∈ $s, $r)
+  | `(∗∗ $x:ident : $t in $s, $r) => `(∗∗ $x:ident ∈ ($s : Finset $t), $r)
 
--- example (H : hhProp α) : ∗∗ i ∈ (∅ : Finset α), H = H := by sorry
+open Lean Meta Parser.Term PrettyPrinter.Delaborator SubExpr
+open Batteries.ExtendedBinder
+
+/-- Delaborator for `Finset.sum`. The `pp.piBinderTypes` option controls whether
+to show the domain type when the sum is over `Finset.univ`. -/
+@[delab app.Finset.sum] def delabFinsetSumAndHStar : Delab :=
+  whenPPOption getPPNotation <| withOverApp 5 <| do
+  let #[_, _, inst, s, f] := (← getExpr).getAppArgs | failure
+  let_expr ofPCM _ EPCM := inst | BigOperators.delabFinsetSum
+  let_expr PartialCommMonoidWRT.toPartialCommMonoid _ _ _ EPCM' := EPCM | BigOperators.delabFinsetSum
+  let_expr EPCM' _ _ := EPCM' | BigOperators.delabFinsetSum
+  guard <| f.isLambda
+  let ppDomain ← getPPOption getPPPiBinderTypes
+  let (i, body) ← withAppArg <| withBindingBodyUnusedName fun i => do
+    return (i, ← delab)
+  if s.isAppOfArity ``Finset.univ 2 then
+    let binder ←
+      if ppDomain then
+        let ty ← withNaryArg 0 delab
+        `(BigOperators.bigOpBinder| $(.mk i):ident : $ty)
+      else
+        `(BigOperators.bigOpBinder| $(.mk i):ident)
+    `(∗∗ $binder:bigOpBinder, $body)
+  else
+    let ss ← withNaryArg 3 <| delab
+    `(∗∗ $(.mk i):ident ∈ $ss, $body)
 
 end BigOperators
 
 end EmptyPCM
-
-
-
 
 end AbstractSepLog
