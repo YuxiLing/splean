@@ -2,6 +2,7 @@
 import Mathlib.Data.Finmap
 
 import Lgtm.Unary.Util
+import Lgtm.Common.Heap
 
 
 open Classical
@@ -29,8 +30,6 @@ inductive prim where
   | val_gt : prim
   | val_ptr_add : prim
 
-abbrev loc := Nat
-abbrev var := String
 
 def null : loc := 0
 
@@ -66,7 +65,7 @@ end
 
 /- States and heaps are represented as finite maps -/
 abbrev state := Finmap (λ _ : loc ↦ val)
-abbrev heap := state
+abbrev heap := Heap.heap val
 
 section
 /- ============================= Notations ============================= -/

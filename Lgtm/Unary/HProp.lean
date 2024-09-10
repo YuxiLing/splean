@@ -1,8 +1,10 @@
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
-import Lgtm.Unary.Lang
+import Lgtm.Common.Heap
+
 import Lgtm.Unary.Util
+import Lgtm.Unary.Lang
 
 
 open Classical
@@ -718,5 +720,63 @@ by
 
 
 open HStar HWand
+
+/- ------------- Abstract Separation Logic Theory ------------- -/
+
+section AbstractSepLog
+
+def hadd [PartialCommMonoid val] (H₁ H₂ : hProp) : hProp :=
+  fun h => exists h1 h2, H₁ h1 ∧ H₂ h2 ∧ h1 ⊥ʰ h2 ∧ h = h1 +ʰ h2
+
+class AddCommMonoidWRT (α : Type) (add' : semiOutParam $ α -> α -> α) extends AddCommMonoid α where
+  addE : (· + ·) = add'
+
+instance : Zero hProp := ⟨emp⟩
+instance [PartialCommMonoid val] : Add hProp := ⟨hadd⟩
+
+
+instance [PartialCommMonoid val] : AddCommMonoid hProp where
+  zero := emp
+  add  := hadd
+  nsmul := nsmulRec
+  add_comm  := by
+    move=> H₁ H₂ !h !⟨|⟩![h₁ h₂ ?? /validInter_comm ? /Heap.add_comm ->]
+    <;> exists h₂, h₁
+  add_assoc := by
+    move=> H₁ H₂ H₃ !h !⟨![h₁ h₃ ![h₁ h₂] ???-> ? /validInter_hop_eq_r [] ?? ->]|⟩
+    { exists h₁, (h₂ +ʰ h₃); sdo 3 constructor=> //
+      srw Heap.add_assoc }
+    scase! => h₁ h₂  ? ![h₂ h₃ ???-> /validInter_hop_eq_l []?? ->]
+    exists (h₁ +ʰ h₂), h₃; sdo 3 constructor=> //
+    srw Heap.add_assoc
+  add_zero  := by
+    move=> H !h !⟨![?? ? -> //]|?⟩
+    exists h, ∅ ; sdo 3 constructor=> //
+    apply validInter_empty_r
+  zero_add  := by
+    move=> H !h !⟨![?? -> ? //]|?⟩
+    exists ∅, h; sdo 3 constructor=> //
+    apply validInter_empty_l
+
+instance [PartialCommMonoidWRT val add valid] : AddCommMonoidWRT hProp hadd where
+  addE := by sdone
+
+namespace EmptyPCM
+
+@[simp]
+def haddE : (· + ·) = (· ∗ ·) := by
+  move=> !H₁ !H₂ !h ! ⟨|⟩ ![h₁ h₂] ?? ? -> <;> exists h₁, h₂; sdo 4 constructor=> //
+  { srw -validInter_disjoint // }
+  { srw validInter_disjoint // }
+  srw Heap.add_union_validInter //
+  srw validInter_disjoint //
+
+instance (priority := high) : AddCommMonoidWRT hProp hadd where
+  addE := by rfl
+
+end EmptyPCM
+
+
+end AbstractSepLog
 
 /- TODO: Add more properties -/

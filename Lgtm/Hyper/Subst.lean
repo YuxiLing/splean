@@ -26,10 +26,6 @@ lemma hhProp_add_def (s t : hhProp α) : s + t = s ∗ t := rfl
 @[simp]
 lemma hhProp_zero_def : (0 : hhProp α) = emp := rfl
 
-instance : Zero hProp where zero := hempty
-
-instance : Add hProp where add s t := s ∗ t
-
 @[simp]
 lemma hProp_add_def (s t : hProp) : s + t = s ∗ t := rfl
 
@@ -37,21 +33,21 @@ lemma hProp_add_def (s t : hProp) : s + t = s ∗ t := rfl
 lemma hProp_zero_def : 0 = hempty := rfl
 
 
-instance : AddCommMonoid (hhProp α) where
-  nsmul := nsmulRec
-  add_assoc := by move=> > /==; srw hhstar_assoc
-  zero_add  := by move=> > /==; srw hhstar_hhempty_l
-  add_zero  := by intros; simp; apply hhstar_hhempty_r
-  add_comm  := by intros; simp; apply hhstar_comm
+-- instance : AddCommMonoid (hhProp α) where
+--   nsmul := nsmulRec
+--   add_assoc := by move=> > /==; srw hhstar_assoc
+--   zero_add  := by move=> > /==; srw hhstar_hhempty_l
+--   add_zero  := by intros; simp; apply hhstar_hhempty_r
+--   add_comm  := by intros; simp; apply hhstar_comm
 
 attribute [-simp] hhProp_add_def
 
-instance : AddCommMonoid hProp where
-  nsmul := nsmulRec
-  add_assoc := by move=> > /==; srw hstar_assoc
-  zero_add  := by move=> > /==; srw hstar_hempty_l
-  add_zero  := by intros; simp; apply hstar_hempty_r
-  add_comm  := by intros; simp; apply hstar_comm
+-- instance : AddCommMonoid hProp where
+--   nsmul := nsmulRec
+--   add_assoc := by move=> > /==; srw hstar_assoc
+--   zero_add  := by move=> > /==; srw hstar_hempty_l
+--   add_zero  := by intros; simp; apply hstar_hempty_r
+--   add_comm  := by intros; simp; apply hstar_comm
 
 /- ------------------ Function Substitution ------------------ -/
 open Function (partialInv)

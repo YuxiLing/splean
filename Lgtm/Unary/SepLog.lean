@@ -578,7 +578,7 @@ by
 lemma triple_ptr_add_nat p (f : ℕ) :
   triple (trm_app val_ptr_add (val_loc p) (val_int (Int.ofNat f)))
     emp
-    (fun r ↦ ⌜r = p + f⌝) :=
+    (fun r ↦ ⌜r = val_loc (p + f)⌝) :=
 by
   apply triple_conseq _ _ _ _ _ (triple_ptr_add p f _)=>// ? /=
   sby xsimp

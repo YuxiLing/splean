@@ -16,11 +16,23 @@ abbrev hhProp (α : Type) := @hheap α -> Prop
 def hunion (h₁ h₂ : @hheap α) : @hheap α :=
   λ a => h₁ a ∪ h₂ a
 
+@[simp]
+noncomputable def hHeap.add [PartialCommMonoid val] (h₁ h₂ : @hheap α) : @hheap α :=
+  λ a => h₁ a +ʰ h₂ a
+
+infixr:55 (priority := high) " +ʰ " => hHeap.add
+
 instance (α : Type) : Union (@hheap α) := ⟨hunion⟩
 
 @[simp]
 def hdisjoint (h₁ h₂ : @hheap α) : Prop :=
   ∀ a, Finmap.Disjoint (h₁ a) (h₂ a)
+
+@[simp]
+def hValidInter [PartialCommMonoid val] (h₁ h₂ : @hheap α) : Prop :=
+  ∀ a, (h₁ a) ⊥ʰ (h₂ a)
+
+infixr:55 " ⊥ʰ " => hValidInter
 
 def hhstar (hH₁ hH₂ : @hhProp α) : (@hhProp α) :=
   fun (hh : @hheap α) =>
@@ -37,6 +49,9 @@ local notation "hheap" => @hheap α
 def hEmpty : hheap := fun _ => ∅
 
 instance : EmptyCollection hheap := ⟨hEmpty⟩
+
+@[simp]
+def hEmptyE : (∅ : hheap) a = ∅ := by rfl
 
 def hSingle (a : α) (p : loc) (v : val) : hheap :=
   λ a' => if a = a' then Finmap.singleton p v else ∅
@@ -151,10 +166,20 @@ lemma hunion_empty (h₁ : hheap) :
   funext=> /=
   apply Finmap.union_empty
 
+@[simp]
+lemma hHeap.add_empty_r [PartialCommMonoid val] (h : hheap) :
+  h +ʰ ∅ = h := by
+  funext=> /==
+
 lemma empty_hunion (h : hheap) :
   ∅ ∪ h = h := by
   funext=> /=
   apply Finmap.empty_union
+
+@[simp]
+lemma hHeap.add_empty_l [PartialCommMonoid val] (h : hheap) :
+  ∅ +ʰ h = h := by
+  funext=> /==
 
 lemma hunion_comm_of_hdisjoint (h₁ h₂ : hheap) :
   hdisjoint h₁ h₂ → h₁ ∪ h₂ = h₂ ∪ h₁ := by
@@ -162,25 +187,53 @@ lemma hunion_comm_of_hdisjoint (h₁ h₂ : hheap) :
   apply funext=> > /=
   sby apply Finmap.union_comm_of_disjoint
 
+lemma hHeap.add_comm [PartialCommMonoid val] (h₁ h₂ : hheap) :
+  h₁ +ʰ h₂ = h₂ +ʰ h₁ := by
+  move=> ! /== ?; apply Heap.add_comm
+
+
 lemma hunion_assoc (h₁ h₂ h₃ : hheap) :
   h₁ ∪ h₂ ∪ h₃ = h₁ ∪ (h₂ ∪ h₃) := by
   funext=> /=
   apply Finmap.union_assoc
+
+lemma hHeap.add_assoc [PartialCommMonoid val] (h₁ h₂ h₃ : hheap) :
+  (h₁ +ʰ h₂) +ʰ h₃ = h₁ +ʰ (h₂ +ʰ h₃) := by
+  funext=> /=; srw Heap.add_assoc
+
 
 lemma hdisjoint_symm (h₁ h₂ : hheap ) :
   hdisjoint h₁ h₂ → hdisjoint h₂ h₁ := by
   move=> /= ? >
   sby apply Finmap.Disjoint.symm
 
+lemma hValidInter_symm [PartialCommMonoid val] (h₁ h₂ : hheap ) :
+  h₁ ⊥ʰ h₂ → h₂ ⊥ʰ h₁ := by
+  move=> /= ? >
+  sby srw validInter_comm
+
+
 lemma hdisjoint_hunion_left (h₁ h₂ h₃ : hheap) :
   hdisjoint (h₁ ∪ h₂) h₃ ↔ hdisjoint h₁ h₃ ∧ hdisjoint h₂ h₃ := by
   move=> /=
   sby srw Finmap.disjoint_union_left
 
+@[simp]
+lemma hValidInter_add_left [PartialCommMonoid val] (h₁ h₂ h₃ : hheap) :
+  hValidInter (h₁ +ʰ h₂) h₃ ↔ hValidInter h₁ h₃ ∧ hValidInter h₂ h₃ := by
+  sdone
+
+
 lemma hdisjoint_hunion_right (h₁ h₂ h₃ : hheap) :
   hdisjoint h₁ (h₂ ∪ h₃) ↔ hdisjoint h₁ h₂ ∧ hdisjoint h₁ h₃ := by
     move=> /=
     sby srw Finmap.disjoint_union_right
+
+@[simp]
+lemma hValidInter_add_right [PartialCommMonoid val] (h₁ h₂ h₃ : hheap) :
+  hValidInter h₁ (h₂ +ʰ h₃) ↔ hValidInter h₁ h₂ ∧ hValidInter h₁ h₃ := by
+  sdone
+
 
 /- ============ Properties of Hyper Separation Logic Operators ============ -/
 
@@ -758,3 +811,61 @@ by
   sby srw bighstar_hpure_nonemp
 
 end HHProp
+
+/- ------------- Abstract Hyper Separation Logic Theory ------------- -/
+
+section AbstractSepLog
+
+def hhadd [PartialCommMonoid val] (H₁ H₂ : hhProp α) : hhProp α :=
+  fun h => exists h1 h2, H₁ h1 ∧ H₂ h2 ∧ h = h1 +ʰ h2 ∧ h1 ⊥ʰ h2
+
+instance : Zero (hhProp α) := ⟨emp⟩
+instance [PartialCommMonoid val] : Add (hhProp α) := ⟨hhadd⟩
+
+attribute [-simp] hValidInter
+
+instance [PartialCommMonoid val] : AddCommMonoid (hhProp α) where
+  zero := emp
+  add  := hhadd
+  nsmul := nsmulRec
+  add_comm  := by
+    move=> H₁ H₂ !h !⟨|⟩![h₁ h₂ ?? /hHeap.add_comm -> /hValidInter_symm ?]
+    <;> exists h₂, h₁
+  add_assoc := by
+    move=> H₁ H₂ H₃ !h !⟨![h₁ h₃ ![h₁ h₂] ??-> ?? -> /hValidInter_add_left [] ??]|⟩
+    { exists h₁, (h₂ +ʰ h₃); sdo 3 constructor=> //
+      srw hHeap.add_assoc }
+    scase! => h₁ h₂  ? ![h₂ h₃ ??-> ? -> /hValidInter_add_right []??]
+    exists (h₁ +ʰ h₂), h₃; sdo 3 constructor=> //
+    srw hHeap.add_assoc
+  add_zero  := by
+    move=> H !h !⟨![?? ? -> //]|?⟩
+    exists h, ∅ ; sdo 3 constructor=> //
+    move=> ?; apply validInter_empty_r
+  zero_add  := by
+    move=> H !h !⟨![?? -> ? //]|?⟩
+    exists ∅, h; sdo 3 constructor=> //
+    move=> ?; apply validInter_empty_l
+
+instance [PartialCommMonoidWRT val add valid] : AddCommMonoidWRT (hhProp α) hhadd where
+  addE := by sdone
+
+namespace EmptyPCM
+
+@[simp]
+def hhaddE : (fun (H₁ H₂ : hhProp α) => H₁ + H₂) = (fun (H₁ H₂ : hhProp α) => H₁ ∗ H₂) := by
+  move=> !H₁ !H₂ !h ! ⟨|⟩ ![h₁ h₂] ?? -> ? <;> exists h₁, h₂; sdo 4 constructor=> //
+  { move=> !a; srw /== Heap.add_union_validInter // }
+  { move=> a /==; srw -validInter_disjoint // }
+  { move=> !a; srw /== Heap.add_union_validInter //
+    srw validInter_disjoint // }
+  move=> ?; srw validInter_disjoint //
+
+
+instance (priority := high) : AddCommMonoidWRT hProp hadd where
+  addE := by rfl
+
+end EmptyPCM
+
+
+end AbstractSepLog
