@@ -1,5 +1,7 @@
 import Mathlib.Data.Finmap
 
+import Mathlib.Algebra.BigOperators.Group.Finset
+
 import Lgtm.Unary.Util
 import Lgtm.Unary.HProp
 
@@ -824,7 +826,7 @@ instance [PartialCommMonoid val] : Add (hhProp α) := ⟨hhadd⟩
 
 attribute [-simp] hValidInter
 
-instance [PartialCommMonoid val] : AddCommMonoid (hhProp α) where
+instance ofPCM [PartialCommMonoid val] : AddCommMonoid (hhProp α) where
   zero := emp
   add  := hhadd
   nsmul := nsmulRec
@@ -850,6 +852,9 @@ instance [PartialCommMonoid val] : AddCommMonoid (hhProp α) where
 instance [PartialCommMonoidWRT val add valid] : AddCommMonoidWRT (hhProp α) hhadd where
   addE := by sdone
 
+@[simp]
+lemma hzeroE : (0 : hhProp α) = emp := rfl
+
 namespace EmptyPCM
 
 @[simp]
@@ -865,7 +870,33 @@ def hhaddE : (fun (H₁ H₂ : hhProp α) => H₁ + H₂) = (fun (H₁ H₂ : hh
 instance (priority := high) : AddCommMonoidWRT hProp hadd where
   addE := by rfl
 
+notation "hhstarInst" => (@ofPCM _ (@EPCM val instInhabitedVal))
+
+namespace BigOperators
+open Batteries.ExtendedBinder Lean Meta
+
+#check Finset.sum
+
+
+syntax (name := bighhstar) "∗∗ " BigOperators.bigOpBinders ("with " term)? ", " term:67 : term
+
+macro_rules (kind := bighhstar)
+  | `(∗∗ $bs:bigOpBinders $[with $p?]?, $v) => do
+    let processed ← BigOperators.processBigOpBinders bs
+    let x ← BigOperators.bigOpBindersPattern processed
+    let s ← BigOperators.bigOpBindersProd processed
+    match p? with
+    | some p => `(@Finset.sum _ _ hhstarInst (Finset.filter (fun $x ↦ $p) $s) (fun $x ↦ $v))
+    | none => `(@Finset.sum _ _ hhstarInst $s (fun $x ↦ $v))
+
+
+-- example (H : hhProp α) : ∗∗ i ∈ (∅ : Finset α), H = H := by sorry
+
+end BigOperators
+
 end EmptyPCM
+
+
 
 
 end AbstractSepLog

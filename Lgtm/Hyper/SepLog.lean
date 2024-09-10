@@ -117,9 +117,15 @@ def hhlocal (s : Set α) (H : hhProp) := H ==> hlocal s
 lemma hhlocal_bighstar  :
   (hhlocal s (bighstar s' H)) = (s' ⊆ s) := by sorry
 
+@[simp↓]
+lemma hhlocal_hhadd [PartialCommMonoid val] :
+  (hhlocal s (H₁ + H₂)) = (hhlocal s H₁ ∧ hhlocal s H₂) := by sorry
+
+open EmptyPCM in
 @[simp]
 lemma hhlocal_hhstar  :
-  (hhlocal s (H₁ ∗ H₂)) = (hhlocal s H₁ ∧ hhlocal s H₂) := by sorry
+  (hhlocal s (H₁ ∗ H₂)) = (hhlocal s H₁ ∧ hhlocal s H₂) := by
+  simp [<-hhaddE]
 
 @[simp]
 lemma hhlocal_hhexists  :

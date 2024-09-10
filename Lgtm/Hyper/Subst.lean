@@ -16,21 +16,21 @@ import Lgtm.Hyper.YChange
 import Lgtm.Hyper.SepLog
 import Lgtm.Hyper.WP
 
-instance : Zero (hhProp α) where zero := emp
+-- instance : Zero (hhProp α) where zero := emp
 
-instance : Add (hhProp α) where add s t := s ∗ t
+-- instance : Add (hhProp α) where add s t := s ∗ t
 
-@[simp]
-lemma hhProp_add_def (s t : hhProp α) : s + t = s ∗ t := rfl
+-- @[simp]
+-- lemma hhProp_add_def (s t : hhProp α) : s + t = s ∗ t := rfl
 
-@[simp]
-lemma hhProp_zero_def : (0 : hhProp α) = emp := rfl
+-- @[simp]
+-- lemma hhProp_zero_def : (0 : hhProp α) = emp := rfl
 
-@[simp]
-lemma hProp_add_def (s t : hProp) : s + t = s ∗ t := rfl
+-- @[simp]
+-- lemma hProp_add_def (s t : hProp) : s + t = s ∗ t := rfl
 
-@[simp]
-lemma hProp_zero_def : 0 = hempty := rfl
+-- @[simp]
+-- lemma hProp_zero_def : 0 = hempty := rfl
 
 
 -- instance : AddCommMonoid (hhProp α) where
@@ -40,7 +40,7 @@ lemma hProp_zero_def : 0 = hempty := rfl
 --   add_zero  := by intros; simp; apply hhstar_hhempty_r
 --   add_comm  := by intros; simp; apply hhstar_comm
 
-attribute [-simp] hhProp_add_def
+-- attribute [-simp] hhProp_add_def
 
 -- instance : AddCommMonoid hProp where
 --   nsmul := nsmulRec
@@ -267,6 +267,21 @@ lemma validSubst_union :
   { move=> ? /(@Eq.symm _ _ _) // }
   move=> /dj; move: ain=> /dj //
 
+-- lemma validSubst_add_l (h₁ h₂ : hheap α)
+--   (dj : Disjoint s₁ s₂)
+--   (σP : ∀ᵉ (a ∈ s₁) (b ∈ s₂), σ a ≠ σ b) :
+--   (hlocal s₁ h₁) ->
+--   (hlocal s₂ h₂) ->
+--   validSubst σ (s₁ ∪ s₂) (h₁ +ʰ h₂) ->
+--   validSubst σ (s₁ ∪ s₂) h₁ := by
+--   move=> hl₁ hl₂ vs a ain b bin /[dup] /σP ? /[dup]/(@Eq.symm _ _ _) /σP ?
+--   move=> /vs /(_ (ain)) /(_ (bin)) /==
+--   scase: ain bin
+--   { move=> /[dup]?/(Set.disjoint_left.mp dj) /hl₂->
+--     move=> /== [] // /(Set.disjoint_left.mp dj) /hl₂-> // }
+--   move=> /[dup]?/(Set.disjoint_left.mp dj) /hl₁->
+--   move=> /== [] // /(Set.disjoint_left.mp dj) /hl₁-> //
+
 lemma validSubst_union_l (h₁ h₂ : hheap α)
   (dj : Disjoint s₁ s₂)
   (σP : ∀ᵉ (a ∈ s₁) (b ∈ s₂), σ a ≠ σ b) :
@@ -313,6 +328,37 @@ lemma fsubst_union (h₁ h₂ : hheap α) :
   srw fsubst_inE // => /== a _ ain <-
   srw ?fsubst_σ //=
 
+-- set_option maxHeartbeats 800000 in
+-- lemma fsubst_add (h₁ h₂ : hheap α) :
+--   validSubst σ (s₁ ∪ s₂) h₁ ->
+--   validSubst σ (s₁ ∪ s₂) h₂ ->
+--   hlocal s₁ h₁ ->
+--   hlocal s₂ h₂ ->
+--   Disjoint s₁ s₂ ->
+--   (∀ᵉ (a ∈ s₁) (b ∈ s₂), σ a ≠ σ b) ->
+--   validSubst σ (s₁ ∪ s₂) (h₁ +ʰ h₂) ->
+--   fsubst σ (s₁ ∪ s₂) h₁ ∪ fsubst σ (s₁ ∪ s₂) h₂ =
+--   fsubst σ (s₁ ∪ s₂) (h₁ +ʰ h₂) := by
+--   move=> ?? hl₁ hl₂ dj σP vs !b /==
+--   shave ? : validSubst σ (s₁ ∪ s₂) s₁
+--   { apply validSubst_union=> // }
+--   shave ? : validSubst σ (s₁ ∪ s₂) s₂
+--   { srw Set.union_comm; apply validSubst_union=> //
+--     move=> ? /σP /[swap] ? /[apply] /[swap]->// }
+--   scase: [b ∈ ssubst σ (s₁ ∪ s₂) s₁]=> [bin'|]
+--   { srw (fsubst_local_out _ _ s₁) //==
+--     scase: [b ∈ ssubst σ (s₁ ∪ s₂) s₂]=> [bin|]
+--     { srw (fsubst_local_out _ _ s₂) //==
+--       srw (fsubst_local_out _ _ (s₁ ∪ s₂))=> //
+--       { move=> ? /== /hl₁-> /hl₂-> // }
+--       move: bin bin'; srw ?fsubst_inE //== => h₁ h₂
+--       move=> ? [] // }
+--     srw fsubst_inE // => /== a _ ain <-
+--     srw ?fsubst_σ //=
+--     shave->//: h₁ a = ∅; apply hl₁=> // }
+--   srw fsubst_inE // => /== a _ ain <-
+--   srw ?fsubst_σ //=
+
 lemma validSubst_local:
   Set.InjOn σ s' ->
   s' ⊆ s ->
@@ -337,6 +383,25 @@ lemma fsubst_union_same (h₁ h₂ : hheap α) :
   (∀ᵉ (a ∈ s') (b ∉ s'), σ a ≠ σ b) ->
   fsubst σ s h₁ ∪ fsubst σ s h₂ =
   fsubst σ s (h₁ ∪ h₂) := by
+  move=> inj ? l₁ l₂ σP !b /==
+  scase: [∃ a ∈ s', σ a = b]=> /==
+  { move=> /== ?; srw ?fsubst partialInvSet
+    scase: [∃ a ∈ s, σ a = b]=> /==
+    { move=> ?; srw ?dif_neg // }
+    move=> y [??]; srw ?dif_pos // }
+  move=> a ? <-; srw ?fsubst_σ //
+  all_goals apply validSubst_local=> //
+  move=> ? /[dup] /l₁ /== -> /l₂ //
+
+set_option maxHeartbeats 800000 in
+lemma fsubst_add_same [PartialCommMonoid val] (h₁ h₂ : hheap α) :
+  Set.InjOn σ s' ->
+  s' ⊆ s ->
+  hlocal s' h₁ ->
+  hlocal s' h₂ ->
+  (∀ᵉ (a ∈ s') (b ∉ s'), σ a ≠ σ b) ->
+  fsubst σ s h₁ +ʰ fsubst σ s h₂ =
+  fsubst σ s (h₁ +ʰ h₂) := by
   move=> inj ? l₁ l₂ σP !b /==
   scase: [∃ a ∈ s', σ a = b]=> /==
   { move=> /== ?; srw ?fsubst partialInvSet
@@ -387,19 +452,19 @@ lemma hsubst_hhstar (s₁ s₂ s) :
   srw ?fsubst_σ //
 
 set_option maxHeartbeats 800000 in
-lemma hsubst_hhstar_same (s' s) :
+lemma hsubst_hhadd_same (s' s) [PartialCommMonoid val] :
   s' ⊆ s ->
   hhlocal s' H₁ ->
   hhlocal s' H₂ ->
   Set.InjOn σ s' ->
   (∀ᵉ (a ∈ s') (b ∉ s'), σ a ≠ σ b) ->
-  hsubst σ s H₁ ∗ hsubst σ s H₂ = hsubst σ s (H₁ ∗ H₂) := by
+  hsubst σ s H₁ + hsubst σ s H₂ = hsubst σ s (H₁ + H₂) := by
   move=> ? l₁ l₂ σP inj !h ! ⟨![?? ![h₁ -> Hh₁ vs₁] ![h₂ -> Hh₂ vs₂] -> dj]|⟩
-  { exists (h₁ ∪ h₂)=> ⟨|⟨|⟩⟩
-    { srw (fsubst_union_same σ s) // }
+  { exists (h₁ +ʰ h₂)=> ⟨|⟨|⟩⟩
+    { srw (fsubst_add_same σ s) // }
     { exists h₁, h₂=> ⟨//|⟨//|⟨//|a⟩⟩⟩
       scase: [a ∈ s]=> ?
-      { srw (l₁ _ Hh₁ _) ?(l₂ _ Hh₂ _) // }
+      { srw (l₁ _ Hh₁ _) ?(l₂ _ Hh₂ _) // => ? // }
       move: (dj (σ a)); srw ?fsubst_σ  // }
     apply validSubst_local=> //
     move=> ? /[dup] /(l₁ _ Hh₁) /== -> /l₂ // }
@@ -407,15 +472,26 @@ lemma hsubst_hhstar_same (s' s) :
   exists (fsubst σ s h₁), (fsubst σ s h₂)=> ⟨|⟨|⟨|⟩⟩⟩
   { exists h₁=> ⟨//|⟨//|⟩⟩; apply validSubst_local=> // }
   { exists h₂=> ⟨//|⟨//|⟩⟩; apply validSubst_local=> // }
-  { srw (fsubst_union_same σ s) // }
+  { srw (fsubst_add_same σ s) // }
   move=> b
   scase: [∃ a ∈ s', σ a = b]=> /==
   { move=> /== ?; srw ?fsubst partialInvSet
     scase: [∃ a ∈ s, σ a = b]=> /==
-    { move=> ?; srw ?dif_neg // }
+    { move=> ?; srw ?dif_neg // => ? // }
     move=> y [??]; srw ?dif_pos // }
   move=> a ? <-; srw ?fsubst_σ //
   all_goals apply validSubst_local=> //
+
+open EmptyPCM in
+set_option maxHeartbeats 800000 in
+lemma hsubst_hhstar_same (s' s) :
+  s' ⊆ s ->
+  hhlocal s' H₁ ->
+  hhlocal s' H₂ ->
+  Set.InjOn σ s' ->
+  (∀ᵉ (a ∈ s') (b ∉ s'), σ a ≠ σ b) ->
+  hsubst σ s H₁ ∗ hsubst σ s H₂ = hsubst σ s (H₁ ∗ H₂) := by
+  srw -hhaddE; apply hsubst_hhadd_same
 
 @[simp]
 lemma fsubst0 : fsubst σ s (∅ : hheap α) = ∅ := by
@@ -429,14 +505,15 @@ lemma hsubst0 : hsubst σ s emp = emp := by
   exists ∅=> ⟨//|⟨//| ? //⟩⟩
 
 @[simp]
-lemma hhlocal_sum (H : γ -> _) :
+lemma hhlocal_sum [PartialCommMonoid val] (H : γ -> hhProp α) :
   hhlocal s' (∑ x ∈ fs, H x) = (∀ x ∈ fs, hhlocal s' (H x)) := by
   induction fs using Finset.induction=> /==
   { move=> ? // }
   srw Finset.sum_insert ?hhProp_add_def //
 
 set_option maxHeartbeats 800000 in
-lemma hsubst_hhstar_sum_same (fs : Finset γ) (H : γ -> _) (s' s) :
+lemma hsubst_sum_same [PartialCommMonoid val]
+  (fs : Finset γ) (H : γ -> _) (s' s) :
   s' ⊆ s ->
   (∀ i ∈ fs, hhlocal s' (H i)) ->
   Set.InjOn σ s' ->
@@ -446,7 +523,7 @@ lemma hsubst_hhstar_sum_same (fs : Finset γ) (H : γ -> _) (s' s) :
   induction fs using Finset.induction=> /==
   rename_i b fs _ ih=> ???
   srw ?Finset.sum_insert //' ?hhProp_add_def
-  srw -(hsubst_hhstar_same σ s') //' //
+  srw -(hsubst_hhadd_same σ s') //' //
 
 
 lemma hsubst_hhexists :
