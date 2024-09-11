@@ -32,7 +32,9 @@ local notation "hval" => hval α
 local notation "hhProp" => hhProp α
 
 instance : AddCommMonoid (Set α) := SetSemiring.instAddCommMonoid
-attribute [-simp] hhProp_add_def
+instance : Inhabited hhProp := ⟨fun _ => False⟩
+attribute [instance 0] PartialCommMonoid.toAddCommSemigroup
+
 
 -- open BigOperators
 
@@ -40,11 +42,11 @@ attribute [-simp] hhProp_add_def
 
 notation "[[" z ", " n "]]" => Finset.Ico z n
 
-lemma sum_Ico_succl [AddCommMonoid M] (f : Int -> M) (i j : Int) :
+lemma sum_Ico_succl {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
   i < j ->
   ∑ i in [[i, j]], f i = f i + ∑ i in [[i+1, j]], f i := by sorry
 
-lemma sum_Ico_predr [AddCommMonoid M] (f : Int -> M) (i j : Int) :
+lemma sum_Ico_predr {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
   i < j ->
   ∑ i in [[i, j]], f i = (∑ i in [[i, j - 1]], f i) + f (j -1) := by sorry
 
@@ -163,13 +165,15 @@ lemma LGTM.wp_for (Inv : Int -> hval -> hhProp) (sᵢ : Int -> Set α) (ht : htr
 
 local notation (priority := high) Q " ∗↑ " s:70 => bighstar s Q
 
-lemma sum_bighstar (H : β -> α -> hProp) :
-  -- Finset.sum fs (bighstar s H)=
-  ∑ i in fs, H i ∗↑ s = [∗ a in s| ∑ i in fs, H i a] := by sorry
+variable [PartialCommMonoid val]
 
+-- lemma sum_bighstar (H : β -> α -> hProp) :
+--   -- Finset.sum fs (bighstar s H)=
+--   ∑ i in fs, H i ∗↑ s = [∗ a in s| ∑ i in fs, H i a] := by sorry
+open EmptyPCM in
 lemma sum_bighstar_set (H : α -> hProp) (s : β -> Set α) :
   -- Finset.sum fs (bighstar s H)=
-  H ∗↑ ∑ i in fs, s i = ∑ i in fs, H ∗↑ s i := by sorry
+  H ∗↑ ∑ i in fs, s i = ∗∗ i in fs, H ∗↑ s i := by sorry
 
 lemma hhimpl_bighstar_himpl
    (Q R : α -> hProp) (s : Set α) :
@@ -186,6 +190,14 @@ lemma choose_fun2 {α β γ : Type}  [Inhabited β] [Inhabited γ]
   move=> /choose_fun /(_ ((default : β), (default : γ)))[f] ?
   exists (f · |>.fst), (f · |>.snd)
 
+-- #check instAddHhPropOfPartialCommMonoidVal
+
+
+lemma congr_hhimpl :
+  H = H' ->
+  H ==> H' := by move=>-> //
+
+open EmptyPCM in
 set_option maxHeartbeats 1600000 in
 lemma LGTM.wp_for_bighop (β : Type) [inst : Inhabited β]
   (z n : Int)
@@ -219,7 +231,7 @@ lemma LGTM.wp_for_bighop (β : Type) [inst : Inhabited β]
       H₀ +
       (∑ j in [[z, i]], Q j hv) ∗
        Inv i ∗
-      ((∑ j in [[z, i]], R' ∗↑ sᵢ j) ∗ (∑ j in [[i, n]], R ∗↑ sᵢ j)))=> //'
+      ((∗∗ j in [[z, i]], R' ∗↑ sᵢ j) ∗ (∗∗ j in [[i, n]], R ∗↑ sᵢ j)))=> //'
   { move=> > ? hveq; ysimp;-- srw ?sum_bighstar; apply hhimpl_bighstar_himpl=> a ?
     srw (Finset.sum_congr (s₂ := [[z,j]])); rotate_right 2
     { move=> /== k ??; apply eqQ
@@ -232,18 +244,19 @@ lemma LGTM.wp_for_bighop (β : Type) [inst : Inhabited β]
     specialize gen hv=> //'
     move: gen=> /choose_fun2
     scase! => v H' /== /[dup] gen -> //'
-    srw //' [2]sum_Ico_succl //' hhProp_add_def
+    srw //' [2]sum_Ico_succl //' /==
     ychange ind=> //'; apply hhimpl_trans; apply LGTM.wp_frame; apply hwp_conseq=> hv' /=
-    -- srw -gen //'
     srw [4]sum_Ico_predr //' /== ?hhProp_add_def; ysimp
-    srw sum_Ico_predr //' /== hhProp_add_def hhstar_comm eqQ; ysimp=> //'
-    srw -gen //' hhProp_add_def; ysimp
-    srw Finset.sum_congr; apply hhimpl_refl=> //'
-    move=> /== k ??; apply eqQ=> //' ? f /==
-    specialize dij' k j ?_ ?_ ?_=> //'; simp; omega
-    move: (Set.disjoint_left.mp dij' f)=> //'  }
-  { srw Finset.Ico_self /== //'; subst_vars; srw -sum_bighstar_set hhProp_add_def
-    ysimp }
+    apply hhimpl_trans; apply hhadd_hhsatr_assoc
+    srw sum_Ico_predr //' -gen //' /== add_left_comm [2]add_comm
+    apply congr_hhimpl; congr 2
+    { apply Finset.sum_congr=> //'
+      move=> /== k ??; apply eqQ=> //' ? f /==
+      specialize dij' k j ?_ ?_ ?_=> //'; simp; omega
+      move: (Set.disjoint_left.mp dij' f)=> //' }
+    apply eqQ=> //' }
+  { srw Finset.Ico_self /== //'; subst_vars; srw -sum_bighstar_set
+    erw [add_zero]; ysimp }
   move=> hv' /=; subst_vars; srw sum_bighstar_set Finset.Ico_self /==;
   ysimp
 
@@ -432,7 +445,8 @@ lemma LGTM.wp_while
 
 local notation (priority := high) Q " ∗↑ " s:70 => bighstar s Q
 set_option maxHeartbeats 1600000 in
-lemma LGTM.wp_while_bighop (β : Type) [inst : Inhabited β]
+open EmptyPCM in
+lemma LGTM.wp_while_bighop [PartialCommMonoid val] (β : Type) [inst : Inhabited β]
   (z n : Int)
   (Q : Int -> hval -> hhProp)
   (R R' : α -> hProp)
@@ -474,7 +488,7 @@ lemma LGTM.wp_while_bighop (β : Type) [inst : Inhabited β]
       H₀ +
       (∑ j in [[z, i]], Q j hv) ∗
        Inv b i ∗
-      ((∑ j in [[z, i]], R' ∗↑ sᵢ j) ∗ (∑ j in [[i, n]], R ∗↑ sᵢ j)))=> //'
+      ((∗∗ j in [[z, i]], R' ∗↑ sᵢ j) ∗ (∗∗ j in [[i, n]], R ∗↑ sᵢ j)))=> //'
   { move=> > ? hveq; ysimp
     srw (Finset.sum_congr (s₂ := [[z,j]])); rotate_right 2
     { move=> /== k ??; apply eqQ
@@ -487,36 +501,38 @@ lemma LGTM.wp_while_bighop (β : Type) [inst : Inhabited β]
     specialize gen hv=> //'
     move: gen=> /choose_fun2
     scase! => v H' /== /[dup] gen -> //'
-    srw //' [2]sum_Ico_succl //' hhProp_add_def
+    srw //' [2]sum_Ico_succl //' /==
     ychange indt=> //'; apply hhimpl_trans; apply LGTM.wp_frame; apply hwp_conseq=> hv' /=
-    -- srw -gen //'
-    srw [4]sum_Ico_predr //' /== ?hhProp_add_def; ysimp
-    srw sum_Ico_predr //' /== hhProp_add_def hhstar_comm eqQ; ysimp=> //'
-    srw -gen //' hhProp_add_def; ysimp
-    srw Finset.sum_congr; apply hhimpl_refl=> //'
-    move=> /== k ??; apply eqQ=> //' ? f /==
-    specialize dij' k j ?_ ?_ ?_=> //'; simp; omega
-    move: (Set.disjoint_left.mp dij' f)=> //'  }
+    srw [4]sum_Ico_predr //' /== ?hhProp_add_def; ysimp=> ?
+    apply hhimpl_trans; apply hhadd_hhsatr_assoc
+    srw sum_Ico_predr //' -gen //' /== add_left_comm [2]add_comm
+    apply congr_hhimpl; congr 2
+    { apply Finset.sum_congr=> //'
+      move=> /== k ??; apply eqQ=> //' ? f /==
+      specialize dij' k j ?_ ?_ ?_=> //'; simp; omega
+      move: (Set.disjoint_left.mp dij' f)=> //' }
+    apply eqQ=> //  }
   { move=> j hv ?
     specialize gen hv=> //'
     move: gen=> /choose_fun2
     scase! => v H' /== /[dup] gen -> //'
-    srw //' [2]sum_Ico_succl //' hhProp_add_def
+    srw //' [2]sum_Ico_succl //' /==
     ychange indf=> //'; apply hhimpl_trans; apply LGTM.wp_frame; apply hwp_conseq=> hv' /=
-    -- srw -gen //'
-    srw [4]sum_Ico_predr //' /== ?hhProp_add_def; ysimp
-    srw sum_Ico_predr //' /== hhProp_add_def hhstar_comm eqQ; ysimp=> //'
-    srw -gen //' hhProp_add_def; ysimp
-    srw Finset.sum_congr; apply hhimpl_refl=> //'
-    move=> /== k ??; apply eqQ=> //' ? f /==
-    specialize dij' k j ?_ ?_ ?_=> //'; simp; omega
-    move: (Set.disjoint_left.mp dij' f)=> //'  }
+    srw [4]sum_Ico_predr //' /== ?hhProp_add_def; ysimp=> ?
+    apply hhimpl_trans; apply hhadd_hhsatr_assoc
+    srw sum_Ico_predr //' -gen //' /== add_left_comm [2]add_comm
+    apply congr_hhimpl; congr 2
+    { apply Finset.sum_congr=> //'
+      move=> /== k ??; apply eqQ=> //' ? f /==
+      specialize dij' k j ?_ ?_ ?_=> //'; simp; omega
+      move: (Set.disjoint_left.mp dij' f)=> //' }
+    apply eqQ=> //  }
   { move=> > ?; specialize cndE j b
     srw -hwp_equiv at cndE; ychange cndE=> //'
     apply hhimpl_trans; apply hwp_frame;
     apply hwp_conseq=> ?; ysimp }
   { move=> ??; ychange cndn; ysimp }
-  { srw Finset.Ico_self /== -sum_bighstar_set hhProp_add_def; ysimp; ysimp }
+  { srw Finset.Ico_self /== -sum_bighstar_set; erw [add_zero]; ysimp; ysimp }
   move=> ? /=; srw Finset.Ico_self -sum_bighstar_set /==; ysimp; ysimp
 
 end WhileLoop
@@ -1067,7 +1083,7 @@ lemma hhlocal_hsubst_κ :
   move=> hl h ![h -> ??]; apply hlocal_fsubst_κ=> //
 
 set_option maxHeartbeats 1600000 in
-lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
+lemma wp_for_bighop_aux (β : Type) [PartialCommMonoid val] [inst : Inhabited β]
   (Q : Int -> hval -> hhProp)
   (R R' : α -> hProp)
   (H₀ : hhProp)
@@ -1093,11 +1109,11 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
          (fun hv => H₀ + (∑ j in [[z, n]], Q j hv) ∗ Inv n ∗ R' ∗↑ s) := by
   move=> lH₀ lInv lQ lgen ? eqQ gen ind *
   srw -(hsubst_H) //' LGTM.wp_Q_eq; rotate_left 2
-  { move=> ?; srw -(hsubst_H) //' hhProp_add_def //' }
+  { move=> ?; srw -(hsubst_H) //' }
   srw -[8](ssubst_s' s z n sᵢ s' disj seq df) //'
   srw -(ssubst_s s z n sᵢ s' disj seq df) //'
   apply hsubst_wp (Q :=
-    fun hv => hsubst κ s' (H₀ ∗ ∑ j in [[z, n]], Q j (hv ∘ (j,·))) ∗ hsubst κ s' (Inv n) ∗ (R' ∘ π) ∗↑ fs)=>//'
+    fun hv => hsubst κ s' (H₀ + ∑ j in [[z, n]], Q j (hv ∘ (j,·))) ∗ hsubst κ s' (Inv n) ∗ (R' ∘ π) ∗↑ fs)=>//'
   { apply lem4=> //' }
   { simp=> ⟨|⟩ <;> apply hhlocal_hsubst_κ=> //' }
   { move=> > hveq; congr! 3
@@ -1109,8 +1125,8 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
     unfold π'=> /=; srw if_pos //' }
   srw LGTM.triple_Q_eq; rotate_left
   { move=> hv;
-    rewrite [<-hsubst_hhstar_same κ s']
-    rewrite [hsubst_hhstar_sum_same]
+    rewrite [<-hsubst_hhadd_same κ s']
+    rewrite [hsubst_sum_same]
     rfl
     all_goals auto
     { move=> ????; srw ?κ' ?if_pos // }
@@ -1126,10 +1142,10 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
     exists v, (hsubst κ s' H);
     srw hsubst_hhstar_same //'; rotate_left
     { shave /==: hhlocal s' (Qgen j v ∗ H)
-      srw -eq hhProp_add_def //= }
+      srw -eq //= }
     { move=> ????; srw ?κ' ?if_pos // }
-    srw -eq ?hhProp_add_def -hsubst_hhstar_same //'
-    { srw hsubst_hhstar_sum_same //'
+    srw -eq -hsubst_hhadd_same //'
+    { srw hsubst_sum_same //'
       move=> ????; srw ?κ' ?if_pos // }
     move=> ????; srw ?κ' ?if_pos // }
   { simp; srw -disjoint_union /== => *
@@ -1140,14 +1156,14 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
   { move=> ?; srw (hsubst_κι s z n sᵢ (i := j)) //'  }
   srw -(hsubst_H') //' /= LGTM.wp_Q_eq; rotate_left 2
   { move=> ?
-    rewrite [hhProp_add_def, hsubst_hhstar_same _ s']
+    rewrite [hsubst_hhadd_same _ s']
     { srw -(hsubst_H') //' }
     all_goals auto
     {  move=> ????; srw ?ι' ?if_pos // }
     apply lem9=> //' }
   srw -(lem13 n sᵢ s' df) //' -(lem14 s z n sᵢ s') //'
   eapply hsubst_wp
-    (Q := fun hv => ((Q j hv ∗ Qgen j v) ∗ Inv (j+1) ∗ R' ∗↑ sᵢ j))=> //'
+    (Q := fun hv => ((Q j hv + Qgen j v) ∗ Inv (j+1) ∗ R' ∗↑ sᵢ j))=> //'
   { apply lem5=> // }
   { srw ?hhlocal_hhstar=> /== ⟨|⟩ <;> apply hhlocal_subset s'=> //' }
   { move=> > hveq; congr 2; apply eqQ=> //' /= ??; apply hveq=> /== //' }
@@ -1162,8 +1178,7 @@ lemma wp_for_bighop_aux (β : Type)  [inst : Inhabited β]
   { apply hhimpl_trans
     apply ind (v := v)=> //'
     srw wp2_ht_eq; apply hwp_conseq
-    { move=> hv /=; srw hhProp_add_def
-      ysimp }
+    { move=> hv /=; ysimp }
     { sdone }
     apply lem7=> // }
   move=> ??; apply Eq.symm; apply lem7=>//
@@ -1365,7 +1380,7 @@ private lemma lem_hsubst [Inhabited α] :
 lemma inj_some : Set.InjOn some s' = true := by move=> /== ? * //
 
 set_option maxHeartbeats 1600000 in
-lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
+lemma wp_for_bighop [Inhabited α] [PartialCommMonoid val] (β : Type)  [inst:Inhabited β]
   (Q : Int -> hval -> hhProp)
   (R R' : α -> hProp)
   (H₀ : hhProp)
@@ -1392,16 +1407,15 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
   move=> L ???? eqQ gen *
   eapply wp_hsubst_some=> //'
   { simp=> ⟨|⟩ <;> apply hhlocal_subset s'=> //' }
-  { move=> ?; srw hhProp_add_def /== => ⟨⟨|⟩|⟩
+  { move=> ? /== ⟨⟨|⟩|⟩
     { apply hhlocal_subset s'=> //' }
     { move=> *; apply hhlocal_subset s'=> //' }
     apply hhlocal_subset s'=> //' }
   srw hsubst_some_hhstar' //' ForLoopAux.LGTM.triple_Q_eq;  rotate_left
   {  move=> hv;
-     rewrite [hhProp_add_def]
      rewrite [hsubst_some_hhstar']
-     rewrite [<-hsubst_hhstar_same]
-     rewrite [hsubst_hhstar_sum_same]
+     rewrite [<-hsubst_hhadd_same]
+     rewrite [hsubst_sum_same]
      rfl=> //'
      { move=> * [] //' }
      move=> * [] //' }
@@ -1422,8 +1436,8 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
   { move=> > hj; scase!: (gen (hv · ∘ some) j hj)=> v H eq ⟨//|⟩
     exists hsubst some (s' ∪ s) H
     srw hsubst_hhstar_same //'
-    { srw -eq ?hhProp_add_def -hsubst_hhstar_same //'
-      { srw hsubst_hhstar_sum_same //' => * [] //' }
+    { srw -eq -hsubst_hhadd_same //'
+      { srw hsubst_sum_same //' => * [] //' }
       move=> * [] //' }
     { shave/==: hhlocal s' (Qgen j v ∗ H)
       srw -eq ?hhProp_add_def //' }
@@ -1435,16 +1449,15 @@ lemma wp_for_bighop [Inhabited α] (β : Type)  [inst:Inhabited β]
     srw ?(lem_hsubst s z n sᵢ s' (i := j)) //' -hsubst_some_hhstar' //'
     srw LGTM.wp_Q_eq; rotate_left 2
     { move=> hv
-      rewrite [hhProp_add_def, lem_hsubst s z n sᵢ s' (i := j)]
-      rewrite [hsubst_hhstar_same]
+      rewrite [lem_hsubst s z n sᵢ s' (i := j)]
+      rewrite [hsubst_hhadd_same]
       { srw -hsubst_some_hhstar' //' }
       all_goals auto
       move=> * [] //' }
     apply hsubst_wp=> //' /==
     { move=> * [] // }
     { constructor <;> apply hhlocal_subset s'=> //' }
-    { move=> > hveq ?; congr; apply eqQ=> //' }
-    move=> ?; rfl }
+    move=> > hveq ?; congr; apply eqQ=> //'  }
   { apply ssubst_some_disjoint=> // }
   srw [2]seq; clear *-L
   move: n; apply Int.le_induction
@@ -1484,7 +1497,7 @@ instance [r:RestrictToIndex z n shts shtsᵢ] :
    RestrictToIndex z n (⟨∑ i in [[z,n]], sᵢ i, ht⟩ :: shts) (fun i => (⟨sᵢ i, ht⟩ :: shtsᵢ i)) := by
   scase: r=> ??; constructor=> //== [] //
 
-class IsGeneralisedSum (H₀ : hhProp) (Q : Int -> hval -> hhProp) (β : outParam Type) (Qgen : outParam (Int -> β -> hhProp)) where
+class IsGeneralisedSum (H₀ : hhProp) [PartialCommMonoid val] (Q : Int -> hval -> hhProp) (β : outParam Type) (Qgen : outParam (Int -> β -> hhProp)) where
   eq : ∀ (hv : Int -> hval), ∀ j ∈ [[z,n]], ∃ v H, H₀ + ∑ i in [[z, j]], Q i (hv i) = Qgen j v ∗ H
 
 lemma shts_set_eq_sum (shts : LGTM.SHTs α) :
@@ -1555,6 +1568,7 @@ lemma RestrictToIndex.htrm_eq (restr: @RestrictToIndex α z n shts shtsᵢ)
     srw rstr.sets_eq // mem_union; exists i=> //
 
 lemma yfor_lemma
+  [PartialCommMonoidWRT val valid add]
   [Inhabited α]
   [Inhabited β]
   [rstr : RestrictToIndex z n shts shtsᵢ]
@@ -1592,6 +1606,7 @@ lemma yfor_lemma
   sby apply rstr.htrm_eq
 
 lemma ywhile_lemma
+  [PartialCommMonoidWRT val valid add]
   [Inhabited α]
   [Inhabited β]
   [rstr : RestrictToIndex z n shts shtsᵢ]

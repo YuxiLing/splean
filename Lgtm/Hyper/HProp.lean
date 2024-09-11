@@ -15,7 +15,11 @@ section HHProp
 variable {α : Type} [DecidableEq α]
 
 abbrev hheap (α : Type) := α -> heap
-abbrev hhProp (α : Type) := @hheap α -> Prop
+def hhProp (α : Type) := @hheap α -> Prop
+
+@[ext]
+lemma hhProp_ext (h₁ h₂ : hhProp α) :
+  (∀ a, h₁ a = h₂ a) -> (h₁ = h₂)  := by sorry
 
 def hunion (h₁ h₂ : @hheap α) : @hheap α :=
   λ a => h₁ a ∪ h₂ a
@@ -823,12 +827,12 @@ section AbstractSepLog
 def hhadd [PartialCommMonoid val] (H₁ H₂ : hhProp α) : hhProp α :=
   fun h => exists h1 h2, H₁ h1 ∧ H₂ h2 ∧ h = h1 +ʰ h2 ∧ h1 ⊥ʰ h2
 
-instance : Zero (hhProp α) := ⟨emp⟩
-instance [PartialCommMonoid val] : Add (hhProp α) := ⟨hhadd⟩
+instance ZeroHhProp : Zero (hhProp α) := ⟨emp⟩
+instance AddHhProp [PartialCommMonoid val] : Add (hhProp α) := ⟨hhadd⟩
 
 attribute [-simp] hValidInter
 
-instance ofPCM [PartialCommMonoid val] : AddCommMonoid (hhProp α) where
+instance (priority := high) ofPCM [PartialCommMonoid val] : AddCommMonoid (hhProp α) where
   zero := emp
   add  := hhadd
   nsmul := nsmulRec
@@ -851,28 +855,39 @@ instance ofPCM [PartialCommMonoid val] : AddCommMonoid (hhProp α) where
     exists ∅, h; sdo 3 constructor=> //
     move=> ?; apply validInter_empty_l
 
+attribute [instance low] AddHhProp
+attribute [instance low] ZeroHhProp
+
+
 instance [PartialCommMonoidWRT val add valid] : AddCommMonoidWRT (hhProp α) hhadd where
   addE := by sdone
 
 @[simp]
 lemma hzeroE : (0 : hhProp α) = emp := rfl
 
-lemma validInter_of_disjoint [PartialCommMonoid val] (h₁ h₂ : hheap α) :
-  hdisjoint h₁ h₂ ->  h₁ ⊥ʰ h₂ := by sorry
+lemma hValidInter_of_hdisjoint [PartialCommMonoid val] (h₁ h₂ : hheap α) :
+  hdisjoint h₁ h₂ ->  h₁ ⊥ʰ h₂ := by
+  move=> /[swap] a /(_ a) /validInter_of_disjoint //
 
 lemma hhaddE_of_disjoint [PartialCommMonoid val] (h₁ h₂ : hheap α) :
-  hdisjoint h₁ h₂ ->  h₁ +ʰ h₂ = h₁ ∪ h₂ := by sorry
+  hdisjoint h₁ h₂ ->  h₁ +ʰ h₂ = h₁ ∪ h₂ := by
+  move=> dj ! a /==; apply Heap.addE_of_disjoint=> //
 
 lemma hdisjoint_hhadd_eq [PartialCommMonoid val] (h₁ h₂ h₃ : hheap α) :
-  hdisjoint (h₁ +ʰ h₂) h₃ -> hdisjoint h₁ h₃ ∧ hdisjoint h₂ h₃ := by sorry
+  hdisjoint (h₁ +ʰ h₂) h₃ = (hdisjoint h₁ h₃ ∧ hdisjoint h₂ h₃) := by
+  sdone
 
-lemma hhadd_hhsatr  [PartialCommMonoid val] (H₁ H₂ Q : hhProp α) :
+lemma hhadd_assoc [PartialCommMonoid val] (h₁ h₂ h₃ : hheap α) :
+  (h₁ +ʰ h₂) +ʰ h₃ = h₁ +ʰ (h₂ +ʰ h₃) := by
+  move=> !a; apply Heap.add_assoc
+
+lemma hhadd_hhsatr_assoc  [PartialCommMonoid val] (H₁ H₂ Q : hhProp α) :
   H₁ + H₂ ∗ Q ==> H₁ + (H₂ ∗ Q) := by
   move=> h ![h q] ![h₁ h₂] ?? -> ?? -> /hdisjoint_hhadd_eq [??]
   exists h₁, (h₂ ∪ q); sdo 3 constructor=> //
-  admit
-  admit
-
+  { srw -?hhaddE_of_disjoint // hhadd_assoc }
+  srw -?hhaddE_of_disjoint //== => ⟨//|⟩
+  apply hValidInter_of_hdisjoint=> //
 
 namespace EmptyPCM
 

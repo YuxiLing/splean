@@ -99,10 +99,12 @@ lemma heval_nonrel_frame :
   heval_nonrel s (hh1 ∪ hh2) t (fun a => Q a ∗ (fun hh ↦ hh = hh2 a)) := by
   sby move=> hev ?? /hev /eval_frame
 
+abbrev tohhProp (f : hheap -> Prop) : hhProp := f
+
 lemma heval_frame :
   heval s hh1 t Q →
   hdisjoint hh1 hh2 →
-  heval s (hh1 ∪ hh2) t (Q ∗ (· = hh2)) := by
+  heval s (hh1 ∪ hh2) t (Q ∗ (tohhProp (· = hh2))) := by
   scase! => hQ ? himp ?
   exists fun a => hQ a ∗ (· = hh2 a)=> ⟨|hv⟩
   { sby apply heval_nonrel_frame }

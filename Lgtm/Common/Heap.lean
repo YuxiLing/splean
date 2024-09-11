@@ -79,6 +79,17 @@ noncomputable def Heap.add (h₁ h₂ : heap) : heap :=
 infixr:55 " +ʰ " => Heap.add
 
 @[simp]
+lemma Heap.add_lookup (h₁ h₂ : heap) (l : loc) :
+  (h₁ +ʰ h₂).lookup l =
+    if l ∈ h₁ then
+      if l ∈ h₂ then do (<- h₁.lookup l) + (<- h₂.lookup l)
+      else h₁.lookup l
+    else h₂.lookup l := by sorry
+
+@[simp]
+lemma Heap.add_mem (h₁ h₂ : heap) : (l ∈  h₁ +ʰ h₂) = (l ∈ h₁ ∨ l ∈ h₂) := by sorry
+
+@[simp]
 lemma Heap.add_empty_r (h : heap) : h +ʰ ∅ = h := by sorry
 
 @[simp]
@@ -93,6 +104,12 @@ def validLoc (l : loc) (h : heap) : Prop := (h.lookup l).any (valid (α := val))
 def validInter (h₁ h₂ : heap) : Prop :=
   ∀ l ∈ h₁, l ∈ h₂ -> validLoc l h₁ ∧ validLoc l h₁
 
+lemma Heap.addE_of_disjoint [PartialCommMonoid val] (h₁ h₂ : heap) :
+  h₁.Disjoint h₂ ->  h₁ +ʰ h₂ = h₁ ∪ h₂ := by
+  move=> dj; apply Finmap.ext_lookup=> l /==
+  scase_if=> [/dj ?|/Finmap.lookup_union_right//]
+  srw if_neg //; srw Finmap.lookup_union_left_of_not_in //
+
 infixr:55 " ⊥ʰ " => validInter
 
 lemma validInter_comm (h₁ h₂ : heap) :
@@ -103,12 +120,23 @@ lemma validInter_empty_r (h : heap) : h ⊥ʰ ∅ := by sorry
 lemma validInter_empty_l (h : heap) : ∅ ⊥ʰ h := by sorry
 
 @[simp]
+lemma disjoint_add_eq [PartialCommMonoid val] (h₁ h₂ h₃ : heap) :
+  (h₁ +ʰ h₂).Disjoint h₃ = (h₁.Disjoint h₃ ∧ h₂.Disjoint h₃) := by
+  move=> !⟨dj⟨|⟩|[dj₁ dj₂]⟩ l /==
+  { move: (dj l)=> // }
+  { move: (dj l)=> // }
+  scase=> [/dj₁|/dj₂] //
+
+@[simp]
 lemma validInter_hop_eq_r (h₁ h₂ h₃ : heap) :
   (h₁ +ʰ h₂) ⊥ʰ h₃ = (h₁ ⊥ʰ h₃ ∧ h₂ ⊥ʰ h₃) := by sorry
 
 @[simp]
 lemma validInter_hop_eq_l (h₁ h₂ h₃ : heap) :
   h₁ ⊥ʰ (h₂ +ʰ h₃) = (h₁ ⊥ʰ h₂ ∧ h₁ ⊥ʰ h₃) := by sorry
+
+lemma validInter_of_disjoint (h₁ h₂ : heap) :
+  h₁.Disjoint h₂ ->  h₁ ⊥ʰ h₂ := by sorry
 
 end
 
