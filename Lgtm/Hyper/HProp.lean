@@ -106,8 +106,30 @@ abbrev hhsingle (s : Set α) (p : α -> loc) (v : α -> val) : hhProp := [∗ i 
 -- notation:60 p:57 " ~" s:max "~> " v:57 => hhsingle s (fun _ => p) (fun _ => v)
 -- notation:60 p:57 " ~" s:max "~> " v:57 => hhsingle s p (fun _ => v)
 -- notation:60 p:57 "(" s ")|-> " v:57 => hhsingle s (fun _ => p) (fun _ => v)
-notation:60 p:57 "~⟨" i " in " s "⟩~> " v:57 => hhsingle s (fun i => p) (fun i => v)
-notation:60 p:57 "~" s:max "~> " v:57 => hhsingle s (fun i => p) (fun i => v)
+-- notation:60 p:57 "~" s:max "~> " v:57 => hhsingle s (p) (v)
+notation:60 p:57 "~" s:max "~> " v:57 => hhsingle s (fun _ => p) (fun _ => v)
+notation:60 p:57 " ~⟨" i " in " s "⟩~> " v:57 => hhsingle s (fun i => p) (fun i => v)
+notation:60 p:57 " ⟨" i " in " s "⟩|-> " v:57 => hhsingle s (fun i => p) (fun i => val.val_int (v))
+-- notation:60 p:57 " ⟨" i " in " s "⟩|-> " v:57 => hhsingle s (fun i => p) (fun i => val.val_loc (v))
+
+def val.to_int : val -> Int
+| val.val_int i => i
+| _ => 0
+instance : Coe val Int := ⟨val.to_int⟩
+
+@[app_unexpander hhsingle] def unexpandHhSingle : Lean.PrettyPrinter.Unexpander
+  | `($(_) $s $p $v) =>
+    match p with
+    | `(fun $_ => $p) =>
+      match v with
+      | `(fun $i:ident => $v) => `($p ~⟨$i in $s⟩~> $v)
+      | _ => throw ( )
+    | _ => throw ( )
+  | _ => throw ( )
+
+@[app_unexpander val.to_int] def unexpandValToInt : Lean.PrettyPrinter.Unexpander
+  | `($(_) $v) => return v
+  | _ => throw ( )
 
 
 def hhexists {A} (P : A → hhProp) : hhProp :=
@@ -657,6 +679,146 @@ by
   srw -[1](@hhstar_hhempty_r _ ⊤)
   apply hhimpl_frame_r ; apply hhimpl_hhtop_r
 
+/- ------------- Abstract Hyper Separation Logic Theory ------------- -/
+
+section AbstractSepLog
+
+def hhadd [PartialCommMonoid val] (H₁ H₂ : hhProp) : hhProp :=
+  fun h => exists h1 h2, H₁ h1 ∧ H₂ h2 ∧ h = h1 +ʰ h2 ∧ h1 ⊥ʰ h2
+
+instance ZeroHhProp : Zero (hhProp) := ⟨emp⟩
+instance AddHhProp [PartialCommMonoid val] : Add (hhProp) := ⟨hhadd⟩
+
+attribute [-simp] hValidInter
+
+instance (priority := high) ofPCM [PartialCommMonoid val] : AddCommMonoid (hhProp) where
+  zero := emp
+  add  := hhadd
+  nsmul := nsmulRec
+  add_comm  := by
+    move=> H₁ H₂ !h !⟨|⟩![h₁ h₂ ?? /hHeap.add_comm -> /hValidInter_symm ?]
+    <;> exists h₂, h₁
+  add_assoc := by
+    move=> H₁ H₂ H₃ !h !⟨![h₁ h₃ ![h₁ h₂] ??-> ?? -> /hValidInter_add_left [] ??]|⟩
+    { exists h₁, (h₂ +ʰ h₃); sdo 3 constructor=> //
+      srw hHeap.add_assoc }
+    scase! => h₁ h₂  ? ![h₂ h₃ ??-> ? -> /hValidInter_add_right []??]
+    exists (h₁ +ʰ h₂), h₃; sdo 3 constructor=> //
+    srw hHeap.add_assoc
+  add_zero  := by
+    move=> H !h !⟨![?? ? -> //]|?⟩
+    exists h, ∅ ; sdo 3 constructor=> //
+    move=> ?; apply validInter_empty_r
+  zero_add  := by
+    move=> H !h !⟨![?? -> ? //]|?⟩
+    exists ∅, h; sdo 3 constructor=> //
+    move=> ?; apply validInter_empty_l
+
+attribute [instance low] AddHhProp
+attribute [instance low] ZeroHhProp
+
+
+instance [PartialCommMonoidWRT val add valid] : AddCommMonoidWRT (hhProp) hhadd where
+  addE := by sdone
+
+@[simp]
+lemma hzeroE : (0 : hhProp) = emp := rfl
+
+lemma hValidInter_of_hdisjoint [PartialCommMonoid val] (h₁ h₂ : hheap) :
+  hdisjoint h₁ h₂ ->  h₁ ⊥ʰ h₂ := by
+  move=> /[swap] a /(_ a) /validInter_of_disjoint //
+
+lemma hhaddE_of_disjoint [PartialCommMonoid val] (h₁ h₂ : hheap) :
+  hdisjoint h₁ h₂ ->  h₁ +ʰ h₂ = h₁ ∪ h₂ := by
+  move=> dj ! a /==; apply Heap.addE_of_disjoint=> //
+
+lemma hdisjoint_hhadd_eq [PartialCommMonoid val] (h₁ h₂ h₃ : hheap) :
+  hdisjoint (h₁ +ʰ h₂) h₃ = (hdisjoint h₁ h₃ ∧ hdisjoint h₂ h₃) := by
+  sdone
+
+lemma hhadd_assoc [PartialCommMonoid val] (h₁ h₂ h₃ : hheap) :
+  (h₁ +ʰ h₂) +ʰ h₃ = h₁ +ʰ (h₂ +ʰ h₃) := by
+  move=> !a; apply Heap.add_assoc
+
+lemma hhadd_hhsatr_assoc  [PartialCommMonoid val] (H₁ H₂ Q : hhProp) :
+  H₁ + H₂ ∗ Q ==> H₁ + (H₂ ∗ Q) := by
+  move=> h ![h q] ![h₁ h₂] ?? -> ?? -> /hdisjoint_hhadd_eq [??]
+  exists h₁, (h₂ ∪ q); sdo 3 constructor=> //
+  { srw -?hhaddE_of_disjoint // hhadd_assoc }
+  srw -?hhaddE_of_disjoint //== => ⟨//|⟩
+  apply hValidInter_of_hdisjoint=> //
+
+namespace EmptyPCM
+
+@[simp]
+def hhaddE : (fun (H₁ H₂ : hhProp) => H₁ + H₂) = (fun (H₁ H₂ : hhProp) => H₁ ∗ H₂) := by
+  move=> !H₁ !H₂ !h ! ⟨|⟩ ![h₁ h₂] ?? -> ? <;> exists h₁, h₂; sdo 4 constructor=> //
+  { move=> !a; srw /== Heap.add_union_validInter //; solve_by_elim }
+  { move=> a /==; srw -validInter_disjoint //; solve_by_elim }
+  { move=> !a; srw /== Heap.add_union_validInter //
+    srw validInter_disjoint // }
+  move=> ?; srw validInter_disjoint //
+
+
+instance (priority := high) : AddCommMonoidWRT hProp hadd where
+  addE := by rfl
+
+notation "hhstarInst" => (@ofPCM _
+      (@PartialCommMonoidWRT.toPartialCommMonoid val EmptyPCM.add EmptyPCM.valid EPCM'))
+
+namespace BigOperators
+open Batteries.ExtendedBinder Lean Meta
+
+
+syntax (name := bighhstar) "∗∗ " BigOperators.bigOpBinders ("with " term)? ", " term:67 : term
+
+macro_rules (kind := bighhstar)
+  | `(∗∗ $bs:bigOpBinders $[with $p?]?, $v) => do
+    let processed ← BigOperators.processBigOpBinders bs
+    let x ← BigOperators.bigOpBindersPattern processed
+    let s ← BigOperators.bigOpBindersProd processed
+    match p? with
+    | some p => `(@Finset.sum _ _ hhstarInst (Finset.filter (fun $x ↦ $p) $s) (fun $x ↦ $v))
+    | none => `(@Finset.sum _ _ hhstarInst $s (fun $x ↦ $v))
+
+syntax (name := bighhstarin) "∗∗ " extBinder " in " term ", " term:67 : term
+macro_rules (kind := bighhstarin)
+  | `(∗∗ $x:ident in $s, $r) => `(∗∗ $x:ident ∈ $s, $r)
+  | `(∗∗ $x:ident : $t in $s, $r) => `(∗∗ $x:ident ∈ ($s : Finset $t), $r)
+
+open Lean Meta Parser.Term PrettyPrinter.Delaborator SubExpr
+open Batteries.ExtendedBinder
+
+/-- Delaborator for `Finset.sum`. The `pp.piBinderTypes` option controls whether
+to show the domain type when the sum is over `Finset.univ`. -/
+@[delab app.Finset.sum] def delabFinsetSumAndHStar : Delab :=
+  whenPPOption getPPNotation <| withOverApp 5 <| do
+  let #[_, _, inst, s, f] := (← getExpr).getAppArgs | failure
+  let_expr ofPCM _ EPCM := inst | BigOperators.delabFinsetSum
+  let_expr PartialCommMonoidWRT.toPartialCommMonoid _ _ _ EPCM' := EPCM | BigOperators.delabFinsetSum
+  let_expr EPCM' _ _ := EPCM' | BigOperators.delabFinsetSum
+  guard <| f.isLambda
+  let ppDomain ← getPPOption getPPPiBinderTypes
+  let (i, body) ← withAppArg <| withBindingBodyUnusedName fun i => do
+    return (i, ← delab)
+  if s.isAppOfArity ``Finset.univ 2 then
+    let binder ←
+      if ppDomain then
+        let ty ← withNaryArg 0 delab
+        `(BigOperators.bigOpBinder| $(.mk i):ident : $ty)
+      else
+        `(BigOperators.bigOpBinder| $(.mk i):ident)
+    `(∗∗ $binder:bigOpBinder, $body)
+  else
+    let ss ← withNaryArg 3 <| delab
+    `(∗∗ $(.mk i):ident ∈ $ss, $body)
+
+end BigOperators
+
+end EmptyPCM
+
+end AbstractSepLog
+
 /- -------------------- Properties of [bighstar] -------------------- -/
 
 lemma union_nonmem (f₁ f₂ : heap) (p : loc) :
@@ -694,10 +856,10 @@ lemma bighstarDef_eq :
   sby scase_if
 
 macro_rules | `(tactic| ssr_triv) => `(tactic| solve_by_elim)
-lemma bighstarDef_hhstar
-   {hH₁ hH₂ : α ->  hProp} {s : Set α}:
-    hdisjoint h₁ h₂ ->
-    (bighstarDef s hH₁ h₁) ∗ (bighstarDef s hH₂ h₂) = bighstarDef s (fun i => hH₁ i ∗ hH₂ i) (h₁ ∪ h₂) := by
+lemma bighstarDef_hhadd {h₁ h₂ : hheap}
+   {hH₁ hH₂ : α ->  hProp} {s : Set α} [PartialCommMonoid val]:
+    h₁ ⊥ʰ h₂ ->
+    (bighstarDef s hH₁ h₁) + (bighstarDef s hH₂ h₂) = bighstarDef s (fun i => hH₁ i + hH₂ i) (h₁ +ʰ h₂) := by
     move=> ?
     scase: (Set.eq_empty_or_nonempty s)=> [->|]
     { srw ?bighstarDef0; apply hhimpl_antisymm=> /==
@@ -721,15 +883,39 @@ lemma bighstarDef_hhstar
     { sby ext1=> /=; scase_if }
     sby move=> ?; simp [h₁, h₂]; scase_if
 
+macro_rules | `(tactic| ssr_triv) => `(tactic| solve_by_elim)
+open EmptyPCM in
+lemma bighstarDef_hhstar
+   {hH₁ hH₂ : α ->  hProp} {s : Set α}:
+    hdisjoint h₁ h₂ ->
+    (bighstarDef s hH₁ h₁) ∗ (bighstarDef s hH₂ h₂) = bighstarDef s (fun i => hH₁ i ∗ hH₂ i) (h₁ ∪ h₂) := by
+    move=> ?
+    srw -hhaddE bighstarDef_hhadd ?hhaddE_of_disjoint //
+    apply hValidInter_of_hdisjoint=> //
+
+lemma bighstar_hhadd [PartialCommMonoid val]
+   {hH₁ hH₂ : α ->  hProp} {s : Set α}:
+    [∗ i in s | hH₁ i] + [∗ i in s | hH₂ i] = [∗ i in s | hH₁ i + hH₂ i] := by
+    sby srw ?bighstar bighstarDef_hhadd; congr=> ? ? //
+
+lemma bighstar_sum [PartialCommMonoid val] {fs : Finset β}
+   {hH : α -> β -> hProp} {s : Set α}:
+    ∑ j in fs, [∗ i in s | hH i j] = [∗ i in s | ∑ j in fs, hH i j] := by
+    induction fs using Finset.induction_on=> /==
+    { erw [bighstar_hhempty] }
+    rename_i ih; srw Finset.sum_insert // ih bighstar_hhadd
+    congr!; srw Finset.sum_insert //
+
 lemma bighstar_hhstar
    {hH₁ hH₂ : α ->  hProp} {s : Set α}:
     [∗ i in s | hH₁ i] ∗ [∗ i in s | hH₂ i] = [∗ i in s | hH₁ i ∗ hH₂ i] := by
     sby srw ?bighstar bighstarDef_hhstar; congr=> ?
 
-lemma bighstar_hhstar_disj
+open EmptyPCM in
+lemma bighstar_hhadd_disj [PartialCommMonoid val]
    {hH : α -> hProp} {s₁ s₂ : Set α} :
     Disjoint s₁ s₂ ->
-    [∗ i in s₁ | hH i] ∗ [∗ i in s₂ | hH i] = [∗ i in s₁ ∪ s₂ | hH i] := by
+    [∗ i in s₁ | hH i] + [∗ i in s₂ | hH i] = [∗ i in s₁ ∪ s₂ | hH i] := by
     move=> /Set.disjoint_left Dij !hh /== ⟨![hh₁ hh₂ Hh₁ Hh₂ -> ? a/==]|⟩
     { scase_if=> /== <;> move: (Hh₁ a) (Hh₂ a)=> /== <;> scase_if
       { sby move=> /Dij; scase_if }
@@ -744,8 +930,15 @@ lemma bighstar_hhstar_disj
     { move=> !a/=; scase_if=> [/Dij|/==] <;> scase_if=> //
       sby move: (H a)=> /==; scase_if }
     move=> a; sdo 2 scase_if=> // *
-    { apply Finmap.Disjoint.symm; apply Finmap.disjoint_empty }
-    apply Finmap.disjoint_empty
+    { move=> ?? // }
+    move=> ?? //
+
+open EmptyPCM in
+lemma bighstar_hhstar_disj
+   {hH : α -> hProp} {s₁ s₂ : Set α} :
+    Disjoint s₁ s₂ ->
+    [∗ i in s₁ | hH i] ∗ [∗ i in s₂ | hH i] = [∗ i in s₁ ∪ s₂ | hH i] := by
+    srw -hhaddE; apply bighstar_hhadd_disj
 
 lemma bighstarDef_hexists [Inhabited β] {P : α -> β -> hProp} {hh₀ : hheap} :
   bighstarDef s (fun a => hexists (P a)) hh₀  = ∃ʰ (x : α -> β), bighstarDef s (fun a => P a (x a)) hh₀ := by
@@ -802,10 +995,10 @@ lemma hhsingle_intro (p : α -> _) (v : α -> _) :
   (p i ~⟨i in s⟩~> v i) (extend s (fun i =>Finmap.singleton (p i) (v i))) :=
 by apply bighstar_intro; sdone
 
-lemma hhsingl_inv p v h :
-  (p ~(s)~> v) h →
-  h = extend s (fun _ => Finmap.singleton p v) :=
-by sby move=> sH ! z; move: (sH z); unfold extend; scase_if
+-- lemma hhsingl_inv p v h :
+--   (p ~(s)~> v) h →
+--   h = extend s (fun _ => Finmap.singleton p v) :=
+-- by sby move=> sH ! z; move: (sH z); unfold extend; scase_if
 
 
 
@@ -818,146 +1011,16 @@ by
   { apply bighstar_himpl=> ??; apply hstar_hsingle_same_loc }
   sby srw bighstar_hpure_nonemp
 
+open AddPCM in
+lemma hhadd_hhsingle (v v' : α -> Int) (p : α -> loc) :
+  (p i ~⟨i in s⟩~> v i) + (p i ~⟨i in s⟩~> v' i) = p i ~⟨i in s⟩~> (v i + v' i) := by
+  srw ?hhsingle bighstar_hhadd; congr!; srw hadd_single
+
+open AddPCM in
+lemma sum_hhsingle (v : α -> β -> Int) (fs : Finset β) (p : α -> loc) :
+  (p i ~⟨i in s⟩~> 0) + ∑ j in fs, (p i ~⟨i in s⟩~> v i j) =
+  p i ~⟨i in s⟩~> val.val_int (∑ j in fs, v i j) := by
+  srw ?hhsingle bighstar_sum bighstar_hhadd; congr!; srw sum_single
+
+
 end HHProp
-
-/- ------------- Abstract Hyper Separation Logic Theory ------------- -/
-
-section AbstractSepLog
-
-def hhadd [PartialCommMonoid val] (H₁ H₂ : hhProp α) : hhProp α :=
-  fun h => exists h1 h2, H₁ h1 ∧ H₂ h2 ∧ h = h1 +ʰ h2 ∧ h1 ⊥ʰ h2
-
-instance ZeroHhProp : Zero (hhProp α) := ⟨emp⟩
-instance AddHhProp [PartialCommMonoid val] : Add (hhProp α) := ⟨hhadd⟩
-
-attribute [-simp] hValidInter
-
-instance (priority := high) ofPCM [PartialCommMonoid val] : AddCommMonoid (hhProp α) where
-  zero := emp
-  add  := hhadd
-  nsmul := nsmulRec
-  add_comm  := by
-    move=> H₁ H₂ !h !⟨|⟩![h₁ h₂ ?? /hHeap.add_comm -> /hValidInter_symm ?]
-    <;> exists h₂, h₁
-  add_assoc := by
-    move=> H₁ H₂ H₃ !h !⟨![h₁ h₃ ![h₁ h₂] ??-> ?? -> /hValidInter_add_left [] ??]|⟩
-    { exists h₁, (h₂ +ʰ h₃); sdo 3 constructor=> //
-      srw hHeap.add_assoc }
-    scase! => h₁ h₂  ? ![h₂ h₃ ??-> ? -> /hValidInter_add_right []??]
-    exists (h₁ +ʰ h₂), h₃; sdo 3 constructor=> //
-    srw hHeap.add_assoc
-  add_zero  := by
-    move=> H !h !⟨![?? ? -> //]|?⟩
-    exists h, ∅ ; sdo 3 constructor=> //
-    move=> ?; apply validInter_empty_r
-  zero_add  := by
-    move=> H !h !⟨![?? -> ? //]|?⟩
-    exists ∅, h; sdo 3 constructor=> //
-    move=> ?; apply validInter_empty_l
-
-attribute [instance low] AddHhProp
-attribute [instance low] ZeroHhProp
-
-
-instance [PartialCommMonoidWRT val add valid] : AddCommMonoidWRT (hhProp α) hhadd where
-  addE := by sdone
-
-@[simp]
-lemma hzeroE : (0 : hhProp α) = emp := rfl
-
-lemma hValidInter_of_hdisjoint [PartialCommMonoid val] (h₁ h₂ : hheap α) :
-  hdisjoint h₁ h₂ ->  h₁ ⊥ʰ h₂ := by
-  move=> /[swap] a /(_ a) /validInter_of_disjoint //
-
-lemma hhaddE_of_disjoint [PartialCommMonoid val] (h₁ h₂ : hheap α) :
-  hdisjoint h₁ h₂ ->  h₁ +ʰ h₂ = h₁ ∪ h₂ := by
-  move=> dj ! a /==; apply Heap.addE_of_disjoint=> //
-
-lemma hdisjoint_hhadd_eq [PartialCommMonoid val] (h₁ h₂ h₃ : hheap α) :
-  hdisjoint (h₁ +ʰ h₂) h₃ = (hdisjoint h₁ h₃ ∧ hdisjoint h₂ h₃) := by
-  sdone
-
-lemma hhadd_assoc [PartialCommMonoid val] (h₁ h₂ h₃ : hheap α) :
-  (h₁ +ʰ h₂) +ʰ h₃ = h₁ +ʰ (h₂ +ʰ h₃) := by
-  move=> !a; apply Heap.add_assoc
-
-lemma hhadd_hhsatr_assoc  [PartialCommMonoid val] (H₁ H₂ Q : hhProp α) :
-  H₁ + H₂ ∗ Q ==> H₁ + (H₂ ∗ Q) := by
-  move=> h ![h q] ![h₁ h₂] ?? -> ?? -> /hdisjoint_hhadd_eq [??]
-  exists h₁, (h₂ ∪ q); sdo 3 constructor=> //
-  { srw -?hhaddE_of_disjoint // hhadd_assoc }
-  srw -?hhaddE_of_disjoint //== => ⟨//|⟩
-  apply hValidInter_of_hdisjoint=> //
-
-namespace EmptyPCM
-
-@[simp]
-def hhaddE : (fun (H₁ H₂ : hhProp α) => H₁ + H₂) = (fun (H₁ H₂ : hhProp α) => H₁ ∗ H₂) := by
-  move=> !H₁ !H₂ !h ! ⟨|⟩ ![h₁ h₂] ?? -> ? <;> exists h₁, h₂; sdo 4 constructor=> //
-  { move=> !a; srw /== Heap.add_union_validInter // }
-  { move=> a /==; srw -validInter_disjoint // }
-  { move=> !a; srw /== Heap.add_union_validInter //
-    srw validInter_disjoint // }
-  move=> ?; srw validInter_disjoint //
-
-
-instance (priority := high) : AddCommMonoidWRT hProp hadd where
-  addE := by rfl
-
-notation "hhstarInst" => (@ofPCM _
-      (@PartialCommMonoidWRT.toPartialCommMonoid val EmptyPCM.add EmptyPCM.valid EPCM'))
-
-namespace BigOperators
-open Batteries.ExtendedBinder Lean Meta
-
-#check Finset.sum
-
-
-syntax (name := bighhstar) "∗∗ " BigOperators.bigOpBinders ("with " term)? ", " term:67 : term
-
-macro_rules (kind := bighhstar)
-  | `(∗∗ $bs:bigOpBinders $[with $p?]?, $v) => do
-    let processed ← BigOperators.processBigOpBinders bs
-    let x ← BigOperators.bigOpBindersPattern processed
-    let s ← BigOperators.bigOpBindersProd processed
-    match p? with
-    | some p => `(@Finset.sum _ _ hhstarInst (Finset.filter (fun $x ↦ $p) $s) (fun $x ↦ $v))
-    | none => `(@Finset.sum _ _ hhstarInst $s (fun $x ↦ $v))
-
-syntax (name := bighhstarin) "∗∗ " extBinder " in " term ", " term:67 : term
-macro_rules (kind := bighhstarin)
-  | `(∗∗ $x:ident in $s, $r) => `(∗∗ $x:ident ∈ $s, $r)
-  | `(∗∗ $x:ident : $t in $s, $r) => `(∗∗ $x:ident ∈ ($s : Finset $t), $r)
-
-open Lean Meta Parser.Term PrettyPrinter.Delaborator SubExpr
-open Batteries.ExtendedBinder
-
-/-- Delaborator for `Finset.sum`. The `pp.piBinderTypes` option controls whether
-to show the domain type when the sum is over `Finset.univ`. -/
-@[delab app.Finset.sum] def delabFinsetSumAndHStar : Delab :=
-  whenPPOption getPPNotation <| withOverApp 5 <| do
-  let #[_, _, inst, s, f] := (← getExpr).getAppArgs | failure
-  let_expr ofPCM _ EPCM := inst | BigOperators.delabFinsetSum
-  let_expr PartialCommMonoidWRT.toPartialCommMonoid _ _ _ EPCM' := EPCM | BigOperators.delabFinsetSum
-  let_expr EPCM' _ _ := EPCM' | BigOperators.delabFinsetSum
-  guard <| f.isLambda
-  let ppDomain ← getPPOption getPPPiBinderTypes
-  let (i, body) ← withAppArg <| withBindingBodyUnusedName fun i => do
-    return (i, ← delab)
-  if s.isAppOfArity ``Finset.univ 2 then
-    let binder ←
-      if ppDomain then
-        let ty ← withNaryArg 0 delab
-        `(BigOperators.bigOpBinder| $(.mk i):ident : $ty)
-      else
-        `(BigOperators.bigOpBinder| $(.mk i):ident)
-    `(∗∗ $binder:bigOpBinder, $body)
-  else
-    let ss ← withNaryArg 3 <| delab
-    `(∗∗ $(.mk i):ident ∈ $ss, $body)
-
-end BigOperators
-
-end EmptyPCM
-
-end AbstractSepLog

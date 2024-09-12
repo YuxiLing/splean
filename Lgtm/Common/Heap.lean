@@ -18,9 +18,9 @@ class PartialCommMonoid (α : Type) extends AddCommSemigroup α where
   valid_add : ∀ x, valid (x + y) -> valid x
 
 
-class PartialCommMonoidWRT (α : Type) (add : semiOutParam (α -> α -> α)) (valid : semiOutParam (α -> Prop)) extends PartialCommMonoid α where
-  addE : (· + ·) = add
-  validE : PartialCommMonoid.valid = valid
+class PartialCommMonoidWRT (α : Type) (add' : semiOutParam (α -> α -> α)) (valid' : semiOutParam (α -> Prop)) extends PartialCommMonoid α where
+  addE : (· + ·) = add'
+  validE : PartialCommMonoid.valid = valid'
 
 open PartialCommMonoid (valid)
 

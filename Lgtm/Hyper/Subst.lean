@@ -113,6 +113,8 @@ lemma fsubst_σ [Inhabited γ] (f : α -> γ) :
     sby apply vs }
   sdone
 
+instance (priority := low) : Inhabited hProp := ⟨hempty⟩
+
 lemma fsubst_heval_nonrel (s : Set α) :
   validSubst σ s hh ->
   validSubst σ s Q ->

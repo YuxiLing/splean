@@ -1497,7 +1497,8 @@ instance [r:RestrictToIndex z n shts shtsᵢ] :
    RestrictToIndex z n (⟨∑ i in [[z,n]], sᵢ i, ht⟩ :: shts) (fun i => (⟨sᵢ i, ht⟩ :: shtsᵢ i)) := by
   scase: r=> ??; constructor=> //== [] //
 
-class IsGeneralisedSum (H₀ : hhProp) [PartialCommMonoid val] (Q : Int -> hval -> hhProp) (β : outParam Type) (Qgen : outParam (Int -> β -> hhProp)) where
+class IsGeneralisedSum (valid) (add) [PartialCommMonoidWRT val valid add]
+  (H₀ : hhProp) (Q : Int -> hval -> hhProp) (β : outParam Type) (Qgen : outParam (Int -> β -> hhProp)) where
   eq : ∀ (hv : Int -> hval), ∀ j ∈ [[z,n]], ∃ v H, H₀ + ∑ i in [[z, j]], Q i (hv i) = Qgen j v ∗ H
 
 lemma shts_set_eq_sum (shts : LGTM.SHTs α) :
@@ -1572,7 +1573,7 @@ lemma yfor_lemma
   [Inhabited α]
   [Inhabited β]
   [rstr : RestrictToIndex z n shts shtsᵢ]
-  [gen: IsGeneralisedSum z n H₀ Q β Qgen]
+  [gen: IsGeneralisedSum z n valid add H₀ Q β Qgen]
   (R R' : α -> hProp)
   (Inv : Int -> hhProp) :
   shts.Forall (Disjoint s' ·.s) ->
@@ -1610,7 +1611,7 @@ lemma ywhile_lemma
   [Inhabited α]
   [Inhabited β]
   [rstr : RestrictToIndex z n shts shtsᵢ]
-  [gen: IsGeneralisedSum z n H₀ Q β Qgen]
+  [gen: IsGeneralisedSum z n valid add H₀ Q β Qgen]
   (R R' : α -> hProp)
   (Inv : Bool -> Int -> hhProp) :
   shts.Forall (Disjoint s' ·.s) ->

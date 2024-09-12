@@ -708,7 +708,7 @@ def ysimp_apply_intro_names (lem : Name) (xs : Syntax) : TacticM Unit :=
   | _ => throwError "ysimp_l_exists: @ unreachable 3"
 
 macro "simpNums" : tactic =>
-  `(tactic| (try simp only [foo, foo', foo''] at *; try dsimp [-hhwandE] at *))
+  `(tactic| (try simp only [foo, foo', foo''] at *; try dsimp at *))
 
 partial def ysimp_step_l (ysimp : YSimpR) (cancelWand := true) : TacticM Unit := do
   trace[ysimp] "LHS step"
@@ -916,11 +916,11 @@ elab "ysimp_handle_qimpl" : tactic => do
      else return ( )
   | Eq tp _ _ =>
     let_expr hhProp _ := tp | throwError "not a goal for ysimp/ypull"
-    {| apply hhimpl_antisym |}
+    {| apply hhimpl_antisymm |}
   | Eq tp _ _ =>
     let .some (_, tp) := tp.arrow? | throwError "not a goal for ysimp/ypull"
     let_expr hhProp _ := tp | throwError "not a goal for ysimp/ypull"
-    {| ext; apply hhimpl_antisym |}
+    {| ext; apply hhimpl_antisymm |}
   | _ => throwError "not a goal for ysimp/ypull"
 
 macro "ypull_start" : tactic =>
@@ -1176,21 +1176,21 @@ example (v2 : Int) (s : Set α) (p1 p2 : α -> loc) (v1 : α -> val) :
 
 example (p : loc) (v : val) :
   v = v' →
-  (H1 ∗ p ~s~> v) ==> H1 ∗ p ~s~> v' := by
+  (H1 ∗ p ~⟨_ in s⟩~> v) ==> H1 ∗ p ~⟨_ in s⟩~> v' := by
   move=> ?
   ysimp
 
 example (p1 p2 : loc) (v1 v2 v1' v2' : val):
-  H1 ∗ p1 ~s~> v1 ∗ H2 ∗ p2 ~s~> v2 ∗ H3 ==> H1 ∗ H2 ∗ p1 ~s~> v1' ∗ p2 ~s~> v2' := by
+  H1 ∗ p1 ~⟨_ in s⟩~> v1 ∗ H2 ∗ p2 ~⟨_ in s⟩~> v2 ∗ H3 ==> H1 ∗ H2 ∗ p1 ~⟨_ in s⟩~> v1' ∗ p2 ~⟨_ in s⟩~> v2' := by
   ysimp
   all_goals admit
 
 example (v : val) :
-  H1 ∗ 2 ~s~> v ==> (1 + 1) ~s~> v ∗ H1 := by
+  H1 ∗ 2 ~⟨_ in s⟩~> v ==> (1 + 1) ~⟨_ in s⟩~> v ∗ H1 := by
   ysimp
 
 example (x : α -> loc) :
-  x i ~⟨i in s⟩~> 1 ==> y ~s~> 2 ∗ x i ~⟨i in s⟩~> 1 := by
+  x i ~⟨i in s⟩~> 1 ==> y ~⟨_ in s⟩~> 2 ∗ x i ~⟨i in s⟩~> 1 := by
   ysimp; sorry
 
 

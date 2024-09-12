@@ -1,6 +1,8 @@
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
+import Mathlib.Algebra.BigOperators.Group.Finset
+
 import Lgtm.Common.Heap
 
 import Lgtm.Unary.Util
@@ -17,7 +19,13 @@ open Classical
 
 /- The type of heap predicates is named [hProp]. -/
 
-abbrev hProp := heap -> Prop
+def hProp := heap -> Prop
+
+@[ext]
+lemma hProp.ext (H1 H2 : hProp) :
+  (∀ h, H1 h ↔ H2 h) → H1 = H2 := by
+  move=> ?
+  apply funext=> //
 
 /- Entailment for heap predicates, written [H1 ==> H2]. This entailment
     is linear. -/
@@ -731,8 +739,8 @@ def hadd [PartialCommMonoid val] (H₁ H₂ : hProp) : hProp :=
 class AddCommMonoidWRT (α : Type) (add' : semiOutParam $ α -> α -> α) extends AddCommMonoid α where
   addE : (· + ·) = add'
 
-instance : Zero hProp := ⟨emp⟩
-instance [PartialCommMonoid val] : Add hProp := ⟨hadd⟩
+instance (priority := low) : Zero hProp := ⟨emp⟩
+instance AddHProp [PartialCommMonoid val] : Add hProp := ⟨hadd⟩
 
 
 instance [PartialCommMonoid val] : AddCommMonoid hProp where
@@ -740,21 +748,21 @@ instance [PartialCommMonoid val] : AddCommMonoid hProp where
   add  := hadd
   nsmul := nsmulRec
   add_comm  := by
-    move=> H₁ H₂ !h !⟨|⟩![h₁ h₂ ?? /validInter_comm ? /Heap.add_comm ->]
+    move=> H₁ H₂ !h ⟨|⟩![h₁ h₂ ?? /validInter_comm ? /Heap.add_comm ->]
     <;> exists h₂, h₁
   add_assoc := by
-    move=> H₁ H₂ H₃ !h !⟨![h₁ h₃ ![h₁ h₂] ???-> ? /validInter_hop_eq_r [] ?? ->]|⟩
+    move=> H₁ H₂ H₃ !h ⟨![h₁ h₃ ![h₁ h₂] ???-> ? /validInter_hop_eq_r [] ?? ->]|⟩
     { exists h₁, (h₂ +ʰ h₃); sdo 3 constructor=> //
       srw Heap.add_assoc }
     scase! => h₁ h₂  ? ![h₂ h₃ ???-> /validInter_hop_eq_l []?? ->]
     exists (h₁ +ʰ h₂), h₃; sdo 3 constructor=> //
     srw Heap.add_assoc
   add_zero  := by
-    move=> H !h !⟨![?? ? -> //]|?⟩
+    move=> H !h ⟨![?? ? -> //]|?⟩
     exists h, ∅ ; sdo 3 constructor=> //
     apply validInter_empty_r
   zero_add  := by
-    move=> H !h !⟨![?? -> ? //]|?⟩
+    move=> H !h ⟨![?? -> ? //]|?⟩
     exists ∅, h; sdo 3 constructor=> //
     apply validInter_empty_l
 
@@ -765,16 +773,70 @@ namespace EmptyPCM
 
 @[simp]
 def haddE : (· + ·) = (· ∗ ·) := by
-  move=> !H₁ !H₂ !h ! ⟨|⟩ ![h₁ h₂] ?? ? -> <;> exists h₁, h₂; sdo 4 constructor=> //
+  move=> !H₁ !H₂ !h ⟨|⟩ ![h₁ h₂] ?? ? -> <;> exists h₁, h₂; sdo 4 constructor=> //
   { srw -validInter_disjoint // }
   { srw validInter_disjoint // }
   srw Heap.add_union_validInter //
   srw validInter_disjoint //
 
+attribute [instance low] AddHProp
+
 instance (priority := high) : AddCommMonoidWRT hProp hadd where
   addE := by rfl
 
 end EmptyPCM
+
+namespace AddPCM
+
+@[simp]
+abbrev add : val -> val -> val
+  | .val_int i, .val_int j => val.val_int (i + j)
+  | _, _ => val.val_unit
+@[simp]
+abbrev valid : val -> Prop
+  | .val_int _ => True
+  | _ => False
+
+scoped instance : PartialCommMonoid val where
+  add := add
+  add_assoc := by
+    move=> [] // ? [] // ? [] // ? /==;
+    unfold HAdd.hAdd instHAdd=> /=; apply congrArg; omega
+  add_comm := by
+    move=> a b; scase: a <;> scase: b=> //==
+    move=> ??
+    unfold HAdd.hAdd instHAdd=> /=; apply congrArg; omega
+  valid := valid
+  valid_add := by
+    move=> a b; scase: a <;> scase: b=> //==
+
+scoped instance inst : PartialCommMonoidWRT val add valid where
+  validE := by rfl
+  addE := by rfl
+
+@[simp]
+lemma Heap.add_single (v v' : val) :
+  (Finmap.singleton p v) +ʰ (Finmap.singleton p v') = (Finmap.singleton p (v + v')) := by
+  apply Finmap.ext_lookup; srw Heap.add_lookup /== => l
+  scase_if=> [->//|?]; srw ?Finmap.lookup_eq_none.mpr //
+
+
+lemma hadd_single (v v' : Int) :
+  (p ~~> v) + (p ~~> v') = p ~~> (v + v') := by
+  move=> !h ⟨![??->-> ? ->]|->⟩ //
+  srw -Heap.add_single; exists (Finmap.singleton p v), (Finmap.singleton p v')
+  sdo 3 constructor=> //
+  move=> /==; srw validLoc Finmap.lookup_singleton_eq /==
+  simp [Option.any]
+  srw (PartialCommMonoidWRT.validE (add' := add) (valid' := valid)) //
+
+lemma sum_single (v : β -> Int) (fs : Finset β) :
+  (p ~~> 0) + ∑ i in fs, (p ~~> v i) = p ~~> val.val_int (∑ i in fs, v i) := by
+  induction fs using Finset.induction_on=> //==
+  rename_i ih; srw ?Finset.sum_insert // add_left_comm ih hadd_single //
+
+
+end AddPCM
 
 
 end AbstractSepLog

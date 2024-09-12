@@ -25,7 +25,7 @@ notation "funloc" p "↦" H =>
 
 section evalProp
 
-set_option maxHeartbeats 250000
+set_option maxHeartbeats 2500000
 /- Is there a good way to automate this? The current problem is that
    [constructor] does not always infer the correct evaluation rule to use.
    Since many of the rules involve a function application, using [constructor]
@@ -115,13 +115,16 @@ by
   srw Finmap.Disjoint=> ??
   sby srw Finmap.mem_erase
 
+abbrev tohProp (h : heap -> Prop) : hProp := h
+abbrev ofhProp (h : val -> hProp) : val -> heap -> Prop := h
 
-lemma eval_frame (h1 h2 : state) t Q :
-  eval h1 t Q →
+lemma eval_frame (h1 h2 : state) t (Q : val -> hProp) :
+  eval h1 t (ofhProp Q) →
   Finmap.Disjoint h1 h2 →
-  eval (h1 ∪ h2) t (Q ∗ (fun h ↦ h = h2)) :=
+  eval (h1 ∪ h2) t (Q ∗ (tohProp (fun h ↦ h = h2))) :=
 by
-  move=> heval
+  simp [ofhProp]
+  move=> /== heval
   elim: heval h2
   { sby move=> * }
   { sby move=> * }
@@ -608,7 +611,7 @@ lemma sP_strongest :
   apply himpl_hforall_l _ Q
   srw hwand_hpure_l=> //
 
-set_option maxHeartbeats 400000 in
+set_option maxHeartbeats 800000 in
 lemma sP_post :
   eval h t Q -> eval h t (sP h t) := by
   elim=> >
