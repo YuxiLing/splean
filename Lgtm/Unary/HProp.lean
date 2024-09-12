@@ -838,6 +838,66 @@ lemma sum_single (v : β -> Int) (fs : Finset β) :
 
 end AddPCM
 
+def hProp.Disjoint (H₁ H₂ : hProp) :=
+  forall h1 h2, H₁ h1 -> H₂ h2 -> h1.Disjoint h2
+
+attribute [instance 0] PartialCommMonoid.toAddCommSemigroup
+
+lemma hadd_disjoint_hstar [PartialCommMonoid val] (H₁ H₂ : hProp) :
+  H₁.Disjoint H₂ ->  H₁ + H₂ = H₁ ∗ H₂ := by
+  move=> dj !h ⟨|⟩ ![] h₁ h₂ ?? ? -> <;> exists h₁, h₂ => ⟨//|⟨//|⟨|⟩⟩⟩
+  { apply dj=> // }
+  { srw Heap.addE_of_disjoint=> ? //
+    apply dj=> // }
+  { apply validInter_of_disjoint=> // }
+  srw Heap.addE_of_disjoint=> ? //
+  apply dj=> //
+
+lemma hProp.disjoint_hstar (H₁ H₂ H₃ : hProp) :
+  (H₃.Disjoint H₁ ∧ H₃.Disjoint H₂) -> H₃.Disjoint (H₁ ∗ H₂) := by
+  move=> []d₁ d₂ ??? ![h₁ h₂]???->
+  srw Finmap.disjoint_union_right=> ⟨|⟩
+  { apply d₁=> // }
+  apply d₂=> //
+
+open EmptyPCM in
+lemma hProp.disjoint_sum (H : hProp) (fs : Finset β) :
+  (∀ i ∈ fs, H.Disjoint (H' i)) ->
+    H.Disjoint (fs.sum H') := by
+  induction fs using Finset.induction_on=> //==
+  { move=> ??? -> ? ? ? // }
+  rename_i ih; srw Finset.sum_insert // => ? /ih ?
+  srw haddE; apply hProp.disjoint_hstar=> //
+
+
+
+open EmptyPCM in
+lemma sum_disjoint_hstar (H : β -> hProp) (fs : Finset β) [inst : PartialCommMonoid val] :
+  (∀ᵉ (i ∈ fs) (j ∈ fs), i ≠ j -> (H i).Disjoint (H j)) ->
+  (∑ b in fs, H b) =
+  (@Finset.sum β hProp (@instAddCommMonoidHPropOfPartialCommMonoidVal (PartialCommMonoidWRT.toPartialCommMonoid add valid)) fs H) := by
+  induction fs using Finset.induction_on=> //==
+  rename_i ih
+  move=> dj dj'; srw ?(@Finset.sum_insert) //==
+  srw hadd_disjoint_hstar // ih
+  apply hProp.disjoint_sum=> // ? /[dup]? /dj; sapply=> ? //
+
+lemma single_disjoint :
+  p ≠ p' ->
+  (p ~~> v).Disjoint (p' ~~> v') := by
+  move=> ??? ->-> ? /== //
+
+
+-- lemma hadd_single_hstar (v v' : val) (p p' : loc) [PartialCommMonoid val] :
+--   (p ≠ p') ->
+--   (p ~~> v) + (p' ~~> v') = (p ~~> v) ∗ (p' ~~> v') := by
+--   move=> ? !h ⟨|⟩ ![] h₁ h₂ ->-> ? ->
+--   <;> exists (Finmap.singleton p v), (Finmap.singleton p' v')=> ⟨//|⟨//|⟨|⟩⟩⟩
+--   { move=> ? /== // }
+--   { srw Heap.addE_of_disjoint=> ? // }
+--   { apply validInter_of_disjoint=> // }
+--   srw Heap.addE_of_disjoint=> ? //
+
 
 end AbstractSepLog
 

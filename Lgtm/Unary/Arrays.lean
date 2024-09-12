@@ -9,6 +9,7 @@ import Lgtm.Unary.Lang
 /- ============== Definitions for Arrays ============== -/
 
 open val trm prim
+open Unary
 
 def hheader (n : Int) (p : loc) : hProp :=
   p ~~> (val_int n)

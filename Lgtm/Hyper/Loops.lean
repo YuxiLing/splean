@@ -38,15 +38,6 @@ instance : Inhabited hhProp := ⟨fun _ => False⟩
 attribute [instance 0] PartialCommMonoid.toAddCommSemigroup
 attribute [-simp] hhwandE
 
-notation "[[" z ", " n "]]" => Finset.Ico z n
-
-lemma sum_Ico_succl {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
-  i < j ->
-  ∑ i in [[i, j]], f i = f i + ∑ i in [[i+1, j]], f i := by sorry
-
-lemma sum_Ico_predr {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
-  i < j ->
-  ∑ i in [[i, j]], f i = (∑ i in [[i, j - 1]], f i) + f (j -1) := by sorry
 
 @[simp]
 lemma disjoint_union (sᵢ : β -> Set α)  :

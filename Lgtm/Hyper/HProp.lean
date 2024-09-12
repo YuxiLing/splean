@@ -1013,14 +1013,40 @@ by
 
 open AddPCM in
 lemma hhadd_hhsingle (v v' : α -> Int) (p : α -> loc) :
-  (p i ~⟨i in s⟩~> v i) + (p i ~⟨i in s⟩~> v' i) = p i ~⟨i in s⟩~> (v i + v' i) := by
-  srw ?hhsingle bighstar_hhadd; congr!; srw hadd_single
+  (p i ~⟨i in s⟩~> v i) + (p i ~⟨i in s⟩~> v' i) = p i ~⟨i in s⟩~> val.val_int (v i + v' i) := by
+  srw ?hhsingle bighstar_hhadd; congr!; srw hadd_single=> //
+
 
 open AddPCM in
 lemma sum_hhsingle (v : α -> β -> Int) (fs : Finset β) (p : α -> loc) :
   (p i ~⟨i in s⟩~> 0) + ∑ j in fs, (p i ~⟨i in s⟩~> v i j) =
   p i ~⟨i in s⟩~> val.val_int (∑ j in fs, v i j) := by
   srw ?hhsingle bighstar_sum bighstar_hhadd; congr!; srw sum_single
+
+lemma bighstar_eq (H H' : α -> hProp) :
+  (∀ a ∈ s, H a = H' a) ->
+  [∗ i in s| H i] = [∗ i in s| H' i] := by
+    sby move=> ?; apply hhimpl_antisymm=> h /[swap] a /(_ a) <;> scase_if
+
+
+-- lemma hhadd_hhsingle_hhstar (v v' : α -> val) (p p' : α -> loc) [PartialCommMonoid val] :
+--   (∀ i ∈ s, p i ≠ p' i) ->
+--   (p i ~⟨i in s⟩~> v i) + (p' i ~⟨i in s⟩~> v' i) =
+--   (p i ~⟨i in s⟩~> v i) ∗ (p' i ~⟨i in s⟩~> v' i) := by
+--   move=> ?
+--   srw ?hhsingle bighstar_hhadd bighstar_hhstar;
+--   apply bighstar_eq=> ??; srw hadd_single_hstar //
+
+-- lemma sum_hhsingle_hhstar
+--   (v v' : β -> α -> val) (p p' : β -> α -> loc)
+--   (fs : Finset β)
+--   [inst : PartialCommMonoid val] :
+--   (∀ᵉ (i ∈ s) (j ∈ fs) (k ∈ fs), p j i = p' k i -> j = k) ->
+--   ∑ j in fs, (p j i ~⟨i in s⟩~> v j i) =
+--   ∗∗ j in fs, (p j i ~⟨i in s⟩~> v j i) := by
+--   move=> eq
+--   induction fs using Finset.induction_on=> /==
+--   rename_i ih; srw Finset.sum_insert // ih
 
 
 end HHProp

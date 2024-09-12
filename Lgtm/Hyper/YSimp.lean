@@ -607,11 +607,6 @@ lemma ysimpl_lr_cancel_htop :
   srw (hhstar_comm_assoc Hra) -[2]hhstar_hhtop_hhtop ; hsimp=>?
   apply hhimpl_frame_lr=>//
 
-lemma bighstar_eq (H H' : α -> hProp) :
-  (∀ a ∈ s, H a = H' a) ->
-  [∗ i in s| H i] = [∗ i in s| H' i] := by
-    sby move=> ?; apply hhimpl_antisymm=> h /[swap] a /(_ a) <;> scase_if
-
 lemma bighsingle_eq {hv₁ hv₂ : α -> val} {p : α -> loc} :
   (∀ a ∈ s, hv₁ a = hv₂ a) ->
   [∗ i in s| p i ~~> hv₁ i] = [∗ i in s| p i ~~> hv₂ i] := by
