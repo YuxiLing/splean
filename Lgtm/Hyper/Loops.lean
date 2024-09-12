@@ -25,6 +25,8 @@ import Lgtm.Hyper.Subst
 open Classical trm val prim
 open SetSemiring
 
+section
+
 variable {α : Type} (s : Set α)
 
 local notation "htrm" => htrm α
@@ -34,11 +36,7 @@ local notation "hhProp" => hhProp α
 instance : AddCommMonoid (Set α) := SetSemiring.instAddCommMonoid
 instance : Inhabited hhProp := ⟨fun _ => False⟩
 attribute [instance 0] PartialCommMonoid.toAddCommSemigroup
-
-
--- open BigOperators
-
--- abbrev interval (z n : Int) : Finset Int := Finset.Ico z n
+attribute [-simp] hhwandE
 
 notation "[[" z ", " n "]]" => Finset.Ico z n
 
@@ -50,10 +48,15 @@ lemma sum_Ico_predr {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
   i < j ->
   ∑ i in [[i, j]], f i = (∑ i in [[i, j - 1]], f i) + f (j -1) := by sorry
 
-
+@[simp]
 lemma disjoint_union (sᵢ : β -> Set α)  :
-  (∀ x ∈ fs, Disjoint s (sᵢ x)) =
-  Disjoint s (∑ i in fs, sᵢ i) := by sorry
+  Disjoint s (∑ i in fs, sᵢ i) =
+  (∀ x ∈ fs, Disjoint s (sᵢ x)) := by sorry
+
+@[simp]
+lemma disjoint_union' (sᵢ : β -> Set α)  :
+  Disjoint (∑ i in fs, sᵢ i) s =
+  (∀ x ∈ fs, Disjoint (sᵢ x) s) := by sorry
 
 lemma mem_union (sᵢ : β -> Set α) :
   (x ∈ ∑ i ∈ fs, sᵢ i) = ∃ i ∈ fs, x ∈ sᵢ i := by sorry
@@ -107,12 +110,12 @@ lemma LGTM.wp_for_aux
   srw -(LGTM.wp_cons (sht := ⟨_, _⟩) (Q := fun x ↦ Inv _ (_ ∪__ x)))
   srw sum_Ico_succl
   ychange LGTM.wp_align_step_disj
-  { srw -disjoint_union at sij'; apply sij'=> /==; omega }
+  { simp at sij'; apply sij'=> /==; omega }
   { move: sij'; srw sum_Ico_succl /==; omega }
-  { simp; srw -disjoint_union=> /== *; apply dij=> /== <;> omega }
+  { simp=> /== *; apply dij=> /== <;> omega }
   { omega }
   { simp=> ⟨|⟩
-    { srw -disjoint_union at sij'; apply sij'=> /==; omega }
+    { simp at sij'; apply sij'=> /==; omega }
     move: sij'; srw sum_Ico_succl /==; omega }
   { omega }
   ychange ind
@@ -152,11 +155,11 @@ lemma LGTM.wp_for (Inv : Int -> hval -> hhProp) (sᵢ : Int -> Set α) (ht : htr
      ychange (LGTM.wp_for_aux (sᵢ := sᵢ) (i := z) (z := z) (n := n))=> //
      rotate_right
      { sby apply LGTM.wp_conseq=> ? }
-     move=> > ?; ychange ind=> //
+     move=> > ?; ychange ind=> //'
      apply hwp_conseq'=> hv' /==
-     ysimp[hv]; apply inveq=> //
+     ysimp[hv]; apply inveq=> //'
      move=> x /==
-     srw -disjoint_union at disj
+     simp at disj
      split_ifs=> //
      case pos h₁ h₂=>
        move: h₂ h₁; srw mem_union=> ![]/== j' *
@@ -284,23 +287,24 @@ lemma LGTM.wp_while_aux_false (Inv : Int -> hval -> hhProp)  (sᵢ : Int -> Set 
     move=> ind []L₁ L₂ Inveq disj; move: i L₂ L₁ s hv₀
     apply Int.le_induction_down
     { move=> ?? hv₀ ->/==; srw LGTM.wp /== hwp0_dep; ysimp[hv₀]
-      apply Inveq=> // }
+      apply Inveq=> //' }
     move=> j ? ih ? s hv₀ ->
-    srw sum_Ico_succl /==; intros _ dij=> //
+    srw sum_Ico_succl /==; intros _ dij=> //'
     srw -(fun_insert_ff (s := sᵢ (j - 1)) (f := ht))
     srw -LGTM.wp_unfold_first
     ychange ind
     { sby simpNums }
-    { srw -disjoint_union=> /== *; apply disj=> /== <;> omega }
+    { simp=> *; apply disj=> /== <;> omega }
     simp; srw ?LGTM.wp_cons /=; apply hwp_conseq
     { move=> hv /=; srw LGTM.wp /== hwp0_dep; ysimp=> ?
-      ychange ih <;> try trivial
+      ychange ih <;> try trivial <;> try simp
       { omega }
+      { simp=> // }
       apply hwp_conseq=> ?; apply Inveq
       { sdone }
       srw [2]sum_Ico_predr /==; intros
       split_ifs=> // }
-    { srw /== -disjoint_union=> /== *; apply disj=> /== <;> omega }
+    { simp=> *; apply disj=> /== <;> omega }
     sdone
 
 
@@ -335,17 +339,17 @@ lemma LGTM.wp_while_aux
     move=> []L₁ L₂ Inveq disj seq dij indt indf cndE cndn
     scase: b₀
     { clear indt
-      srw LGTM.wp_cons /=; ychange hwp_while=> //
-      ychange cndE=> //; apply hwp_conseq=> hv /=
+      srw LGTM.wp_cons /=; ychange hwp_while=> //'
+      ychange cndE=> //'; apply hwp_conseq=> hv /=
       ysimp; ychange hwp_if
       apply htriple_val
       apply hhimpl_trans; apply LGTM.wp_while_aux_false=> //
-      apply hwp_conseq=> ? /=; apply Inveq=> // }
+      apply hwp_conseq=> ? /=; apply Inveq=> //' }
     move: i L₂ L₁ s hv₀  seq
     apply Int.le_induction_down
-    { move=> ???? ->/==; ychange cndn=> // }
+    { move=> ???? ->/==; ychange cndn=> //' }
     move=> j ? ind ? s dij hv₀ ?
-    srw LGTM.wp_cons /=; ychange hwp_while=> //
+    srw LGTM.wp_cons /=; ychange hwp_while=> //'
     -- { sorry }
     ychange cndE
     { sby simpNums }
@@ -354,12 +358,12 @@ lemma LGTM.wp_while_aux
     srw -(LGTM.wp_cons (sht := ⟨_, _⟩) (Q := fun x ↦ Inv _ _ (_ ∪__ x)))
     srw sum_Ico_succl
     ychange LGTM.wp_align_step_disj
-    { srw -disjoint_union at dij; apply dij=> /==; omega }
+    { simp at dij; apply dij=> /==; omega }
     { move: dij; srw sum_Ico_succl /==; omega }
-    { simp; srw -disjoint_union=> /== *; apply disj=> /== <;> omega }
+    { simp=> /== *; apply disj=> /== <;> omega }
     { omega }
     { simp=> ⟨|⟩
-      { srw -disjoint_union at dij; apply dij=> /==; omega }
+      { simp at dij; apply dij=> /==; omega }
       move: dij; srw sum_Ico_succl /==; omega }
     { omega }
     ychange indt
@@ -369,7 +373,7 @@ lemma LGTM.wp_while_aux
     { move: dij; srw sum_Ico_succl /==; omega }
     ysimp=> []
     { srw LGTM.wp_cons /=;
-      apply hhimpl_trans_r; apply hwp_while=> //
+      apply hhimpl_trans_r; apply hwp_while=> //'
       apply hhimpl_trans; apply cndE
       { omega }
       apply hwp_conseq=> hv /=
@@ -379,7 +383,7 @@ lemma LGTM.wp_while_aux
       apply hhimpl_trans; apply LGTM.wp_while_aux_false <;> try trivial
       { omega }
       { sdone }
-      apply hwp_conseq=> ? /=; apply Inveq=> //==
+      apply hwp_conseq=> ? /=; apply Inveq=> //' /==
       srw sum_Ico_predr /==; intros
       split_ifs=> // }
     apply hhimpl_trans; apply (ind (s := ∑ i in [[j, n]], sᵢ i)) <;> try trivial
@@ -421,22 +425,22 @@ lemma LGTM.wp_while
     ychange (LGTM.wp_while_aux (sᵢ := sᵢ) (n := n) (z := z)) <;> try trivial
     rotate_right
     { sby apply LGTM.wp_conseq=> ? }
-    { move=> > ?; ychange indt=> //
+    { move=> > ?; ychange indt=> //'
       apply hwp_conseq'=> hv' /==
       ypull=> b
-      ysimp[hv, b]; apply inveq=> //
+      ysimp[hv, b]; apply inveq=> //'
       move=> x /==
-      srw -disjoint_union at dij
+      simp at dij
       split_ifs=> //
       case pos h₁ h₂=>
         move: h₂ h₁; srw mem_union=> ![]/== j' *
         shave/Set.disjoint_left//: Disjoint (sᵢ j) (sᵢ j')
         sby apply disj=> /== }
-    move=> > ?; ychange indf=> //
+    move=> > ?; ychange indf=> //'
     apply hwp_conseq'=> hv' /==
-    ysimp[hv]; apply inveq=> //
+    ysimp[hv]; apply inveq=> //'
     move=> x /==
-    srw -disjoint_union at dij
+    simp at dij
     split_ifs=> //
     case pos h₁ h₂=>
       move: h₂ h₁; srw mem_union=> ![]/== j' *
@@ -597,8 +601,9 @@ local notation "fs" => fs z n sᵢ
 private lemma disj' :
   ∀ i a, a ∈ s' -> a ∈ sᵢ i -> z <= i ∧ i < n -> False := by
   move=> i *
-  srw seq -disjoint_union at disj
-  specialize disj i ?_=> //'
+  srw seq /== at disj
+  simp at disj
+  specialize disj i ?_ ?_=> //'
   move: (Set.disjoint_left.mp disj)=> //
 
 local notation "disj'" => disj' s z n sᵢ s' disj seq
@@ -714,6 +719,7 @@ lemma disjoint_labSet :
 lemma inj_κ : Set.InjOn κ s' := by
   move=> ?? ?? /==; srw ?if_pos //
 
+set_option maxHeartbeats 1600000 in
 lemma fsubst_set_union (σ : α -> β) :
   hlocal s₁ h ->
   (∀ᵉ (a ∈ s₁) (b ∈ s₂), σ a ≠ σ b) ->
@@ -743,6 +749,7 @@ private lemma vsπ (h : hheap α) :
   move=> [] /== ? a -> ? ? b -> ?
   srw if_neg //' if_pos //' if_pos //'
 
+set_option maxHeartbeats 1600000 in
 private lemma hE (h : hheap α) :
   hlocal s' h ->
   h = (fsubst π (⟪n, s'⟫ ∪ fs) (fsubst κ s' h)) := by
@@ -805,8 +812,8 @@ private lemma hsubst_H_aux :
   { erw [hsubst_bighstar]=> //'
     srw (hsubst_πκ s z n sᵢ s' disj seq)=> //'
     srw (ssubst_s s z n sᵢ s' disj seq)=> //'  }
-  { simp; srw -disjoint_union /== => *
-    move: seq disj=> ->; srw -disjoint_union=> /== //' }
+  { simp => *
+    move: seq disj=> -> /== //' }
   move=> ? ![h -> ??] [m a] /== ?
   srw fsubst_local_out //' fsubst_inE /==
   move=> ??; srw if_pos => //' [] //'
@@ -980,10 +987,10 @@ lemma hsubst_κι i :
     { move=> *; exfalso; apply lem6 => // }
     { move=> *; exfalso; apply lem6 => // }
     srw ?(l _ Hh) //'
-    { move: seq disj=> ->; srw -disjoint_union => dj
+    { move: seq disj=> ->/== dj
       specialize dj i ?_=> //'
       srw Set.disjoint_left at dj=> // }
-    move: seq disj=> ->; srw -disjoint_union => dj
+    move: seq disj=> -> /== => dj
     specialize dj i ?_=> //'
     srw Set.disjoint_left at dj=> // }
   srw -(fsubst_κι (i := i)) //; exists h=> ⟨//|⟨//|⟩⟩
@@ -1009,7 +1016,7 @@ private lemma hsubst_H'_aux :
   move: (lem14 s z n sᵢ s' disj seq df i h h')=> h₂
   srw -(hsubst_hhstar (s₁ := s') (s₂ := sᵢ i))=> //'
   { erw [hsubst_bighstar]=> //' }
-  move: seq disj=> ->; srw -disjoint_union=> /== //'
+  move: seq disj=> -> /== //'
 
 private lemma hsubst_H' :
   z <= i ->
@@ -1148,8 +1155,8 @@ lemma wp_for_bighop_aux (β : Type) [PartialCommMonoid val] [inst : Inhabited β
     { srw hsubst_sum_same //'
       move=> ????; srw ?κ' ?if_pos // }
     move=> ????; srw ?κ' ?if_pos // }
-  { simp; srw -disjoint_union /== => *
-    move: seq disj=> ->; srw -disjoint_union=> /== //' }
+  { simp => *
+    move: seq disj=> -> /== //' }
   { move=> /== //' }
   move=> > ?
   srw ?(hsubst_κι s z n sᵢ (i := j)) //' LGTM.wp_Q_eq; rotate_left 2
@@ -1444,7 +1451,7 @@ lemma wp_for_bighop [Inhabited α] [PartialCommMonoid val] (β : Type)  [inst:In
     move=> * [] //' }
   { move=> > ?
     shave ?: Disjoint s' (sᵢ j)
-    { move: seq disj=> ->; srw -disjoint_union=> /== // }
+    { move: seq disj=> -> /== // }
     srw (lem_s' s z n sᵢ) //' (lem_s s z n sᵢ) //'
     srw ?(lem_hsubst s z n sᵢ s' (i := j)) //' -hsubst_some_hhstar' //'
     srw LGTM.wp_Q_eq; rotate_left 2
@@ -1490,16 +1497,23 @@ class RestrictToIndex (shts:LGTM.SHTs α) (shtsᵢ : outParam (Int -> LGTM.SHTs 
   ht_eq : ∀ i, z <= i ∧ i < n -> List.Forall₂ (fun s sᵢ => s.ht = sᵢ.ht) shts (shtsᵢ i)
 
 
-instance : RestrictToIndex z n [⟨∑ i in [[z,n]], sᵢ i, ht⟩] (fun i => [⟨sᵢ i, ht⟩]) := by
+instance RestrictToIndexNil : RestrictToIndex z n [⟨∑ i in [[z,n]], sᵢ i, ht⟩] (fun i => [⟨sᵢ i, ht⟩]) := by
   sdone
 
-instance [r:RestrictToIndex z n shts shtsᵢ] :
+instance RestrictToIndexCons [r:RestrictToIndex z n shts shtsᵢ] :
    RestrictToIndex z n (⟨∑ i in [[z,n]], sᵢ i, ht⟩ :: shts) (fun i => (⟨sᵢ i, ht⟩ :: shtsᵢ i)) := by
   scase: r=> ??; constructor=> //== [] //
 
-class IsGeneralisedSum (valid) (add) [PartialCommMonoidWRT val valid add]
-  (H₀ : hhProp) (Q : Int -> hval -> hhProp) (β : outParam Type) (Qgen : outParam (Int -> β -> hhProp)) where
-  eq : ∀ (hv : Int -> hval), ∀ j ∈ [[z,n]], ∃ v H, H₀ + ∑ i in [[z, j]], Q i (hv i) = Qgen j v ∗ H
+class IsGeneralisedSum (add) (valid) [PartialCommMonoidWRT val add valid]
+  (H₀ : hhProp) (Q : Int -> hval -> hhProp)
+  (β : outParam Type)
+  (Qgen : outParam (Int -> β -> hhProp))
+  (Qind : outParam (Int -> β -> hval -> hhProp))
+  (Qsum : outParam (hval -> hhProp)) where
+  eqGen : ∀ (hv : Int -> hval), ∀ j ∈ [[z,n]], ∃ v H, H₀ + ∑ i in [[z, j]], Q i (hv i) = Qgen j v ∗ H
+  eqInd : ∀ j hv v, Qind j v hv = Q j hv + Qgen j v
+  eqSum : ∀ hv, Qsum hv = H₀ + ∑ i in [[z,n]], Q i hv
+
 
 lemma shts_set_eq_sum (shts : LGTM.SHTs α) :
   shts.set = ∑ i in [[0, shts.length]], shts[i]!.s := by
@@ -1556,24 +1570,30 @@ lemma RestrictToIndex.htrm_eq (restr: @RestrictToIndex α z n shts shtsᵢ)
     { srw rstr.eq_length // }
     srw ?if_neg; { apply ih=> // }
     { simp=> k ??; move: (dj₁ shts[j]!);
-      srw disjoint_comm -disjoint_union=> dj₁;
+      srw disjoint_comm /== => dj₁;
       apply Set.disjoint_left.mp
       { apply dj₁=> //'; srw List.mem_iff_getElem; exists j=> //'
         exists h=> //'; srw getElem!_pos // }
       srw rstr.sets_eq //' mem_union; exists i=> // }
     move: (dj₁ shts[j]!);
-    srw disjoint_comm -disjoint_union=> dj₁;
+    srw disjoint_comm /== => dj₁;
     apply Set.disjoint_left.mp
     { apply dj₁=> //; srw List.mem_iff_getElem; exists j=> //
       exists h=> //; srw getElem!_pos // }
     srw rstr.sets_eq // mem_union; exists i=> //
 
+lemma LGTM.triple_conseq :
+  Pre ==> Pre' ->
+  Post' ===> Post ->
+  LGTM.triple shts Pre' Post' ->
+  LGTM.triple shts Pre Post := by sorry
+
 lemma yfor_lemma
-  [PartialCommMonoidWRT val valid add]
+  [PartialCommMonoidWRT val add valid]
   [Inhabited α]
   [Inhabited β]
   [rstr : RestrictToIndex z n shts shtsᵢ]
-  [gen: IsGeneralisedSum z n valid add H₀ Q β Qgen]
+  [gen: IsGeneralisedSum z n add valid H₀ Q β Qgen Qind Qsum]
   (R R' : α -> hProp)
   (Inv : Int -> hhProp) :
   shts.Forall (Disjoint s' ·.s) ->
@@ -1588,30 +1608,36 @@ lemma yfor_lemma
     LGTM.triple
       (⟨s', fun _ => subst vr i c⟩ :: shtsᵢ i)
       (Qgen i v ∗ Inv i ∗ R ∗↑ (shtsᵢ i).set /- split with type classes? -/)
-      (Q i · + Qgen i v ∗ Inv (i+1) ∗ R' ∗↑ (shtsᵢ i).set) /- split with type classes? -/) ->
+      (Qind i v · ∗ Inv (i+1) ∗ R' ∗↑ (shtsᵢ i).set) /- split with type classes? -/) ->
+  Pre ==> H₀ ∗ Inv z ∗  R ∗↑ shts.set ->
+  (fun hv => Qsum hv ∗ Inv n ∗ R' ∗↑ shts.set ) ===> Post ->
   LGTM.triple (⟨s', fun _ => trm_for vr z n c⟩ :: shts)
-    (H₀ ∗ Inv z ∗  R ∗↑ shts.set)
-    (fun hv => H₀ + (∑ j in [[z, n]], Q j hv) ∗ Inv n ∗ R' ∗↑ shts.set) := by
-  move=> dj dj' ? ???? eqQ ind
-  srw LGTM.triple LGTM.wp_squash_tail rstr.set_eq
+    Pre
+    Post := by
+  move=> dj dj' ? ???? eqQ ind preH postH
+  apply LGTM.triple_conseq=> //'
+  srw LGTM.triple LGTM.wp_squash_tail rstr.set_eq LGTM.wp_Q_eq; rotate_right
+  { move=> ?; srw gen.eqSum }
   apply wp_for_bighop (Qgen := Qgen) (sᵢ := fun j => (shtsᵢ j).set)=> //'
   { move=>> ? hev; apply eqQ=> //'
     srw List.forall_iff_forall_mem=> ?; srw List.mem_iff_getElem
     scase! => i ? <- a ?; apply hev; srw shts_set_eq_sum mem_union
     exists i=> ⟨//|⟩; srw getElem!_pos // }
-  { apply gen.eq }
+  { apply gen.eqGen }
   rotate_left
   { srw -rstr.set_eq; clear *-dj; clear rstr gen; elim: shts=> // }
-  move=>> hj; move: (ind j v hj); srw LGTM.triple LGTM.wp_squash_tail
+  move=>> hj; srw LGTM.wp_Q_eq; rotate_right
+  { srw -gen.eqInd //' }
+  move: (ind j v hj); srw LGTM.triple LGTM.wp_squash_tail
   srw ForLoopAux.wp2_ht_eq; { sapply }=> //'
   sby apply rstr.htrm_eq
 
 lemma ywhile_lemma
-  [PartialCommMonoidWRT val valid add]
+  [PartialCommMonoidWRT val add valid]
   [Inhabited α]
   [Inhabited β]
   [rstr : RestrictToIndex z n shts shtsᵢ]
-  [gen: IsGeneralisedSum z n valid add H₀ Q β Qgen]
+  [gen: IsGeneralisedSum z n add valid H₀ Q β Qgen Qind Qsum]
   (R R' : α -> hProp)
   (Inv : Bool -> Int -> hhProp) :
   shts.Forall (Disjoint s' ·.s) ->
@@ -1628,31 +1654,83 @@ lemma ywhile_lemma
         (⟨s', fun _ => c⟩:: shtsᵢ j)
         (Qgen j v ∗ (Inv true j) ∗ (R ∗↑ (shtsᵢ j).set))
         fun hv' =>
-        Q j hv' + Qgen j v ∗ (∃ʰ b, (Inv b (j + 1))) ∗ R' ∗↑ (shtsᵢ j).set) ->
+        Qind j v hv' ∗ (∃ʰ b, (Inv b (j + 1))) ∗ R' ∗↑ (shtsᵢ j).set) ->
   (∀ j (v : β), z <= j ∧ j < n ->
     LGTM.triple
         (shtsᵢ j)
         (Qgen j v ∗ (Inv false j) ∗ (R ∗↑ (shtsᵢ j).set))
-        fun hv' => Q j hv' + Qgen j v ∗ (Inv false (j + 1)) ∗ (R' ∗↑ (shtsᵢ j).set)) ->
+        fun hv' => Qind j v hv' ∗ (Inv false (j + 1)) ∗ (R' ∗↑ (shtsᵢ j).set)) ->
   (∀ j b, z <= j ∧ j <= n ->
     htriple s' (fun _ => cnd) (Inv b j) (fun bv => ⌜(bv = fun _ => val.val_bool b)⌝ ∗ Inv b j)) ->
   (∀ b, Inv b n ==> ⌜b = false⌝ ∗ Inv b n) ->
     LGTM.triple
       (⟨s', fun _ => trm_while cnd c⟩ :: shts)
       (H₀ ∗ Inv b₀ z ∗ R ∗↑ shts.set)
-      fun hv => H₀ + (∑ j in [[z, n]], Q j hv) ∗ Inv false n ∗ R' ∗↑ shts.set := by
+      fun hv => Qsum hv ∗ Inv false n ∗ R' ∗↑ shts.set := by
   move=> dj ?????? eqQ dj' indt indf cndE cndN
-  srw LGTM.triple LGTM.wp_squash_tail rstr.set_eq
+  srw LGTM.triple LGTM.wp_squash_tail rstr.set_eq LGTM.wp_Q_eq; rotate_right
+  { move=> ?; srw gen.eqSum }
   apply Disjoint.LGTM.wp_while_bighop (Qgen := Qgen)  (sᵢ := fun j => (shtsᵢ j).set)=> //'
   { move=>> ? hev; apply eqQ=> //'
     srw List.forall_iff_forall_mem=> ?; srw List.mem_iff_getElem
     scase! => i ? <- a ?; apply hev; srw shts_set_eq_sum mem_union
     exists i=> ⟨//|⟩; srw getElem!_pos // }
-  { move=> ?; apply gen.eq }
+  { move=> ?; apply gen.eqGen }
   { srw -rstr.set_eq; clear *-dj; clear rstr gen; elim: shts=> // }
-  { move=>> hj; move: (indt j v hj); srw LGTM.triple LGTM.wp_squash_tail
+  { move=>> hj; srw LGTM.wp_Q_eq; rotate_right
+    { srw -gen.eqInd //' }
+    move: (indt j v hj); srw LGTM.triple LGTM.wp_squash_tail
     srw ForLoopAux.wp2_ht_eq; { sapply }=> //'
     sby apply rstr.htrm_eq }
-  move=>> hj; move: (indf j v hj)
+  move=>> hj; srw LGTM.wp_Q_eq; rotate_right
+  { srw -gen.eqInd //' }
+  move: (indf j v hj)
   srw LGTM.triple ?LGTM.wp hwp_ht_eq /==; { sapply }=> //'
   move=> ??; srw rstr.htrm_eq //'
+
+end
+
+namespace AddPCM
+
+instance GenInst (op : hval α -> Int -> Int) (x : loc) :
+  IsGeneralisedSum
+    z n
+    AddPCM.add AddPCM.valid
+    (x ~⟨_ in s⟩~> 0)
+    (fun i hv => x ~⟨_ in s⟩~> op hv i)
+    (Int)
+    (fun _ j =>  x ~⟨_ in s⟩~> j)
+    (fun i j hv => x ~⟨_ in s⟩~> val.val_int (op hv i + j))
+    (fun hv => x ~⟨_ in s⟩~> val.val_int (∑ i in [[z,n]], op hv i)) where
+    eqGen := by
+      move=> > ?
+      exists (∑ i in [[z, j]], op (hv i) i), emp
+      srw sum_hhsingle; ysimp=> //
+    eqInd := by srw hhadd_hhsingle //
+    eqSum := by srw sum_hhsingle //
+
+end AddPCM
+
+/- ============ Tests for y-loops lemmas ============ -/
+open AddPCM
+
+#check disjoint_union
+
+local notation (priority := high) Q " ∗↑ " s:70 => bighstar s Q
+example (F : False) :
+  LGTM.triple
+    [⟨{11}, fun _ => trm_for vr (val.val_int 1) (val.val_int 10) c⟩,
+     ⟨∑ i in [[1, 10]], {i}, ht⟩,
+     ⟨∑ i in [[1, 10]], {-i}, ht⟩]
+    ((x ⟨_ in {1}⟩|-> 0) ∗ R ∗↑ s)
+    (fun hv => ((x ⟨_ in {1}⟩|->  ∑ j in [[0, 10]], (hv j))) ∗ R' ∗↑ s) := by
+  apply yfor_lemma
+    (z := 1)
+    (n := 10)
+    (valid := AddPCM.valid)
+    (add := AddPCM.add)
+    (Inv := fun _ => emp)
+    (Q := fun i hv => x ⟨_ in {11}⟩|-> (hv i + hv (-i)))
+    (H₀ := x ⟨_ in {11}⟩|-> 0)
+    (R := R)
+    (R' := R')=> /== //
