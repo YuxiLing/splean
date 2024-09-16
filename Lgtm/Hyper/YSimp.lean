@@ -713,7 +713,7 @@ partial def ysimp_step_l (ysimp : YSimpR) (cancelWand := true) : TacticM Unit :=
     | `(@hhempty $_)         => {| apply ysimp_l_hempty |}
     | `(@hhpure $_ $_)        =>
       let n <- fresh `n
-      revExt.modify (n :: ·)
+      revExt.modifySSR (n :: ·)
       {| apply ysimp_l_hpure; intro $n:ident |}
     | `(@HStar.hStar $_ $_ $_ $_ $h1 $h2)   =>
       withAssignableSyntheticOpaque {| erw [@hhstar_assoc _ $h1 $h2]; simpNums |}
@@ -721,7 +721,7 @@ partial def ysimp_step_l (ysimp : YSimpR) (cancelWand := true) : TacticM Unit :=
       /- we know that here should be another LHS step -/
       ysimp_step_l (<- YSimpRIni) cancelWand
     | `(@hhexists $_ $_ fun ($x:ident : $_) => $_) =>
-      revExt.modify (x :: ·)
+      revExt.modifySSR (x :: ·)
       {| apply ysimp_l_hexists; intro $x:term |}
     | `(@HWand.hWand $_    $_    $_ $_ $_ $_)   => {| apply ysimp_l_acc_wand |}
     | _              => {| apply ysimp_l_acc_other |}
@@ -766,11 +766,11 @@ partial def ysimp_step_l (ysimp : YSimpR) (cancelWand := true) : TacticM Unit :=
 
 
 def ysimp_r_hexists_apply_hints (x : Ident) : TacticM Unit := do
-  let hints <- hintExt.get
+  let hints <- hintExt.getSSR
   match hints with
   | [] => eApplyAndName `ysimp_r_hexists $ `ysimp ++ x.getId
   | h :: hs =>
-    hintExt.set hs
+    hintExt.setSSR hs
     match h with
     | `(hint| ?)       => eApplyAndName `ysimp_r_hexists $ `ysimp ++ x.getId
     | `(hint| $t:term) => {| apply (@ysimp_r_hexists _ _ $t) |}
@@ -891,10 +891,10 @@ elab "ysimp_step" : tactic => do
 
 elab "rev_pure" : tactic => do
   {| try subst_vars |}
-  for n in <- revExt.get do
+  for n in <- revExt.getSSR do
     withMainContext do
     {| try  revert $n:ident |}
-  revExt.set []
+  revExt.setSSR []
 
 
 elab "ysimp_handle_qimpl" : tactic => do
@@ -963,7 +963,7 @@ macro "ysimp" : tactic =>
 elab "ysimp" ls:hints : tactic => do
   match ls with
   | `(hints| [ $[$hs],* ]) =>
-    hintExt.set hs.toList
+    hintExt.setSSR hs.toList
     {| ysimp_start
        repeat ysimp_step
        try rev_pure
@@ -1199,7 +1199,7 @@ example :
 elab "put_hints" ls:hints : tactic => do
   match ls with
   | `(hints| [ $[$hs],* ]) =>
-    hintExt.set hs.toList
+    hintExt.setSSR hs.toList
   | _ => throwError "ysimp: unreachable"
 
 example (Q : Int -> Bool -> _) :

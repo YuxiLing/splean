@@ -132,13 +132,12 @@ lemma getElem_mapIdx (L : List α)
 open AddPCM in
 lemma hharray_int_hhadd_sum (l : ℤ) (v : Int -> Int) :
   0 <= l ->
-  l < L.length ->
+  l <= L.length ->
   hharray_int s L p +
     ∑ i in [[0, l]], (p j + 1 + i.natAbs ~⟨j in s⟩~> v i) =
     hharray_int s (L.mapIdx fun i x => if i < l then v i + x else x) p := by
   move=> ??; srw ?hharray_int_eq_hhadd /== add_assoc; congr
   srw -(Finset.Ico_union_Ico_eq_Ico (b := l)) //; rotate_left
-  { omega }
   srw ?Finset.sum_union
   { srw add_assoc [2]add_comm -add_assoc -Finset.sum_add_distrib
     srw (Finset.sum_congr rfl); rotate_left

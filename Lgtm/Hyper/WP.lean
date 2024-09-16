@@ -481,7 +481,7 @@ lemma wp_focus (i : Nat) (shts : SHTs α) (_ : i < shts.length) :
     { apply hwp_Q_eq=> ?
       apply wp_Q_eq=> ?; srw Set.union_comm fun_insert_assoc }
     srw disjoint_shts_set List.mem_eraseIdx_iff_getElem
-    move=> ? ![[]/==???<-]; apply dij1
+    move=> ? ![/==???<-]; apply dij1
     apply List.getElem_mem }
   apply dij1; apply List.getElem_mem
 

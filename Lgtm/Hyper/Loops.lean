@@ -21,9 +21,12 @@ import Lgtm.Hyper.YSimp
 import Lgtm.Hyper.YChange
 import Lgtm.Hyper.WP
 import Lgtm.Hyper.Subst
+import Lgtm.Hyper.Arrays
 
 open Classical trm val prim
 open SetSemiring
+
+set_option linter.style.longFile 1900
 
 section
 
@@ -288,7 +291,7 @@ lemma LGTM.wp_while_aux_false (Inv : Int -> hval -> hhProp)  (sᵢ : Int -> Set 
     { simp=> *; apply disj=> /== <;> omega }
     simp; srw ?LGTM.wp_cons /=; apply hwp_conseq
     { move=> hv /=; srw LGTM.wp /== hwp0_dep; ysimp=> ?
-      ychange ih <;> try trivial <;> try simp
+      ychange ih <;> try trivial
       { omega }
       { simp=> // }
       apply hwp_conseq=> ?; apply Inveq
@@ -589,6 +592,11 @@ abbrev fs := ∑ i in [[z,n]], ⟪i, sᵢ i⟫
 
 local notation "fs" => fs z n sᵢ
 
+section
+
+include seq disj dfN
+
+omit dfN in
 private lemma disj' :
   ∀ i a, a ∈ s' -> a ∈ sᵢ i -> z <= i ∧ i < n -> False := by
   move=> i *
@@ -613,7 +621,7 @@ private lemma validSubst_s' :
     subst_vars=> ⟨|⟩ //' /== ?; exfalso; apply d=> //' }
   srw if_pos //'
 
-
+set_option maxHeartbeats 1600000 in
 @[simp]
 private lemma validSubst_s :
   validSubst π (⟪n,s'⟫ ∪ fs) fs := by
@@ -652,7 +660,7 @@ private lemma ssubst_s :
   { exists i }
   srw if_pos=> //
 
-
+omit disj in
 private lemma lem0 : (df ∉ s') ∧ (∀ i, z <= i -> i < n -> df ∉ sᵢ i) := by
   move: seq dfN=> -> /==
 
@@ -692,6 +700,7 @@ private lemma lem4 :
   apply f=> //
 
 
+omit disj seq dfN in
 @[simp]
 lemma disjoint_labSet :
   Disjoint ⟪l, s⟫ ⟪l', s'⟫ = (l ≠ l' ∨ Disjoint s s') := by
@@ -706,10 +715,11 @@ lemma disjoint_labSet :
 --   checkpoint (scase: l l'=> //== /[swap] []//== <;> split_ifs=> //)
 --   { move=> [] // /(Set.disjoint_left.mp dj₁) // }
 --   move=> /(Set.disjoint_left.mp dj₁) //
-
+omit disj seq dfN in
 lemma inj_κ : Set.InjOn κ s' := by
   move=> ?? ?? /==; srw ?if_pos //
 
+omit disj seq dfN in
 set_option maxHeartbeats 1600000 in
 lemma fsubst_set_union (σ : α -> β) :
   hlocal s₁ h ->
@@ -732,9 +742,11 @@ lemma fsubst_set_union (σ : α -> β) :
   { srw -heq; apply choose_spec (p := fun y => (y ∈ s₁ ∨ y ∈ s₂) ∧ σ y = σ x)  }
   move=> //
 
+omit disj seq dfN in
 private lemma vsκ :
   validSubst κ s' h := by move=> ????/=; srw ?if_pos //
 
+omit disj seq dfN in
 private lemma vsπ (h : hheap α) :
   validSubst π ⟪n, s'⟫ (fsubst κ s' h) := by
   move=> [] /== ? a -> ? ? b -> ?
@@ -824,6 +836,7 @@ private lemma hsubst_H :
 
 local notation "hsubst_H" => hsubst_H s z n sᵢ s' disj seq df dfN
 
+omit disj seq dfN in
 private lemma π_in_s' :
   a ∈ s' -> π (n, a) = a := by
   simp=> //
@@ -839,6 +852,7 @@ private noncomputable def ι' : Int -> α -> ℤ×α :=
 
 local notation "ι" => ι' n sᵢ s' df
 
+omit dfN in
 set_option maxHeartbeats 1600000 in
 -- @[simp]
 private lemma lem5 i :
@@ -852,7 +866,7 @@ private lemma lem5 i :
   { srw if_pos //' ?if_neg //'=> [] // }
   move=> ?; apply d=> //
 
-
+omit dfN in
 set_option maxHeartbeats 1600000 in
 -- @[simp]
 private lemma lem6 i :
@@ -863,6 +877,7 @@ private lemma lem6 i :
   { srw ?if_pos //'; sby scase }
   move=> ?; apply (d i a)=> //
 
+omit dfN in
 set_option maxHeartbeats 1600000 in
 -- @[simp]
 private lemma lem9 i :
@@ -883,7 +898,7 @@ private lemma lem12 i :
     srw if_neg // => [] // }
   move=> ?; apply d=> //
 
-
+omit disj seq dfN in
 set_option maxHeartbeats 1600000 in
 -- @[simp]
 private lemma lem10 i :
@@ -892,6 +907,7 @@ private lemma lem10 i :
   move=> ?/== [] ? ? [] ?
   all_goals split_ifs=> //
 
+omit disj seq dfN in
 set_option maxHeartbeats 1600000 in
 -- @[simp]
 private lemma lem11 i :
@@ -901,7 +917,7 @@ private lemma lem11 i :
   all_goals split_ifs=> //
 
 -- Set.EqOn ht₁ ((ht₁ ∘ σ) ∘ ι) s'
-
+omit dfN in
 set_option maxHeartbeats 1600000 in
 @[simp]
 private lemma lem7 i :
@@ -913,7 +929,7 @@ private lemma lem7 i :
   { srw (if_pos (c := x ∈ sᵢ i)) //' }
   move=> ?; apply d=> //
 
-
+omit disj seq dfN in
 set_option maxHeartbeats 1600000 in
 private lemma lem13 i :
   ssubst (ι i) (s' ∪ sᵢ i) s' = ⟪n, s'⟫ := by
@@ -924,6 +940,7 @@ private lemma lem13 i :
   move=> ⟨/== ? [] ?? //|/== ->?⟩
   exists x=> //
 
+omit dfN in
 set_option maxHeartbeats 1600000 in
 private lemma lem14 i :
   z <= i ->
@@ -938,6 +955,7 @@ private lemma lem14 i :
   exists a=> //; srw ι' if_neg ?if_pos //'
   move=> ?; apply d=> //
 
+omit dfN in
 lemma fsubst_ι' i :
   z <= i ->
   i < n ->
@@ -998,8 +1016,8 @@ private lemma hsubst_H'_aux :
   move=> h h' ?
   move: (lem5 s z n sᵢ s' disj seq df i h h')=> ?
   move: (lem6 s z n sᵢ s' disj seq df i h h')=> ?
-  move: (lem9 z n sᵢ s' df i h h')=> ?
-  move: (lem12 s z n sᵢ s' disj seq df i h h')=> ?
+  move: (lem9 s z n sᵢ s' disj seq df i h h')=> ?
+  move: (lem12 s z n sᵢ s' disj seq df dfN i h h')=> ?
   -- move: (lem7 s z n sᵢ s' disj seq df i h h')=> ?
   move: (lem10 n sᵢ s' df i)=> ?
   move: (lem11 n sᵢ s' df i)=> ?
@@ -1052,22 +1070,26 @@ local notation "hsubst_H'" => hsubst_H' s z n sᵢ s' disj seq df
 
 -- local notation "hsubst_H''" => hsubst_H'' s z n sᵢ s' disj seq df
 
+omit disj seq dfN in
 lemma LGTM.triple_Q_eq :
   (∀ hv, Q hv = Q' hv) ->
   LGTM.triple sht H Q = LGTM.triple sht H Q' := by
   sby move=> /LGTM.hwp_Q_eq=> eq; srw ?LGTM.triple ?LGTM.wp eq
 
+omit disj seq dfN in
 lemma wp2_ht_eq :
   Set.EqOn ht₁ ht₁' s₁ ->
   Set.EqOn ht₂ ht₂' s₂ ->
   LGTM.wp [⟨s₁, ht₁⟩, ⟨s₂, ht₂⟩] Q =
   LGTM.wp [⟨s₁, ht₁'⟩, ⟨s₂, ht₂'⟩] Q := by sorry
 
+omit disj seq dfN in
 lemma wp1_ht_eq :
   Set.EqOn ht₂ ht₂' s₂ ->
   LGTM.wp [⟨s₂, ht₂⟩] Q =
   LGTM.wp [⟨s₂, ht₂'⟩] Q := by sorry
 
+omit disj seq dfN in
 lemma hlocal_fsubst_κ :
   hlocal s' H ->
   hlocal (⟪n, s'⟫ ∪ fs) (fsubst κ s' H) := by
@@ -1075,6 +1097,7 @@ lemma hlocal_fsubst_κ :
   { apply vsκ }
   srw fsubst_inE /== => ??; srw if_pos //'=> []//
 
+omit disj seq dfN in
 lemma hhlocal_hsubst_κ :
   hhlocal s' H ->
   hhlocal (⟪n, s'⟫ ∪ fs) (hsubst κ s' H) := by
@@ -1330,7 +1353,7 @@ lemma labSet_nonempty :
 --       move=> ?? /=
 --       srw ι' if_pos //'  π_in_s' //' }
 --     move=> /= ??;srw ι' if_pos //' }
-
+end
 end ForLoopAux
 
 variable (z n : ℤ)
@@ -1341,6 +1364,10 @@ variable (seq: s = ∑ i in [[z, n]], sᵢ i)
 
 local notation (priority := high) Q " ∗↑ " s:70 => bighstar s Q
 
+section
+include disj seq
+
+omit disj in
 private lemma lem_s' [Inhabited α] :
   z <= i ->
   i < n ->
@@ -1348,6 +1375,7 @@ private lemma lem_s' [Inhabited α] :
   ssubst some (s' ∪ sᵢ i) s' := by
   move=> ?? !x /== ⟨|⟩ /==//
 
+omit disj in
 private lemma lem_s [Inhabited α] :
   z <= i ->
   i < n ->
@@ -1356,6 +1384,7 @@ private lemma lem_s [Inhabited α] :
   move=> ?? !x /== ⟨|⟩ /==// ? -> _ ? ⟨|⟨//|⟨|//⟩⟩⟩
   right; srw seq /==; exists i=> //'
 
+omit disj in
 private lemma lem_fsubst [Inhabited α] :
   z <= i ->
   i < n ->
@@ -1367,6 +1396,7 @@ private lemma lem_fsubst [Inhabited α] :
     exists i }
   apply hhlocal_subset s'=> //
 
+omit disj in
 private lemma lem_hsubst [Inhabited α] :
   z <= i ->
   i < n ->
@@ -1374,6 +1404,7 @@ private lemma lem_hsubst [Inhabited α] :
   hsubst some (s' ∪ s) H = hsubst some (s' ∪ sᵢ i) H := by
   move=> * !h ! ⟨|⟩ ![h -> ? _] ⟨//|⟨|⟨//|?//⟩⟩⟩ <;> srw (lem_fsubst s z n (i := i)) //
 
+omit seq disj in
 @[simp]
 lemma inj_some : Set.InjOn some s' = true := by move=> /== ? * //
 
@@ -1462,7 +1493,7 @@ lemma wp_for_bighop [Inhabited α] [PartialCommMonoid val] (β : Type)  [inst:In
   { srw Finset.Ico_self /== => ! // }
   move=> n ? ih; srw sum_Ico_predr /== //' ssubst_some_union ih
   srw [2]sum_Ico_predr /== //
-
+end
 /- ------------------ [yfor] and [ywhile] tactics ------------------ -/
 
 -- class SetIsBigUnion (shts : LGTM.SHTs α) (sᵢ : outParam (Int -> Set α)) where
@@ -1700,12 +1731,37 @@ instance GenInst (op : hval α -> Int -> Int) (x : loc) :
     eqInd := by srw hhadd_hhsingle //
     eqSum := by srw sum_hhsingle //
 
+lemma List.mapIdx_eq (L : List α) :
+  (∀ i, 0 <= i -> i < L.length -> f i = g i) ->
+  List.mapIdx f L = List.mapIdx g L := by sorry
+
+instance GenInstArr (op : hval α -> Int -> Int) (L : List Int) (x : α -> loc) :
+  IsGeneralisedSum
+    0 L.length
+    AddPCM.add AddPCM.valid
+    (hharray_int s L x)
+    (fun i hv => x j + 1 + i.natAbs ~⟨j in s⟩~> op hv i)
+    (Int)
+    (fun k j =>  x i + 1 + k.natAbs ~⟨i in s⟩~> j)
+    (fun i j hv => x k + 1 + i.natAbs ~⟨k in s⟩~> val.val_int (op hv i + j))
+    (fun hv => hharray_int s (L.mapIdx fun i l => op hv i + l) x) where
+    eqGen := by
+      move=> > /== ??; srw hharray_int_hhadd_sum //
+      { move: (harray_int_chip_off (p := x) (L := (L.mapIdx (fun i x ↦ if ↑i < j then op (hv ↑i) ↑i + x else x))) s j)=> h
+        specialize h ?_ ?_=> //; scase: h=> H ->;
+        exists ((List.mapIdx (fun i x ↦ if ↑i < j then op (hv ↑i) ↑i + x else x) L)[j]!)
+        exists H; }
+    eqInd := by srw hhadd_hhsingle //
+    eqSum := by
+      move=> ?
+      srw hharray_int_hhadd_sum //; congr! 1
+      { apply List.mapIdx_eq=> ??? ! ?
+        srw if_pos // }
+
 end AddPCM
 
 /- ============ Tests for y-loops lemmas ============ -/
 open AddPCM
-
-#check disjoint_union
 
 local notation (priority := high) Q " ∗↑ " s:70 => bighstar s Q
 example (F : False) :
@@ -1723,5 +1779,23 @@ example (F : False) :
     (Inv := fun _ => emp)
     (Q := fun i hv => x ⟨_ in {11}⟩|-> (hv i + hv (-i)))
     (H₀ := x ⟨_ in {11}⟩|-> 0)
+    (R := R)
+    (R' := R')=> /== //
+
+example (F : False) (L L' : List Int) :
+  LGTM.triple
+    [⟨{11}, fun _ => trm_for vr (val.val_int 0) (val.val_int L.length) c⟩,
+     ⟨∑ i in [[(0:ℤ), L.length]], {i}, ht⟩,
+     ⟨∑ i in [[(0:ℤ), L.length]], {-i}, ht⟩]
+    ((hharray_int {11} L (fun _ => x)) ∗ R ∗↑ s)
+    (fun hv => (hharray_int {11} L' (fun _ => x)) ∗ R' ∗↑ s) := by
+  apply yfor_lemma
+    (z := 0)
+    (n := L.length)
+    (valid := AddPCM.valid)
+    (add := AddPCM.add)
+    (Inv := fun _ => emp)
+    (Q := (fun i hv => (x + 1 + i.natAbs) ⟨_ in {11}⟩|-> hv i))
+    (H₀ := hharray_int {11} L (fun _ => x))
     (R := R)
     (R' := R')=> /== //

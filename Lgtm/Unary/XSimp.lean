@@ -1,8 +1,6 @@
 import Lean.Elab.Tactic
 import Qq
 
--- import SSReflect.Lang
-
 import Lgtm.Unary.HProp
 import Lgtm.Unary.Util
 
@@ -702,7 +700,7 @@ partial def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit :=
     | `(hempty)         => {| apply xsimp_l_hempty |}
     | `(hpure $_)        =>
       let n <- fresh `n
-      revExt.modify (n :: ·)
+      revExt.modifySSR (n :: ·)
       {| apply xsimp_l_hpure; intro $n:ident |}
     | `(@HStar.hStar hProp hProp $_ $_ $h1 $h2)   =>
       withAssignableSyntheticOpaque {| erw [@hstar_assoc $h1 $h2]; simpNums |}
@@ -710,7 +708,7 @@ partial def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit :=
       /- we know that here should be another LHS step -/
       xsimp_step_l (<- XSimpRIni) cancelWand
     | `(@hexists $_ fun ($x:ident : $_) => $_) =>
-      revExt.modify (x :: ·)
+      revExt.modifySSR (x :: ·)
       {| apply xsimp_l_hexists; intro $x:term |}
     | `(@HWand.hWand hProp hProp $_ $_ $_ $_)    => {| apply xsimp_l_acc_wand |}
     | `(@HWand.hWand $_    $_    $_ $_ $_ $_)   => {| apply xsimp_l_acc_wand |}
@@ -754,11 +752,11 @@ def eApplyAndName (lem : Name) (mvarName : Name) : TacticM Unit := withMainConte
 
 
 def xsimp_r_hexists_apply_hints (x : Ident) : TacticM Unit := do
-  let hints <- hintExt.get
+  let hints <- hintExt.getSSR
   match hints with
   | [] => eApplyAndName `xsimp_r_hexists $ `xsimp ++ x.getId
   | h :: hs =>
-    hintExt.set hs
+    hintExt.setSSR hs
     match h with
     | `(hint| ?)       => eApplyAndName `xsimp_r_hexists $ `xsimp ++ x.getId
     | `(hint| $t:term) => {| apply (@xsimp_r_hexists _ $t) |}
@@ -866,10 +864,10 @@ elab "xsimp_step" : tactic => do
 
 elab "rev_pure" : tactic => do
   {| try subst_vars |}
-  for n in <- revExt.get do
+  for n in <- revExt.getSSR do
     withMainContext do
     {| try  revert $n:ident |}
-  revExt.set []
+  revExt.setSSR []
 
 
 elab "xsimp_handle_qimpl" : tactic => do
@@ -936,7 +934,7 @@ macro "xsimp" : tactic =>
 elab "xsimp" ls:hints : tactic => do
   match ls with
   | `(hints| [ $[$hs],* ]) =>
-    hintExt.set hs.toList
+    hintExt.setSSR hs.toList
     {| xsimp_start
        repeat xsimp_step
        try rev_pure
@@ -1168,7 +1166,7 @@ example :
 local elab "put_hints" ls:hints : tactic => do
   match ls with
   | `(hints| [ $[$hs],* ]) =>
-    hintExt.set hs.toList
+    hintExt.setSSR hs.toList
   | _ => throwError "xsimp: unreachable"
 
 example (Q : Int -> Bool -> _) :

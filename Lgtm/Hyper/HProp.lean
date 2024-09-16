@@ -12,7 +12,7 @@ open Classical
 
 section HHProp
 
-variable {α : Type} [DecidableEq α]
+variable {α : Type}
 
 abbrev hheap (α : Type) := α -> heap
 def hhProp (α : Type) := @hheap α -> Prop
@@ -61,7 +61,7 @@ instance : EmptyCollection hheap := ⟨hEmpty⟩
 @[simp]
 def hEmptyE : (∅ : hheap) a = ∅ := by rfl
 
-def hSingle (a : α) (p : loc) (v : val) : hheap :=
+noncomputable def hSingle (a : α) (p : loc) (v : val) : hheap :=
   λ a' => if a = a' then Finmap.singleton p v else ∅
 
 -- def bighstar (s : Set α) [DecidablePred (· ∈ s)]  (h : heap) : hheap :=

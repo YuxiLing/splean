@@ -53,7 +53,7 @@ noncomputable def kmerge : List (Sigma (fun _ : loc => val)) → List (Sigma (fu
 @[simp]
 lemma kmerge_mem (l₁ : List (Sigma (fun _ : loc => val))) : l ∈ (kmerge l₁ l₂).keys ↔ l ∈ l₁.keys ∨ l ∈ l₂.keys :=
   by
-    elim: l₁ l₂=> //== l' v l₁ ih l₂
+    elim: l₁ l₂=> // [] /= l' v l₁ ih l₂
     scase: [l' ∈ l₂.keys]=> /=
     { srw /== ih => ? ⟨[|[]]|[[]|]⟩ // }
     move=> ?; scase: [l = l']=> [?|->] /==
@@ -62,7 +62,7 @@ lemma kmerge_mem (l₁ : List (Sigma (fun _ : loc => val))) : l ∈ (kmerge l₁
 noncomputable def AList.merge (h₁ h₂ : AList (fun _ : loc => val)) :  AList (fun _ : loc => val) :=
   ⟨kmerge h₁.entries h₂.entries, by
     scase: h₁ h₂=> /= e₁ /[swap] [] /=
-    elim: e₁=> /== l v e₁ ih e₂ ???
+    elim: e₁=> /== [] l v e₁ ih e₂ ???
     split_ifs=> /== ⟨|⟩ //; apply ih=> //; apply List.NodupKeys.kerase=> //⟩
 
 theorem Perm.kmerge {l₁ l₂ l₃ l₄ : List (Sigma (fun _ : loc => val))} (nd₃ : l₃.NodupKeys) (p₁₂ : l₁.Perm l₂)
@@ -165,8 +165,7 @@ lemma validE : PartialCommMonoid.valid (α := val) = fun _ => False := by sdone
 
 @[simp]
 lemma validLocE : validLoc (val := val) l h = False := by
-  srw validLoc; scase: (Finmap.lookup l h)=> //== ?
-  simp [Option.any]
+  srw validLoc; scase: (Finmap.lookup l h)=> //==
 
 
 lemma validInter_disjoint (h₁ h₂ : Heap.heap val) :

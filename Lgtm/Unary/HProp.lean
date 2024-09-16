@@ -827,7 +827,6 @@ lemma hadd_single (v v' : Int) :
   srw -Heap.add_single; exists (Finmap.singleton p v), (Finmap.singleton p v')
   sdo 3 constructor=> //
   move=> /==; srw validLoc Finmap.lookup_singleton_eq /==
-  simp [Option.any]
   srw (PartialCommMonoidWRT.validE (add' := add) (valid' := valid)) //
 
 lemma sum_single (v : β -> Int) (fs : Finset β) :

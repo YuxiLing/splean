@@ -228,7 +228,6 @@ lemma update_middle (A : Type) (_ : Inhabited A) (n : Nat)
   (l1 l2 : List A) (x v : A) :
   n = l1.length → (l1 ++ x :: l2).set n v = (l1.concat v) ++ l2 := by
   move=> ? ; subst n=> /==
-  sby srw update_app_r
 
 -- set_option pp.explicit true
 -- set_option pp.all true
