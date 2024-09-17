@@ -541,7 +541,7 @@ namespace ForLoopAux
 
 def labSet (l : ℤ) (s : Set α) : Set (ℤ × α) := {(l, a) | a ∈ s}
 
-notation (priority := high) "⟪" l ", " s "⟫" => labSet l s
+local notation (priority := high) "⟪" l ", " s "⟫" => labSet l s
 
 @[simp]
 lemma labelSet_inE :
