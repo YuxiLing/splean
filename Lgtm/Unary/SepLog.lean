@@ -38,28 +38,28 @@ lemma eval_conseq s t Q1 Q2 :
 by
   move=> heval
   srw (qimpl) (himpl)=> Imp
-  elim: heval ; move=> * ; constructor=>//
-  { sby constructor }
-  { sby apply eval.eval_app_arg2 }
-  { sby apply eval.eval_app_fun }
-  { sby apply eval.eval_app_fix }
-  { apply eval.eval_seq =>//
-    move=> * ; aesop  }
-  { sby constructor=>// }
-  { apply eval.eval_unop=>//
+  elim: heval ; move=> > himp >
+  { move=> * ; sby constructor }
+  { move=> * ; sby constructor }
+  { move=> * ; sby constructor }
+  { move=> * ; sby constructor }
+  { move=> * ; sby apply eval.eval_app_arg2 }
+  { move=> * ; sby apply eval.eval_app_fun }
+  { move=> * ; sby apply eval.eval_app_fix }
+  { move=> * ; apply eval.eval_seq =>//
+    move=> * ; aesop }
+  { move=> * ; sby constructor }
+  { move=> * ; sby constructor }
+  { move=> * ; apply eval.eval_unop=>//
     sby srw (purepostin) at * }
-  { apply eval.eval_binop=>//
+  { move=> * ; apply eval.eval_binop=>//
     sby srw (purepostin) at * }
-  { sby apply eval.eval_ref }
-  { sby apply eval.eval_get }
-  { sby apply eval.eval_set }
-  { apply eval.eval_free <;> try assumption
-    case eval_free.a Imp x y =>
-      apply Imp
-      apply y }
-  { sby apply eval.eval_alloc }
-  { constructor=> //  }
-
+  { move=> * ; apply (eval.eval_ref _ _ p _ _ Q2 Q₁ Q₂)=> // }
+  { move=> * ; sby apply eval.eval_get }
+  { move=> * ; sby apply eval.eval_set }
+  { move=> * ; sby apply eval.eval_alloc }
+  { move=> * ; constructor=> // }
+  { move=> * ; constructor=> // }
 
 /- Useful Lemmas about disjointness and state operations -/
 lemma disjoint_update_not_r (h1 h2 : state) (x : loc) (v: val) :
@@ -115,6 +115,42 @@ by
   srw Finmap.Disjoint=> ??
   sby srw Finmap.mem_erase
 
+lemma insert_union (h1 h2 : state) (p : loc) (v : val) :
+  p ∉ h1 ∪ h2 →
+  (h1 ∪ h2).insert p v = (h1.insert p v) ∪ h2 := by
+  move=> ?
+  apply Finmap.ext_lookup=> >
+  cases eqn:(is_true (x = p)) ; move: eqn
+  all_goals (unfold is_true=> /== ?)
+  { srw Finmap.lookup_insert_of_ne=> //
+    cases eqn':(is_true (x ∈ h1)) ; move: eqn'
+    all_goals (unfold is_true=> /== ?)
+    { sby srw ?Finmap.lookup_union_right }
+    sby srw ?Finmap.lookup_union_left }
+  sby subst x
+
+lemma erase_disjoint (h1 h2 : state) (p : loc) :
+  p ∈ h1 →
+  h1.Disjoint h2 →
+  (h1.erase p).Disjoint h2 := by
+  sby unfold Finmap.Disjoint=> ?? > /Finmap.mem_erase
+
+lemma erase_union (h1 h2 : state) (p : loc) :
+  p ∈ h1 →
+  h1.Disjoint h2 →
+  (h1 ∪ h2).erase p = (h1.erase p) ∪ h2 := by
+  unfold Finmap.Disjoint=> /[dup] ? /[swap] /[apply] /[dup] /Finmap.lookup_eq_none *
+  apply Finmap.ext_lookup=> >
+  cases eqn:(is_true (x = p))
+  all_goals (move: eqn ; unfold is_true=> /== ?)
+  { srw Finmap.lookup_erase_ne=> //
+    cases eqn':(is_true (x ∈ h1))
+    all_goals (move: eqn' ; unfold is_true=> /== ?)
+    { sby srw ?Finmap.lookup_union_right }
+    sby srw ?Finmap.lookup_union_left }
+  sby subst x
+
+
 abbrev tohProp (h : heap -> Prop) : hProp := h
 abbrev ofhProp (h : val -> hProp) : val -> heap -> Prop := h
 
@@ -148,18 +184,32 @@ by
   { move=> * ; apply eval.eval_binop=>//
     srw purepostin at * => ??
     sby apply hstar_intro }
-  { move=> * ; apply eval.eval_ref=>//
-    move=> ? ; srw (Not) (Finmap.insert_union) => ?
-    apply hstar_intro=>//
-    sby apply disjoint_update_not_r }
+  { move=> > ?? hfree ih1 ih2 > /ih1 {}ih1
+    apply (eval.eval_ref _ _ p)=> // >
+    { move=> ? [>] ![>] hQ₁ *
+      subst s2
+      have eqn:(p ∉ w) := by sdone
+      have eqn':((w.insert p v).Disjoint w_1) := by sorry
+      move: eqn hQ₁ eqn'=> /ih2 /[apply] /[apply]
+      sby srw insert_union }
+    move=> hin ![>] hQ₂ *
+    subst s3
+    move: hin=> /Finmap.mem_union [] ?
+    { exists (w.erase p), w_1=> ⟨|⟩
+      apply hfree=> // ⟨|⟩ // ⟨|⟩
+      apply erase_disjoint=> //
+      sby apply erase_union }
+    sorry
+    -- exists w, (w_1.erase p)=> ⟨|⟩
+     }
   { move=> * ; apply eval.eval_get=>//
     srw in_read_union_l ; sby apply hstar_intro }
   { move=> * ; apply eval.eval_set=>//
     srw qstarE Finmap.insert_union ; apply hstar_intro=>//
     sby apply disjoint_insert_l }
-  { move=> * ; apply eval.eval_free=>//
-    srw remove_disjoint_union_l ; apply hstar_intro=>//
-    sby apply disjoint_remove_l }
+  -- { move=> * ; apply eval.eval_free=>//
+  --   srw remove_disjoint_union_l ; apply hstar_intro=>//
+  --   sby apply disjoint_remove_l }
   { move=> >? ih * ; apply eval.eval_alloc=>//
     move=> > /ih h /h hQ1 /[dup] /Finmap.disjoint_union_left [] /hQ1 *
     srw qstarE -Finmap.union_assoc

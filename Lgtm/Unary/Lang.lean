@@ -10,10 +10,10 @@ open Classical
 /- =========================== Language Syntax =========================== -/
 
 inductive prim where
-  | val_ref : prim
+  -- | val_ref : prim
   | val_get : prim
   | val_set : prim
-  | val_free : prim
+  -- | val_free : prim
   | val_neg : prim
   | val_opp : prim
   | val_eq : prim
@@ -61,6 +61,7 @@ mutual
     | trm_if    : trm -> trm -> trm -> trm
     | trm_for   : var -> trm -> trm -> trm -> trm
     | trm_while : trm -> trm -> trm
+    | trm_ref   : var → trm → trm → trm
 end
 
 /- States and heaps are represented as finite maps -/
@@ -125,6 +126,7 @@ def subst (y : var) (v' : val) (t : trm) : trm :=
   | trm_if t0 t1 t2    => trm_if (subst y v' t0) (subst y v' t1) (subst y v' t2)
   | trm_for x t1 t2 t3 => trm_for x (subst y v' t1) (subst y v' t2) (if_y_eq x t3 (subst y v' t3))
   | trm_while t1 t2    => trm_while (subst y v' t1) (subst y v' t2)
+  | trm_ref x t1 t2    => trm_ref x (subst y v' t1) (if_y_eq x t2 (subst y v' t2))
 
 noncomputable def is_true (P : Prop) : Bool :=
   if P then true else false
@@ -431,11 +433,15 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       evalbinop op v1 v2 P ->
       purepostin s P Q ->
       eval s (trm_app (trm_app op v1) v2) Q
-  | eval_ref : forall s v Q,
-      v = trm_val v' ->
-      (forall p, ¬ p ∈ s ->
-          Q (val_loc p) (Finmap.insert p v' s)) ->
-      eval s (trm_app val_ref v) Q
+  | eval_ref : forall s x p t1 t2 Q Q₁ Q₂,
+      -- v = trm_val v' ->
+      -- (forall p, ¬ p ∈ s ->
+      --     Q (val_loc p) (Finmap.insert p v' s)) ->
+      -- eval s (trm_app val_ref v) Q
+      eval s t1 Q₁ →
+      (forall v s2, p ∉ s2 → Q₁ v s2 → eval (s2.insert p v) (subst x p t2) Q₂) →
+      (forall v' s3, p ∈ s3 → Q₂ v' s3 → Q v' (s3.erase p)) →
+      eval s (trm_ref x t1 t2) Q
   | eval_get : forall s p Q,
       p ∈ s ->
       Q (read_state p s) s ->
@@ -445,10 +451,10 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       p ∈ s ->
       Q val_unit (Finmap.insert p v' s) ->
       eval s (trm_app (trm_app val_set (val_loc p)) v) Q
-  | eval_free : forall s p Q,
-      p ∈ s ->
-      Q val_unit (Finmap.erase p s) ->
-      eval s (trm_app val_free (val_loc p)) Q
+  -- | eval_free : forall s p Q,
+  --     p ∈ s ->
+  --     Q val_unit (Finmap.erase p s) ->
+  --     eval s (trm_app val_free (val_loc p)) Q
   | eval_alloc : forall (n : Int) (sa : state) Q,
       n ≥ 0 →
       ( forall (p : loc) (sb : state),
@@ -606,6 +612,7 @@ syntax:25 lang lang:30 : lang
 syntax "if " lang "then " lang "end " : lang
 syntax ppIndent("if " lang " then") ppSpace lang ppDedent(ppSpace) ppRealFill("else " lang) : lang
 syntax "let" ident " := " lang " in" ppDedent(ppLine lang) : lang
+syntax "ref" ident " := " lang " in" ppDedent(ppLine lang) : lang
 syntax "for" ident " in " "[" lang " : " lang "]" " {"  (ppLine lang) ( " }") : lang
 syntax "while" lang  " {"  (ppLine lang) ( " }") : lang
 -- TODO: I suspect it should be  `withPosition(lang ";") ppDedent(ppLine lang) : lang`, but Lean parser crashes. Report a bug.
@@ -637,7 +644,7 @@ syntax " ++ " : bop
 
 syntax "!" : uop
 syntax "-" : uop
-syntax "ref" : uop
+-- syntax "ref" : uop
 syntax "free" : uop
 syntax "not" : uop
 syntax "mkarr" : uop
@@ -662,6 +669,8 @@ macro_rules
   | `([lang| if $t1 then $t2 end])      => `(trm_if [lang| $t1] [lang| $t2] (trm_val val_unit))
   | `([lang| let $x := $t1:lang in $t2:lang])     =>
     `(trm_let $(%x) [lang| $t1] [lang| $t2])
+  | `([lang| ref $x := $t1:lang in $t2:lang])     =>
+    `(trm_ref $(%x) [lang| $t1] [lang| $t2])
   | `([lang| $t1 ; $t2])                => `(trm_seq [lang| $t1] [lang| $t2])
   | `([lang| fun_ $xs* => $t])             => do
     let xs <- xs.mapM fun x => `(term| $(%x))
@@ -675,7 +684,7 @@ macro_rules
   | `([lang| fix $f $xs* => $t])    => do
       let xs <- xs.mapM fun x => `(term| $(%x))
       `(val_fixs $(%f) [ $xs,* ] [lang| $t])
-  | `([lang| ref $t])                   => `(trm_val (val_prim val_ref) [lang| $t])
+  -- | `([lang| ref $t])                   => `(trm_val (val_prim val_ref) [lang| $t])
   | `([lang| free $t])                  => `(trm_val (val_prim val_free) [lang| $t])
   | `([lang| not $t])                   => `(trm_val (val_prim val_not) [lang| $t])
   | `([lang| alloc $n])                => `(trm_val (val_alloc) [lang| $n])
@@ -796,7 +805,7 @@ macro_rules
   | _ => throw ( )
 
 @[app_unexpander val_prim] def unexpandPrim : Lean.PrettyPrinter.Unexpander
-  | `($(_) val_ref) => `([uop| ref])
+  -- | `($(_) val_ref) => `([uop| ref])
   | `($(_) val_free) => `([uop| free])
   | `($(_) val_not) => `([uop| not])
   | `($(_) val_opp) => `([uop| -])
@@ -882,6 +891,13 @@ macro_rules
     let str := x.getString
     let name := Lean.mkIdent $ Lean.Name.mkSimple str
     `([lang| let $name := $t1 in $t2])
+  | _ => throw ( )
+
+@[app_unexpander trm_ref] def unexpandRef : Lean.PrettyPrinter.Unexpander
+  | `($(_) $x:str [lang| $t1] [lang| $t2]) =>
+    let str := x.getString
+    let name := Lean.mkIdent $ Lean.Name.mkSimple str
+    `([lang| ref $name := $t1 in $t2])
   | _ => throw ( )
 
 @[app_unexpander trm_for] def unexpandFor : Lean.PrettyPrinter.Unexpander
@@ -1030,14 +1046,14 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
     if F y z
     then
       for i in [z : y] {
-        let z := ref i in
-        let z := ref i in
+        ref z := i in
+        ref x := i in
         !z
       }
     else
       for i in [z : y] {
-        let z := ref i in
-        let z := ref i in
+        ref z := i in
+        ref x := i in
         i := i +1;
         i := i +1;
         !z
