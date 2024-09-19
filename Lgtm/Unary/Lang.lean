@@ -433,14 +433,19 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       evalbinop op v1 v2 P ->
       purepostin s P Q ->
       eval s (trm_app (trm_app op v1) v2) Q
-  | eval_ref : forall s x p t1 t2 Q Q₁ Q₂,
+  | eval_ref : forall s x t1 t2 Q Q₁ (Q₂ : loc -> val -> state -> Prop),
       -- v = trm_val v' ->
       -- (forall p, ¬ p ∈ s ->
       --     Q (val_loc p) (Finmap.insert p v' s)) ->
       -- eval s (trm_app val_ref v) Q
+      -- _ -> (_ -> _) -> ((_ -> _) -> _) -> X
+      -- ref x t1 t2 = let x := ref t1 in (t2 ; free x)
       eval s t1 Q₁ →
-      (forall v s2, p ∉ s2 → Q₁ v s2 → eval (s2.insert p v) (subst x p t2) Q₂) →
-      (forall v' s3, p ∈ s3 → Q₂ v' s3 → Q v' (s3.erase p)) →
+      (∀ v s₂ p, Q₁ v s₂ -> p ∉ s₂ ->
+        eval (s₂.insert p v) (subst x p t2) (Q₂ p)) ->
+      (∀ s₃ v' p, (Q₂ p) v' s₃ -> Q v' (s₃.erase p)) ->
+      -- (∀ v s₂, Q₁ v s₂ → p ∉ s₂ → eval (s₂.insert p v) (subst x p t2) Q₂) →
+      -- (∀ v' s₃, p ∈ s₃ → Q₂ v' s₃ → Q v' (s₃.erase p)) →
       eval s (trm_ref x t1 t2) Q
   | eval_get : forall s p Q,
       p ∈ s ->
