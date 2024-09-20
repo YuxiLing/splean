@@ -54,7 +54,8 @@ by
     sby srw (purepostin) at * }
   { move=> * ; apply eval.eval_binop=>//
     sby srw (purepostin) at * }
-  { move=> * ; sby apply (eval.eval_ref _ _ _ _ Q2 Q₁ Q₂) }
+  { move=> ?? hin * ; apply (eval.eval_ref _ _ _ _ Q2 Q₁ Q₂)=> //
+    sby move=> > /hin }
   { move=> * ; sby apply eval.eval_get }
   { move=> * ; sby apply eval.eval_set }
   { move=> * ; sby apply eval.eval_alloc }
@@ -137,22 +138,6 @@ lemma erase_disjoint (h1 h2 : state) (p : loc) :
   (h1.erase p).Disjoint h2 := by
   sby unfold Finmap.Disjoint=> ?? > /Finmap.mem_erase
 
-lemma erase_union (h1 h2 : state) (p : loc) :
-  p ∈ h1 →
-  h1.Disjoint h2 →
-  (h1 ∪ h2).erase p = (h1.erase p) ∪ h2 := by
-  unfold Finmap.Disjoint=> /[dup] ? /[swap] /[apply] /[dup] /Finmap.lookup_eq_none *
-  apply Finmap.ext_lookup=> >
-  cases eqn:(is_true (x = p))
-  all_goals (move: eqn ; unfold is_true=> /== ?)
-  { srw Finmap.lookup_erase_ne=> //
-    cases eqn':(is_true (x ∈ h1))
-    all_goals (move: eqn' ; unfold is_true=> /== ?)
-    { sby srw ?Finmap.lookup_union_right }
-    sby srw ?Finmap.lookup_union_left }
-  sby subst x
-
-
 abbrev tohProp (h : heap -> Prop) : hProp := h
 abbrev ofhProp (h : val -> hProp) : val -> heap -> Prop := h
 
@@ -187,37 +172,20 @@ by
     srw purepostin at * => ??
     sby apply hstar_intro }
   { move=> > ; unfold tohProp
-    move=> > ?? hfree ih1 ih2 > /ih1 {}ih1
-    apply eval.eval_ref=> //
+    move=> > ?? hin hfree ih1 ih2 > /ih1 {}ih1
+    apply eval.eval_ref
+    { apply ih1 }
     { move=> > ![>] hQ₁ *
       subst s₂
       have eqn:(p ∉ w) := by sdone
-      have eqn':((w.insert p v).Disjoint w_1) := by sorry
+      have eqn':((w.insert p v).Disjoint w_1) := by sby apply disjoint_update_not_r
       move: hQ₁ eqn eqn'=> /ih2 /[apply] /[apply]
       sby srw insert_union }
-    move=> > ![>] /hfree hQ_1 /= [] ? []
-    exists (w.erase p), h2
-
-
-    -- cases inh2:(is_true (p ∈ h2)) ; move: inh2
-    -- all_goals (unfold is_true=> /== ?)
-    -- { apply (eval.eval_ref _ _ p)
-    --   apply ih1
-    --   { move=> >![>] hQ₁ *
-    --     subst s₂
-    --     have eqn:(p ∉ w) := by sdone
-    --     have eqn':((w.insert p v).Disjoint w_1) := by sorry
-    --     move: hQ₁ eqn eqn'=> /ih2 /[apply] /[apply]
-    --     sby srw insert_union }
-    --   move=> > hin ![>] hQ₂ hh₂ *
-    --   srw tohProp at hh₂ ; subst w_1
-    --   subst s₃
-    --   move: hin=> /Finmap.mem_union [] // ?
-    --   exists (w.erase p), h2=> ⟨|⟩
-    --   apply hfree=> // ⟨|⟩ // ⟨|⟩
-    --   apply erase_disjoint=> //
-    --   sby apply erase_union }
-    sorry }
+    { sby move=> > ![>] /hin }
+    move=> > ![>] /[dup] /hin ? /hfree hQ_1 /= [] ? []
+    exists (w.erase p), h2=> /== ⟨|⟩ // ⟨|⟩
+    apply erase_disjoint=> //
+    sby apply remove_disjoint_union_l }
   { move=> * ; apply eval.eval_get=>//
     srw in_read_union_l ; sby apply hstar_intro }
   { move=> * ; apply eval.eval_set=>//
@@ -393,6 +361,22 @@ by
   { sby apply hH }
   sdone
 
+-- lemma triple_ref (v : val) :
+--   triple (trm_app val_ref v)
+--     emp
+--     (fun r ↦ ∃ʰ p, ⌜r = val_loc p⌝ ∗ (p ~~> v)) :=
+-- by
+--   move=> ? []
+--   apply eval.eval_ref=>// p ?
+--   apply (hexists_intro _ p)
+--   sby srw hstar_hpure_l
+
+-- WIP
+lemma triple_ref :
+  triple t1 H Q1 →
+  (forall v1, ∃ (p : loc), triple (subst x p t2) ((Q1 v1) ∗ (p ~~> v1)) Q2) →
+  triple (trm_ref x t1 t2) H Q := by sorry
+
 lemma triple_let_val x v1 t2 H Q :
   triple (subst x v1 t2) H Q →
   triple (trm_let x v1 t2) H Q :=
@@ -448,16 +432,6 @@ lemma read_state_single p v :
   read_state p (Finmap.singleton p v) = v :=
 by
   srw read_state Finmap.lookup_singleton_eq
-
--- lemma triple_ref (v : val) :
---   triple (trm_app val_ref v)
---     emp
---     (fun r ↦ ∃ʰ p, ⌜r = val_loc p⌝ ∗ (p ~~> v)) :=
--- by
---   move=> ? []
---   apply eval.eval_ref=>// p ?
---   apply (hexists_intro _ p)
---   sby srw hstar_hpure_l
 
 lemma triple_get v (p : loc) :
   triple (trm_app val_get p)
@@ -748,9 +722,7 @@ lemma sP_post :
     any_goals (try scase: eop'=> //)
     any_goals (try move=> ?? [] //)
     move=> ???->? []// }
-  { move=> ??? ih1 ih2 ; apply (eval.eval_ref _ _ p)
-    { apply ih1 }
-
+  { sorry
     -- move=> ->?; apply eval.eval_ref=> // ???
     -- apply hpure_intr=> []//
      }
@@ -793,6 +765,7 @@ lemma eval_sat :
   { scase=> >
     any_goals move=> pp; (sdo 2 econstructor); apply pp=> //
     any_goals move=> ? pp; (sdo 2 econstructor); apply pp=> // }
-  { move=> ?; scase: (finite_state s)=> p /[swap]/[apply]// }
+  { move=> ?; scase: (finite_state s)=> p /[swap]/[apply]//
+    sorry }
   { sby move=> ?; scase: (finite_state' n.natAbs sa)=> p ? /(_ p) H }
   move=> ? /[swap]![>] /[swap] _ /[swap]/[apply]//

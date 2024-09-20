@@ -433,19 +433,12 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       evalbinop op v1 v2 P ->
       purepostin s P Q ->
       eval s (trm_app (trm_app op v1) v2) Q
-  | eval_ref : forall s x t1 t2 Q Q₁ (Q₂ : loc -> val -> state -> Prop),
-      -- v = trm_val v' ->
-      -- (forall p, ¬ p ∈ s ->
-      --     Q (val_loc p) (Finmap.insert p v' s)) ->
-      -- eval s (trm_app val_ref v) Q
-      -- _ -> (_ -> _) -> ((_ -> _) -> _) -> X
-      -- ref x t1 t2 = let x := ref t1 in (t2 ; free x)
+  | eval_ref : forall s x t1 t2 (Q Q₁ : val → state → Prop) (Q₂ : loc -> val -> state -> Prop),
       eval s t1 Q₁ →
       (∀ v s₂ p, Q₁ v s₂ -> p ∉ s₂ ->
         eval (s₂.insert p v) (subst x p t2) (Q₂ p)) ->
+      (∀ v' s' p, (Q₂ p) v' s' → p ∈ s') →
       (∀ s₃ v' p, (Q₂ p) v' s₃ -> Q v' (s₃.erase p)) ->
-      -- (∀ v s₂, Q₁ v s₂ → p ∉ s₂ → eval (s₂.insert p v) (subst x p t2) Q₂) →
-      -- (∀ v' s₃, p ∈ s₃ → Q₂ v' s₃ → Q v' (s₃.erase p)) →
       eval s (trm_ref x t1 t2) Q
   | eval_get : forall s p Q,
       p ∈ s ->
@@ -563,6 +556,84 @@ def eval_like (t1 t2:trm) : Prop :=
 --     (forall v1 s2, Q1 v1 s2 -> eval s2 (trm_app v1 t2) Q) := by
 --     scase=> //==
 --     { move=> Q1 *; exists Q1 }
+
+
+inductive evalExact : state → trm → (val → state → Prop) -> Prop where
+  | val : forall s v,
+      evalExact s (trm_val v) (fun v' s' ↦ v' = v ∧ s' = s)
+  | fun : forall s x t1,
+      evalExact s (trm_fun x t1) (fun v' s' ↦ v' = val_fun x t1 ∧ s' = s)
+  | fix : forall s f x t1,
+      evalExact s (trm_fix f x t1) (fun v' s' ↦ v' = val_fix f x t1 ∧ s' = s)
+  | app_arg1 : forall s1 t1 t2 Q1 Q,
+      ¬ trm_is_val t1 ->
+      evalExact s1 t1 Q1 ->
+      (forall v1 s2, Q1 v1 s2 -> evalExact s2 (trm_app v1 t2) Q) ->
+      evalExact s1 (trm_app t1 t2) Q
+  | app_arg2 : forall s1 (v1 : val) t2 Q1 Q,
+      ¬ trm_is_val t2 ->
+      evalExact s1 t2 Q1 ->
+      (forall v2 s2, Q1 v2 s2 -> evalExact s2 (trm_app v1 v2) Q) ->
+      evalExact s1 (trm_app v1 t2) Q
+  | app_fun : forall s1 v1 (v2 :val) x t1 Q,
+      v1 = val_fun x t1 ->
+      evalExact s1 (subst x v2 t1) Q ->
+      evalExact s1 (trm_app v1 v2) Q
+  | app_fix : forall s (v1 v2 : val) f x t1 Q,
+      v1 = val_fix f x t1 ->
+      evalExact s (subst x v2 (subst f v1 t1)) Q ->
+      evalExact s (trm_app v1 v2) Q
+  | seq : forall Q1 s t1 t2 Q,
+      evalExact s t1 Q1 ->
+      (forall v1 s2, Q1 v1 s2 -> evalExact s2 t2 Q) ->
+      evalExact s (trm_seq t1 t2) Q
+  | let : forall Q1 s x t1 t2 Q,
+      evalExact s t1 Q1 ->
+      (forall v1 s2, Q1 v1 s2 -> evalExact s2 (subst x v1 t2) Q) ->
+      evalExact s (trm_let x t1 t2) Q
+  | if : forall s (b : Bool) t1 t2 Q,
+      evalExact s (if b then t1 else t2) Q ->
+      evalExact s (trm_if (val_bool b) t1 t2) Q
+  | unop : forall op s v1 P,
+      evalunop op v1 P ->
+      evalExact s (trm_app op v1) (purepost s P)
+  | binop : forall op s (v1 v2 : val) P,
+      evalbinop op v1 v2 P ->
+      evalExact s (trm_app (trm_app op v1) v2) (purepost s P)
+  | ref : forall s x t1 t2 Q Q₁ Q₃,
+      -- v = trm_val v' ->
+      -- evalExact s (trm_app val_ref v)
+      --   (fun v'' s' ↦ ∃ p, p ∉ s ∧ v'' = p ∧ s' = s.insert p v')
+      evalExact s t1 Q₁ →
+      -- (∀ v₁ s₁, Q₁ v₁ s₁ → )
+      evalExact s (trm_ref x t1 t2) Q
+  | get : forall s p,
+      p ∈ s ->
+      evalExact s (trm_app val_get (val_loc p))
+        (fun v' s' ↦ v' = read_state p s ∧ s' = s)
+  | set : forall s p v,
+      v = trm_val v' ->
+      p ∈ s ->
+      evalExact s (trm_app (trm_app val_set (val_loc p)) v)
+        (fun v'' s' ↦ v'' = val_unit ∧ s' = s.insert p v')
+  -- | free : forall s p,
+  --     p ∈ s ->
+  --     evalExact s (trm_app val_free (val_loc p))
+  --       (fun v' s' ↦ v' = val_unit ∧ s' = s.erase p)
+  -- | alloc : forall (n : Int) (sa : state),
+  --     n ≥ 0 →
+  --     evalExact sa (trm_app val_alloc n)
+  --       (fun v s ↦ ∃ p, p ≠ null ∧ v = p ∧
+  --                     sa.Disjoint (conseq (make_list n.natAbs val_uninit) p) ∧
+  --                     s = conseq (make_list n.natAbs val_uninit) p ∪ sa )
+  | for (n₁ n₂ : Int) (Q : val -> state -> Prop) :
+    evalExact s (if (n₁ <= n₂) then
+               (trm_seq (subst x n₁ t₁) (trm_for x (val_int (n₁ + 1)) n₂ t₁))
+            else val_unit) Q ->
+    evalExact s (trm_for x n₁ n₂ t₁) Q
+  | while (t₁ t₂ : trm) (Q : val -> state -> Prop) :
+    evalExact s (trm_if t₁ (trm_seq t₂ (trm_while t₁ t₂)) val_unit) Q ->
+    evalExact s (trm_while t₁ t₂) Q
 
 
 end eval
