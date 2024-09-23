@@ -119,6 +119,8 @@ lemma nonneg_eq_abs (n : Int) :
 lemma neg_mul_abs (n : Int) :
   n < 0 → -1 * n = n.natAbs := by omega
 
+attribute [-simp] Int.natCast_natAbs
+
 lemma triple_abs (i : Int) :
   triple [lang| val_abs i]
     emp
@@ -129,7 +131,7 @@ lemma triple_abs (i : Int) :
   xapp triple_mul ; xwp
   xif=> /== ?
   { xwp ; xval ; xsimp
-    sby srw neg_mul_abs }
+    congr!; omega }
   xwp ; xval ; xsimp
   sby srw nonneg_eq_abs
 
@@ -545,7 +547,7 @@ lemma set_out_of_bounds (L : List val) i v :
 lemma triple_array_default_set L (p : loc) (i : Int) (v : val) :
   triple [lang| p[i] := v]
     (harray L p)
-    (fun _ ↦ harray (L.set (Int.natAbs i) v) p) := by
+    (fun _ ↦ harray (L.set (i.natAbs) v) p) := by
     xwp
     xapp triple_abs ; xwp
     xapp triple_array_length ; xwp
