@@ -703,7 +703,7 @@ def ysimp_apply_intro_names (lem : Name) (xs : Syntax) : TacticM Unit :=
   | _ => throwError "ysimp_l_exists: @ unreachable 3"
 
 macro "simpNums" : tactic =>
-  `(tactic| (try simp only [foo, foo', foo''] at *; try dsimp at *))
+  `(tactic| (try simp only [foo, foo', foo'', OfNat.ofNat] at *; try dsimp at *))
 
 partial def ysimp_step_l (ysimp : YSimpR) (cancelWand := true) : TacticM Unit := do
   trace[ysimp] "LHS step"

@@ -1,6 +1,6 @@
 import Lean
 
-import Lgtm.WP1
+import Lgtm.Unary.WP1
 
 open val prim trm
 
@@ -20,12 +20,15 @@ lang_def incr :=
     let m := n + 1 in
     p := m
 
+open Unary
+
 @[xapp]
 lemma triple_incr (p : loc) (n : Int) :
   {p ~~> n}
   [incr p]
-  {p ~~> n + 1} := by
+  {p ~~> val_int (n + 1)} := by
   repeat (xwp; xapp)
+
 
 lang_def mysucc :=
   fun n =>
@@ -33,6 +36,11 @@ lang_def mysucc :=
     incr r;
     let x := !r in
     free r;
+    x
+
+lang_def myfun :=
+  fun n =>
+    let x := ⟨1⟩ in
     x
 
 lemma triple_mysucc (n : Int) :
