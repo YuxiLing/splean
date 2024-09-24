@@ -665,6 +665,28 @@ macro "ywp" : tactic =>
 macro "yval" : tactic => do
   `(tactic| (ystruct_if_needed; yseq_xlet_if_needed; (try ywp); apply yval_lemma))
 
+/- ================================================================= -/
+/- ====================== Resolving [hhlocal] =====================  -/
+
+attribute [hhlocalE]
+  hhlocal_bighstar
+  hhlocal_hhstar
+  hhlocal_hhexists
+
+@[hhlocalE]
+lemma hhlocal_hhsingle : hhlocal s' (hhsingle s x v) = (s ⊆ s') :=
+  by apply hhlocal_bighstar
+
+@[hhlocalE]
+lemma hhlocal_hharrayFun : hhlocal s' (hharrayFun s f n x) = (s ⊆ s') :=
+  by apply hhlocal_bighstar
+
+@[hhlocalE]
+lemma hhlocal_emp : hhlocal s emp = true :=
+  by simp=> ?//
+
+@[simp]
+lemma cdot_set_mem (n : ℕ) (s : Set α) : (x ∈ (n • s)) = (x ∈ s ∧ n > 0) := sorry
 
 /- ================================================================= -/
 /- ====================== Tactics for Loops ======================== -/
@@ -787,13 +809,62 @@ instance GenInstArr (op : hval α -> Int -> Bool)
     eqInd := by move=>>; srw hhadd_hhsingle_gen //'
     eqSum := by move=> hv; apply GenInstArr_eqSum hv (f ·) (op · ·)=> //
 
+@[app_unexpander hharrayFun]
+def hharrayFunUnexpander : Lean.PrettyPrinter.Unexpander
+  | `($_ $s $f $n fun $_ => $p) =>
+    match f with
+    | `(fun $x:ident => $f) =>
+      `(arr($p ⟨$s:term⟩ , $x:ident in $n => $f))
+    | _ => throw ( )
+  | _ => throw ( )
+
 end OrPCM
 
+declare_syntax_cat loop_op
+declare_syntax_cat loop_arg
+declare_syntax_cat loop_args
+declare_syntax_cat loop_type
 
+
+syntax "+" : loop_op
+syntax "||" : loop_op
+syntax "+." : loop_op
+
+syntax "(" ident ":=" term ")" : loop_arg
+syntax loop_arg loop_args : loop_args
+
+syntax "yfor" : loop_type
+syntax "ywhile" : loop_type
+syntax loop_type loop_op ? "with" (loop_arg colGe)* : tactic
+
+macro_rules
+  | `(tactic| yfor$loop_op ? with $[($x := $v)]*) => do
+    let yforLemm <- `(yfor_lemma (z := _) (n := _) $[ ( $x:ident := $v:term ) ]*)
+    let tac <- `(tactic| (eapply $yforLemm; ⟨
+      try simp; try omega, -- s' ⊥ sᵢ
+      try simp; try omega, -- Pairwise disj
+      omega, -- z <= n
+      simp [hhlocalE], -- hhlocal
+      simp [hhlocalE], -- ∀ hhlocal
+      simp [hhlocalE], -- ∀ hhlocal
+      simp [hhlocalE], -- ∀ hhlocal
+      try solve | (simp=> > ?? ->->), -- Qeq
+      simp [LGTM.SHTs.set], -- step
+      skip, -- pre
+      (move=> > /==)⟩ -- post
+      ))
+    match loop_op with
+    | .none => pure tac
+    | .some loop_op =>
+      match loop_op with
+      | `(loop_op| ||) => `(tactic| open OrPCM      in $tac:tactic)
+      | `(loop_op| +)  => `(tactic| open AddPCM     in $tac:tactic)
+      | `(loop_op| +.) => `(tactic| open AddRealPCM in $tac:tactic)
+      | _ => Macro.throwErrorAt loop_op "unsupported loop operation"
 
 /- ============ Tests for y-loops lemmas ============ -/
 section
-open AddPCM
+
 
 local notation (priority := high) Q " ∗↑ " s:70 => bighstar s Q
 example (F : False) :
@@ -803,34 +874,31 @@ example (F : False) :
      ⟨∑ i in [[1, 10]], {-i}, ht⟩]
     ((x ⟨_ in {1}⟩|-> 0) ∗ R ∗↑ s)
     (fun hv => ((x ⟨_ in {1}⟩|->  ∑ j in [[0, 10]], (hv j))) ∗ R' ∗↑ s) := by
-  apply yfor_lemma
-    (z := 1)
-    (n := 10)
-    (valid := AddPCM.valid)
-    (add := AddPCM.add)
+  yfor+ with
     (Inv := fun _ => emp)
+    (valid := valid)
+    (add := add)
     (Q := fun i hv => x ⟨_ in {11}⟩|-> (hv i + hv (-i)))
     (H₀ := x ⟨_ in {11}⟩|-> 0)
     (R := R)
-    (R' := R')=> /== //
+    (R' := R')=> //
 
 example (F : False) (n : ℕ) (f g : ℤ -> ℤ) :
   LGTM.triple
-    [⟨{11}, fun _ => trm_for vr (val.val_int 0) (val.val_int n) c⟩ ,
+    [⟨{-2}, fun _ => trm_for vr (val.val_int 0) (val.val_int n) c⟩ ,
      ⟨∑ i in [[(0:ℤ) , n]], {i}, ht⟩ ,
-     ⟨∑ i in [[(0:ℤ) , n]], {-i}, ht⟩]
-    ((hharrayFun {11} (f ·) n (fun _ => x)) ∗ R ∗↑ s)
-    (fun hv => (hharrayFun {11} (g ·) n (fun _ => x)) ∗ R' ∗↑ s) := by
-  apply yfor_lemma
-    (z := 0)
-    (n := n)
-    (valid := AddPCM.valid)
-    (add := AddPCM.add)
+     ⟨∑ i in [[(0:ℤ) , n]], {-1}, ht⟩]
+    ((hharrayFun {-2} (f ·) n (fun _ => x)) ∗ R ∗↑ s)
+    (fun hv => (hharrayFun {-2} (g ·) n (fun _ => x)) ∗ R' ∗↑ s) := by
+  yfor+ with
+    (valid := valid)
+    (add := add)
     (Inv := fun _ => emp)
-    (Q := (fun i hv => (x + 1 + i.natAbs) ⟨_ in {11}⟩|-> hv i))
-    (H₀ := hharrayFun {11} (f ·) n (fun _ => x))
+    (Q := (fun i hv => (x + 1 + i.natAbs) ⟨_ in {-2}⟩|-> hv i))
+    (H₀ := hharrayFun {-2} (f ·) n (fun _ => x))
     (R := R)
-    (R' := R')=> /== //
+    (R' := R')=> //
+
 end
 
 

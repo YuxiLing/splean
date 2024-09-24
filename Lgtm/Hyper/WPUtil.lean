@@ -53,3 +53,5 @@ initialize registerBuiltinAttribute {
         getHTripleFun thm
       yappExtension.add (thmFun, thmName)
 }
+
+register_simp_attr hhlocalE
