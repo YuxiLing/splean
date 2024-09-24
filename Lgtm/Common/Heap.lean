@@ -147,7 +147,7 @@ variable {val : Type} [Inhabited val]
 abbrev add : val -> val -> val := fun _ _ => default
 abbrev valid : val -> Prop := fun _ => False
 
-instance (priority := low) : AddCommSemigroup val where
+scoped instance (priority := low) : AddCommSemigroup val where
   add := add
   add_assoc := by sdone
   add_comm := by sdone

@@ -11,7 +11,7 @@ import Lgtm.Hyper.YChange
 import Lgtm.Hyper.WP
 import Lgtm.Hyper.WPUtil
 import Lgtm.Hyper.Subst
-import Lgtm.Hyper.Arrays
+import Lgtm.Hyper.ArraysFun
 import Lgtm.Hyper.HProp
 import Lgtm.Hyper.Loops
 
@@ -321,8 +321,8 @@ macro "ycleanup" n:num : tactic => do
     (apply (yclean_up_lemma $n);
      ⟨simp [disjE],
       (move=> ?
-       generalize (_ ∪_⟪$n, _⟫ _) = x; rfl),
-      (dsimp; try srw ywp1), skip, skip, skip⟩))
+       generalize (_ ∪_⟪$n, _⟫ _) = x; rfl) ,
+      (dsimp; try srw ywp1) , skip, skip, skip⟩))
 
 macro "yin " n:num ":" colGe ts:tacticSeq : tactic =>
   `(tactic| (
@@ -666,6 +666,174 @@ macro "yval" : tactic => do
   `(tactic| (ystruct_if_needed; yseq_xlet_if_needed; (try ywp); apply yval_lemma))
 
 
+/- ================================================================= -/
+/- ====================== Tactics for Loops ======================== -/
+
+/- Fisrt we provide instances for a typeclass which dirives
+   [yfor_lemma] and [ywhile_lemma]   -/
+set_option maxHeartbeats 1600000 in
+lemma GenInstArr_eqSum (hv : hval α) (f : Int -> val)
+  (op : hval α -> Int -> val) [PartialCommMonoid val]:
+  (∀ i, PartialCommMonoid.valid (f i)) →
+  (∀ i, PartialCommMonoid.valid (op hv i)) →
+  hharrayFun s (fun i ↦ f i + op hv i) n x =
+    hharrayFun s (fun x ↦ f x) n x +
+    ∑ i ∈ [[(0 : ℤ) , n]], (x j + 1 + i.natAbs ~⟨j in s⟩~> op hv i) := by
+  move=> ??; srw hharrayFun_hhadd_sum //'
+  srw ?hharrayFun ?harrayFun; congr! 4=> ! [] /== //
+
+lemma GenInstArr_eqGen (s : Set α) (x : α -> loc) (hv : Int -> hval α) (f : Int -> val) (n : ℕ)
+  (op : hval α -> Int -> val) [PartialCommMonoid val] :
+  (∀ i, PartialCommMonoid.valid (f i)) →
+  (∀ i, PartialCommMonoid.valid (op (hv i) i)) →
+  ∀ j ∈ [[(0 : ℤ) , n]],
+    ∃ v H,
+      PartialCommMonoid.valid v ∧
+      hharrayFun s (fun x ↦ f x) n x + ∑ i ∈ [[0, j]],
+       (x j + 1 + i.natAbs ~⟨j in s⟩~> op (hv i) i) =
+        x i + 1 + j.natAbs ~⟨i in s⟩~> v ∗ H := by
+  move=> ?? > /== ??; srw hharrayFun_hhadd_sum //'
+  move: (harrayFun_chip_off (p := x) (n := n)
+    (f := ((fun i ↦ if i < j then  f i + op (hv ↑i) ↑i else f i))) s j)=> h
+  specialize h ?_ ?_=> //; scase: h=> H -> //
+  move=> ⟨|⟨|⟨|//⟩⟩⟩ //
+
+
+namespace AddPCM
+
+instance GenInst (op : hval α -> Int -> Int) (x : loc) :
+  IsGeneralisedSum
+    z n
+    AddPCM.add AddPCM.valid
+    (x ~⟨_ in s⟩~> 0)
+    (fun i hv => x ~⟨_ in s⟩~> op hv i)
+    (Int)
+    (fun _ j =>  x ~⟨_ in s⟩~> j)
+    (fun i j hv => x ~⟨_ in s⟩~> val.val_int (op hv i + j))
+    (fun hv => x ~⟨_ in s⟩~> val.val_int (∑ i in [[z,n]], op hv i)) where
+    eqGen := by
+      move=> > ?
+      exists (∑ i in [[z, j]], op (hv i) i) , emp
+      srw sum_hhsingle; ysimp=> //
+    eqInd := by srw hhadd_hhsingle //
+    eqSum := by srw sum_hhsingle //
+
+@[simp]
+lemma validE : PartialCommMonoid.valid = AddPCM.valid := by trivial
+
+@[simp]
+lemma addE : (· + ·) = AddPCM.add := by trivial
+
+instance GenInstArr (op : hval α -> Int -> Int)
+  (n : ℕ)
+  (f : Int -> Int) (x : α -> loc) :
+  IsGeneralisedSum
+    0 n
+    AddPCM.add AddPCM.valid
+    (hharrayFun s (f ·) n x)
+    (fun i hv => x j + 1 + i.natAbs ~⟨j in s⟩~> op hv i)
+    (Int)
+    (fun k j =>  x i + 1 + k.natAbs ~⟨i in s⟩~> j)
+    (fun i j hv => x k + 1 + i.natAbs ~⟨k in s⟩~> val.val_int (op hv i + j))
+    (fun hv => hharrayFun s (fun i => val.val_int $ f i + op hv i) n x) where
+    eqGen := by
+      move=> hv j jin; move: (GenInstArr_eqGen s x hv (f ·) n (op · ·))=> H
+      specialize H ?_ ?_ j jin=> //; scase!: H=> [] //
+    eqInd := by srw hhadd_hhsingle //'
+    eqSum := by move=> hv; apply GenInstArr_eqSum hv (f ·) (op · ·)=> //
+
+end AddPCM
+
+namespace OrPCM
+
+instance GenInst (op : hval α -> Int -> Bool) (x : loc) :
+  IsGeneralisedSum
+    z n
+    OrPCM.add OrPCM.valid
+    (x ~⟨_ in s⟩~> false)
+    (fun i hv => x ~⟨_ in s⟩~> op hv i)
+    (Bool)
+    (fun _ j =>  x ~⟨_ in s⟩~> j)
+    (fun i j hv => x ~⟨_ in s⟩~> val.val_bool (op hv i || j))
+    (fun hv => x ~⟨_ in s⟩~> val.val_bool (∃ i ∈ [[z,n]], op hv i)) where
+    eqGen := by
+      move=> > ?
+      exists (∃ i ∈ [[z, j]], op (hv i) i) , emp
+      srw or_hhsingle; ysimp=> //
+    eqInd := by move=> >; srw hhadd_hhsingle_gen //
+    eqSum := by move=> >; srw or_hhsingle //
+
+@[simp]
+lemma validE : PartialCommMonoid.valid = OrPCM.valid := by trivial
+
+@[simp]
+lemma addE : (· + ·) = OrPCM.add := by trivial
+
+instance GenInstArr (op : hval α -> Int -> Bool)
+  (n : ℕ)
+  (f : Int -> Bool) (x : α -> loc) :
+  IsGeneralisedSum
+    0 n
+    OrPCM.add OrPCM.valid
+    (hharrayFun s (f ·) n x)
+    (fun i hv => x j + 1 + i.natAbs ~⟨j in s⟩~> op hv i)
+    (Bool)
+    (fun k j =>  x i + 1 + k.natAbs ~⟨i in s⟩~> j)
+    (fun i j hv => x k + 1 + i.natAbs ~⟨k in s⟩~> val.val_bool (op hv i || j))
+    (fun hv => hharrayFun s (fun i => val.val_bool $ f i || op hv i) n x) where
+    eqGen := by
+      move=> hv j jin; move: (GenInstArr_eqGen s x hv (f ·) n (op · ·))=> H
+      specialize H ?_ ?_ j jin=> //; scase!: H=> [] //
+    eqInd := by move=>>; srw hhadd_hhsingle_gen //'
+    eqSum := by move=> hv; apply GenInstArr_eqSum hv (f ·) (op · ·)=> //
+
+end OrPCM
+
+
+
+/- ============ Tests for y-loops lemmas ============ -/
+section
+open AddPCM
+
+local notation (priority := high) Q " ∗↑ " s:70 => bighstar s Q
+example (F : False) :
+  LGTM.triple
+    [⟨{11}, fun _ => trm_for vr (val.val_int 1) (val.val_int 10) c⟩ ,
+     ⟨∑ i in [[1, 10]], {i}, ht⟩ ,
+     ⟨∑ i in [[1, 10]], {-i}, ht⟩]
+    ((x ⟨_ in {1}⟩|-> 0) ∗ R ∗↑ s)
+    (fun hv => ((x ⟨_ in {1}⟩|->  ∑ j in [[0, 10]], (hv j))) ∗ R' ∗↑ s) := by
+  apply yfor_lemma
+    (z := 1)
+    (n := 10)
+    (valid := AddPCM.valid)
+    (add := AddPCM.add)
+    (Inv := fun _ => emp)
+    (Q := fun i hv => x ⟨_ in {11}⟩|-> (hv i + hv (-i)))
+    (H₀ := x ⟨_ in {11}⟩|-> 0)
+    (R := R)
+    (R' := R')=> /== //
+
+example (F : False) (n : ℕ) (f g : ℤ -> ℤ) :
+  LGTM.triple
+    [⟨{11}, fun _ => trm_for vr (val.val_int 0) (val.val_int n) c⟩ ,
+     ⟨∑ i in [[(0:ℤ) , n]], {i}, ht⟩ ,
+     ⟨∑ i in [[(0:ℤ) , n]], {-i}, ht⟩]
+    ((hharrayFun {11} (f ·) n (fun _ => x)) ∗ R ∗↑ s)
+    (fun hv => (hharrayFun {11} (g ·) n (fun _ => x)) ∗ R' ∗↑ s) := by
+  apply yfor_lemma
+    (z := 0)
+    (n := n)
+    (valid := AddPCM.valid)
+    (add := AddPCM.add)
+    (Inv := fun _ => emp)
+    (Q := (fun i hv => (x + 1 + i.natAbs) ⟨_ in {11}⟩|-> hv i))
+    (H₀ := hharrayFun {11} (f ·) n (fun _ => x))
+    (R := R)
+    (R' := R')=> /== //
+end
+
+
 section
 
 variable {H : hhProp (Labeled Int)}
@@ -676,7 +844,7 @@ instance : Coe (Labeled ℤ) ℤ where
 -- #check [sht| [1 | i in {(1 : ℤ),3} => let x := ⟨i⟩ in x + 1] ]
 example :
   emp ==>
-    NWP [1 | i in {(1 : ℤ),3} => let x := ⟨i⟩ in x + 1]
+    NWP [1 | i in {(1 : ℤ) ,3} => let x := ⟨i⟩ in x + 1]
         [2 | i in {1,3} => let x := ⟨i⟩ in x + 1]
     { v, ⌜v ⟨1,1⟩ = 2 ∧ v ⟨2,1⟩ = 2 ∧ v ⟨1,3⟩ = 4⌝ } := by
   yin 1: ywp; yval

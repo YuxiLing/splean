@@ -1011,6 +1011,12 @@ by
   { apply bighstar_himpl=> ??; apply hstar_hsingle_same_loc }
   sby srw bighstar_hpure_nonemp
 
+lemma hhadd_hhsingle_gen (v v' : α -> val) (p : α -> loc) [PartialCommMonoid val] :
+  (∀ i, PartialCommMonoid.valid (v i)) ->
+  (∀ i, PartialCommMonoid.valid (v' i)) ->
+  (p i ~⟨i in s⟩~> v i) + (p i ~⟨i in s⟩~> v' i) = p i ~⟨i in s⟩~> (v i + v' i) := by
+  srw ?hhsingle bighstar_hhadd; congr!; srw hadd_single_gen=> //
+
 open AddPCM in
 lemma hhadd_hhsingle (v v' : α -> Int) (p : α -> loc) :
   (p i ~⟨i in s⟩~> v i) + (p i ~⟨i in s⟩~> v' i) = p i ~⟨i in s⟩~> val.val_int (v i + v' i) := by
@@ -1021,6 +1027,12 @@ open AddPCM in
 lemma sum_hhsingle (v : α -> β -> Int) (fs : Finset β) (p : α -> loc) :
   (p i ~⟨i in s⟩~> 0) + ∑ j in fs, (p i ~⟨i in s⟩~> v i j) =
   p i ~⟨i in s⟩~> val.val_int (∑ j in fs, v i j) := by
+  srw ?hhsingle bighstar_sum bighstar_hhadd; congr!; srw sum_single
+
+open OrPCM in
+lemma or_hhsingle (v : α -> β -> Bool) (fs : Finset β) (p : α -> loc) :
+  (p i ~⟨i in s⟩~> false) + ∑ j in fs, (p i ~⟨i in s⟩~> v i j) =
+  p i ~⟨i in s⟩~> val.val_bool (∃ j ∈ fs, v i j) := by
   srw ?hhsingle bighstar_sum bighstar_hhadd; congr!; srw sum_single
 
 lemma bighstar_eq (H H' : α -> hProp) :
