@@ -331,6 +331,19 @@ inductive evalbinop : val → val → val → (val->Prop) → Prop where
       evalbinop val_ptr_add (val_loc p1) (val_int n)
         (fun v => v = val_loc (Int.natAbs p2))
 
+lemma evalunop_unique :
+  evalunop op v P → evalunop op v P' → P = P' := by
+  elim=> >
+  { sby move=> [] }
+  { sby move=> [] }
+  { sby move=> ? [] }
+
+lemma evalbinop_unique :
+  evalbinop op v1 v2 P → evalbinop op v1 v2 P' → P = P' := by
+  elim=> >
+  any_goals (sby move=> [])
+  all_goals (sby move=> ? [])
+
 
 /- ========================= Big-step Semantics ========================= -/
 
@@ -437,7 +450,7 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       eval s t1 Q₁ →
       (∀ v s₂ p, Q₁ v s₂ -> p ∉ s₂ ->
         eval (s₂.insert p v) (subst x p t2) (Q₂ p)) ->
-      (∀ v' s' p, (Q₂ p) v' s' → p ∈ s') →
+      -- (∀ v' s' p, (Q₂ p) v' s' → p ∈ s') →
       (∀ s₃ v' p, (Q₂ p) v' s₃ -> Q v' (s₃.erase p)) ->
       eval s (trm_ref x t1 t2) Q
   | eval_get : forall s p Q,
@@ -453,14 +466,14 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
   --     p ∈ s ->
   --     Q val_unit (Finmap.erase p s) ->
   --     eval s (trm_app val_free (val_loc p)) Q
-  | eval_alloc : forall (n : Int) (sa : state) Q,
-      n ≥ 0 →
-      ( forall (p : loc) (sb : state),
-          sb = conseq (make_list n.natAbs val_uninit) p →
-          p ≠ null →
-          Finmap.Disjoint sa sb →
-          Q (val_loc p) (sb ∪ sa) ) →
-      eval sa (trm_app val_alloc n) Q
+  -- | eval_alloc : forall (n : Int) (sa : state) Q,
+  --     n ≥ 0 →
+  --     ( forall (p : loc) (sb : state),
+  --         sb = conseq (make_list n.natAbs val_uninit) p →
+  --         p ≠ null →
+  --         Finmap.Disjoint sa sb →
+  --         Q (val_loc p) (sb ∪ sa) ) →
+  --     eval sa (trm_app val_alloc n) Q
   | eval_for (n₁ n₂ : Int) (Q : val -> state -> Prop) :
     eval s (if (n₁ < n₂) then
                (trm_seq (subst x n₁ t₁) (trm_for x (val_int (n₁ + 1)) n₂ t₁))
@@ -600,13 +613,14 @@ inductive evalExact : state → trm → (val → state → Prop) -> Prop where
   | binop : forall op s (v1 v2 : val) P,
       evalbinop op v1 v2 P ->
       evalExact s (trm_app (trm_app op v1) v2) (purepost s P)
-  | ref : forall s x t1 t2 Q Q₁ Q₃,
-      -- v = trm_val v' ->
-      -- evalExact s (trm_app val_ref v)
-      --   (fun v'' s' ↦ ∃ p, p ∉ s ∧ v'' = p ∧ s' = s.insert p v')
+  | ref : forall s x t1 t2 Q Q₁ (Q₂ : loc → val → state → Prop),
       evalExact s t1 Q₁ →
-      -- (∀ v₁ s₁, Q₁ v₁ s₁ → )
+      (∀ v s₂ p, Q₁ v s₂ -> p ∉ s₂ ->
+        evalExact (s₂.insert p v) (subst x p t2) (Q₂ p)) ->
+      (∀ s₃ v' p, (Q₂ p) v' s₃ <-> Q v' (s₃.erase p)) -> -- this is not right.`Q` has to be made exact
       evalExact s (trm_ref x t1 t2) Q
+      -- (∀ s₃ v' p, (Q₂ p) v' s₃ ->
+      --   evalExact s (trm_ref x t1 t2) (fun v'' s' ↦ v'' = v' ∧ s' = s₃.erase p))
   | get : forall s p,
       p ∈ s ->
       evalExact s (trm_app val_get (val_loc p))
@@ -627,13 +641,41 @@ inductive evalExact : state → trm → (val → state → Prop) -> Prop where
   --                     sa.Disjoint (conseq (make_list n.natAbs val_uninit) p) ∧
   --                     s = conseq (make_list n.natAbs val_uninit) p ∪ sa )
   | for (n₁ n₂ : Int) (Q : val -> state -> Prop) :
-    evalExact s (if (n₁ <= n₂) then
+    evalExact s (if (n₁ < n₂) then
                (trm_seq (subst x n₁ t₁) (trm_for x (val_int (n₁ + 1)) n₂ t₁))
             else val_unit) Q ->
     evalExact s (trm_for x n₁ n₂ t₁) Q
-  | while (t₁ t₂ : trm) (Q : val -> state -> Prop) :
-    evalExact s (trm_if t₁ (trm_seq t₂ (trm_while t₁ t₂)) val_unit) Q ->
+  | while (t₁ t₂ : trm) (Q Q₁ : val -> state -> Prop) :
+    evalExact s t₁ Q₁ ->
+    (∀ s v, Q₁ v s -> evalExact s (trm_if v (trm_seq t₂ (trm_while t₁ t₂)) val_unit) Q) ->
     evalExact s (trm_while t₁ t₂) Q
+
+
+lemma exact_imp_eval :
+  evalExact s t Q → eval s t Q := by
+  elim=> >
+  { sby constructor }
+  { sby constructor }
+  { sby constructor }
+  { move=> * ; sby constructor }
+  { move=> * ; sby apply eval.eval_app_arg2 }
+  { move=> * ; sby apply eval.eval_app_fun }
+  { move=> * ; sby apply eval.eval_app_fix }
+  { move=> ??? h ; apply (eval.eval_seq Q1)=>// ; exact h }
+  { move=> * ; sby constructor }
+  { move=> * ; sby constructor }
+  { move=> * ; apply eval.eval_unop=> //
+    sby unfold purepostin purepost }
+  { move=> * ; apply eval.eval_binop=> //
+    sby unfold purepostin purepost }
+  { move=> ??? ih1 ih2 ; constructor
+    apply ih1
+    sby apply ih2 }
+  { move=> * ; sby apply eval.eval_get }
+  { move=> * ; sby apply eval.eval_set }
+  { move=> ?ih ; sby constructor }
+  move=> * ; sby constructor
+
 
 
 end eval
