@@ -44,3 +44,12 @@ lemma triple_harrayFun_set (f : ℤ -> val) (p : loc) (i : Int) (v : val) :
     { srw if_pos; omega }
     srw if_neg; omega }
   apply himpl_refl
+
+lemma triple_arrayFun_length (p : loc) :
+  triple (trm_app val_array_length p)
+    (harrayFun f n p)
+    (fun r ↦ ⌜r = val_int n⌝ ∗ harrayFun f n p) := by
+    xtriple
+    srw harrayFun
+    xapp triple_array_length
+    sby xsimp

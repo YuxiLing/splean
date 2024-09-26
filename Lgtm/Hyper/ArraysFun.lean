@@ -44,7 +44,7 @@ attribute [-simp] Int.natCast_natAbs in
 lemma hharrayFun_eq_hhadd [PartialCommMonoid val] :
   hharrayFun s f n p =
     (p i ~⟨i in s⟩~> val.val_int n) +
-    ∑ i in [[(0 : ℤ), ↑n]], (p j + 1 + i.natAbs ~⟨j in s⟩~> f i) := by
+    ∑ i in ⟦(0 : ℤ), ↑n⟧, (p j + 1 + i.natAbs ~⟨j in s⟩~> f i) := by
   srw hharrayFunE hharray_eq_hhadd; congr! 1
   { congr!=> // }
   apply Finset.sum_congr=> //== ???; congr! 2
@@ -60,7 +60,7 @@ lemma hharrayFun_hhadd_sum [PartialCommMonoid val] (n : ℕ) (l : ℤ) (v : Int 
   0 <= l ->
   l <= n ->
   hharrayFun s f n p +
-    ∑ i in [[0, l]], (p j + 1 + i.natAbs ~⟨j in s⟩~> v i) =
+    ∑ i in ⟦0, l⟧, (p j + 1 + i.natAbs ~⟨j in s⟩~> v i) =
     hharrayFun s (fun i => if i < l then f i + v i else f i) n p := by
   move=> ?? ??; srw hharrayFun_eq_hhadd /== add_assoc
   srw -(Finset.Ico_union_Ico_eq_Ico (b := l)) //
@@ -82,7 +82,41 @@ lemma harrayFun_chip_off (i : ℤ) (n : ℕ) :
   ∃ H, hharrayFun s f n p = (p j + 1 + i.natAbs ~⟨j in s⟩~> f i) ∗ H := by
   move=> ??; econstructor
   srw hharrayFun_eq_hhadd hhaddE
-  srw -(Finset.sdiff_union_of_subset (α := ℤ) (s₁ := {i}) (s₂ := [[0, ↑n]])) //
+  srw -(Finset.sdiff_union_of_subset (α := ℤ) (s₁ := {i}) (s₂ := ⟦0, ↑n⟧)) //
   srw Finset.sum_union //==; ysimp; ysimp
+
+open trm
+
+
+lemma triple_hharrayFun_get (p : loc) (i : α -> Int) (s : Set α) :
+   (∀ a ∈ s, 0 <= i a ∧ i a < (n : ℕ)) →
+   htriple s (fun a => trm_app val_array_get p (i a))
+    (hharrayFun s f n (fun _ => p))
+    (fun r ↦ ⌜r = fun a => f (i a)⌝ ∗ hharrayFun s f n (fun _ => p)) := by
+  move=> ?
+  apply htriple_prod_val_eq=> ??; apply triple_harrayFun_get=> //
+
+
+-- lemma triple_hharrayFun_set (f : ℤ -> val) (p : loc) (i : α -> Int) (s : Set α) (v : hval) :
+--    (∀ a ∈ s, 0 <= i a ∧ i a < (n : ℕ)) →
+--    htriple s (fun a => trm_app val_array_set p i v)
+--     (hharrayFun s f n p)
+--     (fun _ => hharrayFun (Function.update f i v) n p) := by
+--   move=> ?
+--   xapp triple_array_set; xsimp
+--   shave->//: (@List.ofFn _ n fun x ↦ f x).set i.natAbs v =
+--           @List.ofFn _ n ((Function.update f i v) ·)
+--   { apply List.ext_getElem=> //== ???
+--     srw List.getElem_set /== Function.update /==
+--     scase_if=> ?
+--     { srw if_pos; omega }
+--     srw if_neg; omega }
+--   apply himpl_refl
+
+lemma triple_hharrayFun_length (p : loc) :
+  htriple s (fun _ => trm_app val_array_length p)
+    (hharrayFun s f n p)
+    (fun r ↦ ⌜r = fun _ => val.val_int n⌝ ∗ hharrayFun s f n p) := by
+    apply htriple_prod_val_eq=> ??; apply triple_arrayFun_length=> //
 
 end

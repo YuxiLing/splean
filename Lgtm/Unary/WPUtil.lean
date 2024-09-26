@@ -46,7 +46,7 @@ set_option linter.hashCommand false
 elab "#hint_xapp" thm:ident : command => do
   Command.runTermElabM fun _ => do
     let thm := (<- Term.elabTerm thm none)
-    let .some thmName := thm.constName? | throwError "invalid theorem"
+    let .some thmName := thm.getAppFn.constName? | throwError "invalid theorem"
     let thm <- Meta.inferType thm
     let thmFun <- Meta.forallTelescope thm fun _ thm => do
       getTripleFun thm

@@ -288,8 +288,8 @@ def ysimp_pick (i : Nat) (last? : Bool) : TacticM Unit :=
    {| apply ysimp_pick_lemma
       · apply $(hhstar_pick_lemma i last?) |}
 
-partial def hhstar_search (hs : Term) (test : Nat -> Term -> optParam Bool false -> TacticM Unit) :=
-  let rec loop (i : Nat) (hs : Term)  : TacticM Unit := do
+partial def hhstar_search [Nonempty α] (hs : Term) (test : Nat -> Term -> optParam Bool false -> TacticM α) :=
+  let rec loop [Nonempty α] (i : Nat) (hs : Term)  : TacticM α := do
     match hs with
     | `(@HStar.hStar $_ $_ $_ $_ $h1 $h2) => do
       try
@@ -612,14 +612,26 @@ lemma bighsingle_eq {hv₁ hv₂ : α -> val} {p : α -> loc} :
   [∗ i in s| p i ~~> hv₁ i] = [∗ i in s| p i ~~> hv₂ i] := by
     sby move=> hveq; apply bighstar_eq=> ? /hveq
 
-lemma ysimpl_lr_cancel_same_hsingle (p : α -> loc) (v1 v2 : α -> val) :
+lemma ysimpl_lr_cancel_same_hsingle (p : α -> loc) (v₁ v₂ : α -> val) :
   YSimp (Hla, Hlw, Hlt) (Hra, Hrg, Hrt) →
-  (∀ i ∈ s, v1 i = v2 i) →
-  YSimp ([∗ i in s | p i ~~> v1 i] ∗ Hla, Hlw, Hlt) (Hra, Hrg, [∗ i in s | p i ~~> v2 i] ∗ Hrt) := by
+  (∀ i ∈ s, v₁ i = v₂ i) →
+  YSimp ([∗ i in s | p i ~~> v₁ i] ∗ Hla, Hlw, Hlt) (Hra, Hrg, [∗ i in s | p i ~~> v₂ i] ∗ Hrt) := by
   move=> ? hveq; srw (bighsingle_eq hveq)
   ysimp_lr_start
   hhstar_simp
   sby srw (@hhstar_comm _ Hrt) (@hhstar_comm _ Hrg) ; hsimp
+
+lemma ysimpl_lr_cancel_same_hsingle_subset (p : α -> loc) (v₁ v₂ : α -> val) :
+  YSimp ([∗ i in s₁ \ s₂ | p i ~~> v₁ i] ∗ Hla, Hlw, Hlt) (Hra, Hrg, Hrt) →
+  s₂ ⊆ s₁ ->
+  (∀ i ∈ s₂, v₁ i = v₂ i) →
+  YSimp ([∗ i in s₁ | p i ~~> v₁ i] ∗ Hla, Hlw, Hlt) (Hra, Hrg, [∗ i in s₂ | p i ~~> v₂ i] ∗ Hrt) := by
+  move=> himpl h hveq; srw -(bighsingle_eq hveq)
+  srw -(Set.diff_union_of_subset h) -bighstar_hhstar_disj
+  { ysimp_lr_start; hhstar_simp
+    srw (@hhstar_comm _ Hrt) (@hhstar_comm _ Hrg)
+    move: himpl; srw YSimp /= ?hhstar_assoc // }
+  exact Set.disjoint_sdiff_left
 
 lemma ysimp_lr_exit :
   Hla ==> Hra ∗ Hrg ->
@@ -642,7 +654,6 @@ def ysimp_pick_same_pointer (p hla : Term) : TacticM Unit := withMainContext do
         let .true <-
           withAssignableSyntheticOpaque <| isDefEq p' p | throwError "not equal"
       | _ => throwError "not equal"
-    ysimp_pick i last?
 
 lemma hval_int_congr (s : Set α) (n1 n2 : α -> Int) :
   (∀ i ∈ s, n1 i = n2 i) →

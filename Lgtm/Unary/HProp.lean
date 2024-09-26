@@ -243,7 +243,7 @@ by
     sdo 3 apply And.intro=> //
     { sby srw Finmap.disjoint_union_right }
     sby srw Finmap.union_assoc }
-  { move=> ![h1 ?? [h2 [h3 ![??? h23eq]]] /h23eq
+  { move=> ![h1 ?? [h2 [h3 ![??? h23eq] ] ] /h23eq
       /(Finmap.disjoint_union_right h1 h2 h3) [??] /h23eq hU]
     exists (h1 ∪ h2), h3
     sdo 3 apply And.intro=>//
@@ -270,8 +270,8 @@ lemma hstar_hexists A (J : A → hProp) H :
   (hexists J) ∗ H = hexists (fun x => (J x) ∗ H) :=
 by
   apply himpl_antisym
-  { sby move=> ? ![?? []] }
-  sby move=> ? [? ![]]
+  { sby move=> ? ![?? [] ] }
+  sby move=> ? [? ![] ]
 
 lemma hstar_hforall A (J : A → hProp) H :
   (hforall J) ∗ H ==> hforall (J ∗ H) :=
@@ -553,7 +553,7 @@ lemma hwand_inv h1 h2 H1 H2 :
   Finmap.Disjoint h1 h2 →
   H2 (h1 ∪ h2) :=
 by
-  move=> [? ![hW1 ?? [/himpl h1W hW2emp] ? /hW2emp /Finmap.union_empty hU *]]
+  move=> [? ![hW1 ?? [/himpl h1W hW2emp] ? /hW2emp /Finmap.union_empty hU *] ]
   apply h1W ; exists h1, hW1
   sby srw hU
 

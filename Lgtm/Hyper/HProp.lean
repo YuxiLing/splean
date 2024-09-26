@@ -652,7 +652,7 @@ lemma hhwand_inv (h1 h2 : hheap) (H1 H2 : hhProp) :
   hdisjoint h1 h2 →
   H2 (h1 ∪ h2) :=
 by
-  move=> [? ![hW1 ?? [/hhimpl h1W hW2emp] /hW2emp /hunion_empty hU *]]
+  move=> [? ![hW1 ?? [/hhimpl h1W hW2emp] /hW2emp /hunion_empty hU *] ]
   apply h1W ; exists h1, hW1
   sby srw hU
 

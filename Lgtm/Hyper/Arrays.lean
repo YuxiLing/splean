@@ -8,6 +8,8 @@ import Mathlib.Algebra.BigOperators.Intervals
 -- lemmas about intervals
 import Mathlib.Data.Int.Interval
 
+import Lgtm.Common.Heap
+
 import Lgtm.Unary.Util
 import Lgtm.Unary.HProp
 import Lgtm.Unary.XSimp
@@ -18,19 +20,6 @@ import Lgtm.Hyper.HProp
 import Lgtm.Hyper.YSimp
 import Lgtm.Hyper.YChange
 import Lgtm.Hyper.SepLog
-
-notation "[[" z ", " n "]]" => Finset.Ico z n
-
-lemma sum_Ico_succl {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
-  i < j ->
-  ∑ i in [[i, j]], f i = f i + ∑ i in [[i+1, j]], f i := by sorry
-
-lemma sum_Ico_succlr {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
-  ∑ i in [[i, j]], f (i+1) = ∑ i in [[i+1, j+1]], f i := by sorry
-
-lemma sum_Ico_predr {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
-  i < j ->
-  ∑ i in [[i, j]], f i = (∑ i in [[i, j - 1]], f i) + f (j -1) := by sorry
 
 section
 
@@ -45,7 +34,7 @@ attribute [simp] hseg
 open EmptyPCM in
 lemma hseg_eq_bighstar :
   j >= 0 ->
-  hseg L p j = ∑ i in [[0, ↑L.length]], (p + 1 + (j + i).natAbs ~~> L[i]!) := by
+  hseg L p j = ∑ i in ⟦0, ↑L.length⟧, (p + 1 + (j + i).natAbs ~~> L[i]!) := by
   elim: L j=> //== v l /[swap] > /[swap]? ->; rotate_left
   { omega }
   srw [2]sum_Ico_succl //==; erw [<-sum_Ico_succlr _ 0 _, hcell]
@@ -97,7 +86,7 @@ def hharray (L :List val) (p : α -> loc) : hhProp :=
 lemma hharray_eq_hhadd [PartialCommMonoid val] :
   hharray s L p =
     (p i ~⟨i in s⟩~> val.val_int L.length) +
-    ∑ i in [[(0 : ℤ), ↑L.length]], (p j + 1 + i.natAbs ~⟨j in s⟩~> L[i]!) := by
+    ∑ i in ⟦(0 : ℤ), ↑L.length⟧, (p j + 1 + i.natAbs ~⟨j in s⟩~> L[i]!) := by
   srw hharray harray
   srw bighstar_eq; rotate_right
   { move=> a ?; srw -hadd_disjoint_hstar
@@ -118,7 +107,7 @@ def hharray_int (L :List Int) (p : α -> loc) : hhProp :=
 lemma hharray_int_eq_hhadd [PartialCommMonoid val] :
   hharray_int s L p =
     (p i ~⟨i in s⟩~> val.val_int L.length) +
-    ∑ i in [[(0 : ℤ), ↑L.length]], (p j + 1 + i.natAbs ~⟨j in s⟩~> val.val_int L[i]!) := by
+    ∑ i in ⟦(0 : ℤ), ↑L.length⟧, (p j + 1 + i.natAbs ~⟨j in s⟩~> val.val_int L[i]!) := by
   srw hharray_int hharray_eq_hhadd /==; congr! 4
   rename_i i iin _; simp at iin
   srw ?getElem!_pos // <;> try omega
@@ -134,7 +123,7 @@ lemma hharray_int_hhadd_sum (l : ℤ) (v : Int -> Int) :
   0 <= l ->
   l <= L.length ->
   hharray_int s L p +
-    ∑ i in [[0, l]], (p j + 1 + i.natAbs ~⟨j in s⟩~> v i) =
+    ∑ i in ⟦0, l⟧, (p j + 1 + i.natAbs ~⟨j in s⟩~> v i) =
     hharray_int s (L.mapIdx fun i x => if i < l then v i + x else x) p := by
   move=> ??; srw ?hharray_int_eq_hhadd /== add_assoc; congr
   srw -(Finset.Ico_union_Ico_eq_Ico (b := l)) //; rotate_left
@@ -163,7 +152,7 @@ lemma harray_int_chip_off (i : ℤ) :
   ∃ H, hharray_int s L p = (p j + 1 + i.natAbs ~⟨j in s⟩~> val.val_int L[i]!) ∗ H := by
   move=> ??; econstructor
   srw hharray_int_eq_hhadd hhaddE
-  srw -(Finset.sdiff_union_of_subset (α := ℤ) (s₁ := {i}) (s₂ := [[0, ↑L.length]])) //
+  srw -(Finset.sdiff_union_of_subset (α := ℤ) (s₁ := {i}) (s₂ := ⟦0, ↑L.length⟧)) //
   srw Finset.sum_union //==; ysimp; ysimp
 
 end

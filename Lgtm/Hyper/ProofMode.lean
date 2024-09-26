@@ -60,20 +60,29 @@ syntax "[sht| " sht "]" : term
 
 syntax "NWP " (sht ppLine)* ppGroup( "{ " ident ", " ppGroup(term) " }") : term
 syntax ppGroup("{ " term " }") ppDedent(ppLine (sht ppLine)* ppGroup( "{ " ident ", " ppGroup(term) " }")) : term
+-- syntax "WP [" term "|" ident " in " term " => " lang "]" ppSpace term : term
+syntax "WP [" term "|" ident " in " term " => " lang "]" "{ " ident ", " term " }" : term
 
 macro_rules
   | `(sht| [$n | $i in $s => $t]) => `(SHT.mk ⟪$n, $s⟫ (fun $i:ident => [lang|$t]))
 
-macro "WP [" n:num "|" i:ident " in " s:term " => " t:lang "]" ppSpace Q:term : term =>
-  `(hwp ⟪$n,$s⟫ (fun $i:ident => [lang|$t]) $Q)
+macro_rules
+  | `(term|WP [$n| $i in $s => $t] { $v:ident, $Q:term }) =>
+  `(hwp ⟪$n,$s⟫ (fun $i:ident => [lang|$t]) (fun $v:ident => $Q))
 
-macro "WP [" n:num "|" i:ident " in " s:term " => " t:lang "]"  "{ " v:ident ", " Q:term " }" : term =>
-  `(hwp ⟪$n,$s⟫ (fun $i:ident => [lang|$t]) fun $v => $Q)
+
+-- macro_rules
+--   | `(WP [$n| $i in $s => $t] $Q) => `(hwp ⟪$n,$s⟫ (fun $i:ident => [lang|$t]) $Q)
+-- macro "WP [" n:term "|" i:ident " in " s:term " => " t:lang "]" ppSpace Q:term : term =>
+--   `(hwp ⟪$n,$s⟫ (fun $i:ident => [lang|$t]) $Q)
+
+-- macro "WP [" n:term "|" i:ident " in " s:term " => " t:lang "]"  "{ " v:ident ", " Q:term " }" : term =>
+--   `(hwp ⟪$n,$s⟫ (fun $i:ident => [lang|$t]) (fun $v:ident => $Q))
 
 
 @[app_unexpander hwp] def unexpandHWP : Lean.PrettyPrinter.Unexpander
-  | `($(_) ⟪$n:num,$s⟫ (fun $i:ident => [lang|$t])) => do
-    `(WP [$n| $i in $s => $t] ⋯)
+  | `($(_) ⟪$n:term,$s⟫ (fun $i:ident => [lang|$t])) => do
+    `(WP [$n| $i in $s => $t] { $i,  ⋯ } )
   | _ => throw ( )
 
 -- #check LGTM.SHT.mk
@@ -97,9 +106,9 @@ macro_rules
   | _ => throw ( )
 
 @[app_unexpander hwp] def unexpandLGTMWP : Lean.PrettyPrinter.Unexpander
-  | `($(_) ⟪$n:num,$s⟫ $f fun $_ => NWP $_* { $_, $_ }) =>
+  | `($(_) ⟪$n:num,$s⟫ $f fun $j:ident => NWP $_* { $_, $_ }) =>
     match f with
-    | `(fun $i:ident => [lang|$t]) => `(WP [$n| $i in $s => $t] ⋯)
+    | `(fun $i:ident => [lang|$t]) => `(WP [$n| $i in $s => $t] { $j, ⋯ })
     | _ => throw ( )
   | `($(_) ⟪$n:num,$s⟫ $f fun $v:ident => $Q) =>
     match f with
@@ -154,7 +163,7 @@ lemma List.eraseIdx_getElem (l : List α) {_ : j + 1 < l.length}
   (l.eraseIdx i)[j] = if h : j < i then l[j]'(by omega) else l[j+1]'(by omega) := by
   sorry
 
-lemma yunfocus_lemma (idx : ℕ) (l : LabType) (shts : LGTM.SHTs (Labeled α)) {pi : idx < shts.length}
+lemma yunfocus_lemma (idx : ℕ) (l : LabType) (shts : LGTM.SHTs (Labeled α)) {pi : idx-1 < shts.length}
   (Q' : hval (Labeled α) -> hval (Labeled α) -> hhProp (Labeled α)):
   (shts.Pairwise (Disjoint ·.s ·.s)) ->
   (shts.Forall (Disjoint ⟪l,s⟫ ·.s)) ->
@@ -302,6 +311,7 @@ set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
 elab "yunfocus" n:num ? : tactic => do
   let n := n.getD (<- `(num|1))
+  {| try srw -hwp_equiv |}
   {| srw (yunfocus_lemma ($n-1)) /== |}
   let gs <- getUnsolvedGoals
   let [gRest, gDj, gQeq, _] := gs | failure
@@ -370,10 +380,10 @@ by
   move=> h
   ychange h
 
-lemma xif_lemma b H F1 F2 Q :
+lemma yif_lemma b H F1 F2 Q :
   (b = true -> H ==> F1 Q) →
   (b = false -> H ==> F2 Q) →
-  H ==> hwpgen_if (fun (_ : htrm α) => b) F1 F2 Q :=
+  H ==> hwpgen_if (fun (_ : α) => b) F1 F2 Q :=
 by
   scase: b
   move=> /== h
@@ -617,13 +627,6 @@ open AList
 /- Definition of Multi-Substitution -/
 
 
-lemma trm_apps1 :
-  trm_app t1 t2 = trm_apps t1 [t2] := by rfl
-
-lemma trm_apps2 :
-  trm_apps (trm_app t1 t2) ts = trm_apps t1 (t2::ts) := by rfl
-
-
 lemma ywp_lemma_funs (xs : α -> List var) (vs : α -> List val) (t t1 : htrm α)
   (ts : α -> List trm):
   (∀ i, t i = trm_apps (v0 i) (ts i)) ->
@@ -647,20 +650,36 @@ lemma xwp_lemma_fixs (xs : α -> List var) (vs : α -> List val) (t t1 : htrm α
 --   H ==> wpgen t Q →
 --   H ==> wp t Q := by sorry
 
+lemma trm_apps3 :
+  trm_apps (trm_apps t1 t2) ts = trm_apps t1 (t2++ts) := by
+  sorry
 
 macro "ywp" : tactic =>
   `(tactic|
     (intros
-     try simp_rw [trm_apps1]
-     repeat simp_rw [trm_apps2]
-     try (first | (apply ywp_lemma_fixs; rfl; rfl; sdone; sdone; sdone)=> //'
-                | (apply ywp_lemma_funs; rfl; rfl; rfl; sdone)=> //')
+     try simp_rw [Unary.trm_apps1]
+     try simp_rw [Unary.trm_apps2]
+     try simp_rw [trm_apps3]
+     try (first | (
+      apply ywp_lemma_fixs;
+      { move=> ?; rfl }
+      { intros; rfl }
+      { sdone }
+      { sdone }
+      sdone)=> //'
+                | (
+      apply ywp_lemma_funs;
+      { move=> ?; rfl }
+      { rfl }
+      { move=> ?; rfl; }
+      sdone)=> //')
+     try simp only [Unary.isubst, AList.lookup, List.dlookup]
      apply hwp_of_hwpgen
      all_goals try simp
        [hwpgen,
         subst,
         isubst, trm_apps, AList.lookup, List.dlookup]
-     all_goals try simp [_root_.subst, trm_apps]))
+     all_goals try simp [_root_.subst, trm_apps, Unary.isubst]))
 
 macro "yval" : tactic => do
   `(tactic| (ystruct_if_needed; yseq_xlet_if_needed; (try ywp); apply yval_lemma))
@@ -700,7 +719,7 @@ lemma GenInstArr_eqSum (hv : hval α) (f : Int -> val)
   (∀ i, PartialCommMonoid.valid (op hv i)) →
   hharrayFun s (fun i ↦ f i + op hv i) n x =
     hharrayFun s (fun x ↦ f x) n x +
-    ∑ i ∈ [[(0 : ℤ) , n]], (x j + 1 + i.natAbs ~⟨j in s⟩~> op hv i) := by
+    ∑ i ∈ ⟦(0 : ℤ) , n⟧, (x j + 1 + i.natAbs ~⟨j in s⟩~> op hv i) := by
   move=> ??; srw hharrayFun_hhadd_sum //'
   srw ?hharrayFun ?harrayFun; congr! 4=> ! [] /== //
 
@@ -708,10 +727,10 @@ lemma GenInstArr_eqGen (s : Set α) (x : α -> loc) (hv : Int -> hval α) (f : I
   (op : hval α -> Int -> val) [PartialCommMonoid val] :
   (∀ i, PartialCommMonoid.valid (f i)) →
   (∀ i, PartialCommMonoid.valid (op (hv i) i)) →
-  ∀ j ∈ [[(0 : ℤ) , n]],
+  ∀ j ∈ ⟦(0 : ℤ) , n⟧,
     ∃ v H,
       PartialCommMonoid.valid v ∧
-      hharrayFun s (fun x ↦ f x) n x + ∑ i ∈ [[0, j]],
+      hharrayFun s (fun x ↦ f x) n x + ∑ i ∈ ⟦0, j⟧,
        (x j + 1 + i.natAbs ~⟨j in s⟩~> op (hv i) i) =
         x i + 1 + j.natAbs ~⟨i in s⟩~> v ∗ H := by
   move=> ?? > /== ??; srw hharrayFun_hhadd_sum //'
@@ -732,10 +751,10 @@ instance GenInst (op : hval α -> Int -> Int) (x : loc) :
     (Int)
     (fun _ j =>  x ~⟨_ in s⟩~> j)
     (fun i j hv => x ~⟨_ in s⟩~> val.val_int (op hv i + j))
-    (fun hv => x ~⟨_ in s⟩~> val.val_int (∑ i in [[z,n]], op hv i)) where
+    (fun hv => x ~⟨_ in s⟩~> val.val_int (∑ i in ⟦z,n⟧, op hv i)) where
     eqGen := by
       move=> > ?
-      exists (∑ i in [[z, j]], op (hv i) i) , emp
+      exists (∑ i in ⟦z, j⟧, op (hv i) i) , emp
       srw sum_hhsingle; ysimp=> //
     eqInd := by srw hhadd_hhsingle //
     eqSum := by srw sum_hhsingle //
@@ -777,10 +796,10 @@ instance GenInst (op : hval α -> Int -> Bool) (x : loc) :
     (Bool)
     (fun _ j =>  x ~⟨_ in s⟩~> j)
     (fun i j hv => x ~⟨_ in s⟩~> val.val_bool (op hv i || j))
-    (fun hv => x ~⟨_ in s⟩~> val.val_bool (∃ i ∈ [[z,n]], op hv i)) where
+    (fun hv => x ~⟨_ in s⟩~> val.val_bool (∃ i ∈ ⟦z,n⟧, op hv i)) where
     eqGen := by
       move=> > ?
-      exists (∃ i ∈ [[z, j]], op (hv i) i) , emp
+      exists (∃ i ∈ ⟦z, j⟧, op (hv i) i) , emp
       srw or_hhsingle; ysimp=> //
     eqInd := by move=> >; srw hhadd_hhsingle_gen //
     eqSum := by move=> >; srw or_hhsingle //
@@ -870,10 +889,10 @@ local notation (priority := high) Q " ∗↑ " s:70 => bighstar s Q
 example (F : False) :
   LGTM.triple
     [⟨{11}, fun _ => trm_for vr (val.val_int 1) (val.val_int 10) c⟩ ,
-     ⟨∑ i in [[1, 10]], {i}, ht⟩ ,
-     ⟨∑ i in [[1, 10]], {-i}, ht⟩]
+     ⟨∑ i in ⟦1, 10⟧, {i}, ht⟩ ,
+     ⟨∑ i in ⟦1, 10⟧, {-i}, ht⟩]
     ((x ⟨_ in {1}⟩|-> 0) ∗ R ∗↑ s)
-    (fun hv => ((x ⟨_ in {1}⟩|->  ∑ j in [[0, 10]], (hv j))) ∗ R' ∗↑ s) := by
+    (fun hv => ((x ⟨_ in {1}⟩|->  ∑ j in ⟦0, 10⟧, (hv j))) ∗ R' ∗↑ s) := by
   yfor+ with
     (Inv := fun _ => emp)
     (valid := valid)
@@ -886,8 +905,8 @@ example (F : False) :
 example (F : False) (n : ℕ) (f g : ℤ -> ℤ) :
   LGTM.triple
     [⟨{-2}, fun _ => trm_for vr (val.val_int 0) (val.val_int n) c⟩ ,
-     ⟨∑ i in [[(0:ℤ) , n]], {i}, ht⟩ ,
-     ⟨∑ i in [[(0:ℤ) , n]], {-1}, ht⟩]
+     ⟨∑ i in ⟦(0:ℤ) , n⟧, {i}, ht⟩ ,
+     ⟨∑ i in ⟦(0:ℤ) , n⟧, {-1}, ht⟩]
     ((hharrayFun {-2} (f ·) n (fun _ => x)) ∗ R ∗↑ s)
     (fun hv => (hharrayFun {-2} (g ·) n (fun _ => x)) ∗ R' ∗↑ s) := by
   yfor+ with
@@ -922,6 +941,11 @@ example :
   yin 2: ywp; yval; yapp htriple_add
   yapp htriple_add
   srw fun_insert /==; ysimp
+
+example :
+  emp ==>
+    WP [1 | i in {(1 : ℤ) ,3} => let x := ⟨i⟩ in x + 1]
+    { v, ⌜v ⟨1,1⟩ = 2 ∧ v ⟨2,1⟩ = 2 ∧ v ⟨1,3⟩ = 4⌝ } := by sorry
 
 -- #check
 --   { (H ∗ H) }

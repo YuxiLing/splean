@@ -2,6 +2,7 @@ import Lean
 import Lgtm.Unary.Lang
 import Lgtm.Unary.WPUtil
 import Lgtm.Hyper.SepLog
+import Lgtm.Hyper.WP
 
 open Lean Meta Elab Tactic
 open val trm
@@ -18,7 +19,13 @@ initialize yappExtension :
 
 
 def getHTripleFun (g : Expr) : MetaM Name := do
-  let_expr htriple _ _ t _ _ := g | throwError "goal is not a hyper triple"
+  let t <-
+    match_expr g with
+    | htriple _ _ t _ _ => pure t
+    | hhimpl _ _ wp =>
+      let_expr hwp _ _ t _ := wp | throwError "hyper implication does not have a wp"
+      pure t
+    | _ => throwError "goal is not a hyper triple or hyper implication"
   lambdaTelescope t fun _ t => do
     let_expr trm_app t _ := t | throwError "hyper triple term is not an application"
     let .some n := (getNestedApp t).constName? | throwError "nested application in a hyper term is not a constant"
@@ -36,7 +43,7 @@ set_option linter.hashCommand false
 elab "#hint_yapp" thm:ident : command => do
   Command.runTermElabM fun _ => do
     let thm := (<- Term.elabTerm thm none)
-    let .some thmName := thm.constName? | throwError "invalid theorem"
+    let .some thmName := thm.getAppFn.constName? | throwError "invalid theorem"
     let thm <- Meta.inferType thm
     let thmFun <- Meta.forallTelescope thm fun _ thm => do
       getHTripleFun thm

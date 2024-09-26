@@ -824,9 +824,9 @@ abbrev default_get' := default_get (val_int 0)
 
 macro_rules
   | `([lang| len $p])                => `(trm_val val_array_length [lang| $p])
-  | `([lang| $arr[$i]])              => `(trm_val default_get' [lang| $arr] [lang| $i])
+  | `([lang| $arr[$i] ])              => `(trm_val val_array_get [lang| $arr] [lang| $i])
   -- | `([lang| $arr[$i]($d)])           => `(trm_val default_get [lang| $arr] [lang| $i] [lang| $d])
-  | `([lang| $arr[$i] := $v])        => `(trm_app default_set [lang| $arr] [lang| $i] [lang| $v])
+  | `([lang| $arr[$i] := $v])        => `(trm_app val_array_set [lang| $arr] [lang| $i] [lang| $v])
   | `([lang| mkarr $n:lang $v:lang]) => `(trm_val val_array_make [lang| $n] [lang| $v])
 
 
@@ -875,8 +875,8 @@ macro_rules
   match x with
   | `($(_) $x:ident) =>
     match x with
-    | `(default_get') => `($x)
-    | `(default_set) => `($x)
+    | `(val_array_get) => `($x)
+    | `(val_array_set) => `($x)
     | `(val_unit) => `([lang| ()])
     | `(val_array_make) => `([uop| mkarr])
     | _ => `([lang| $x:ident])
@@ -900,13 +900,13 @@ macro_rules
     match app with
     | `([bop| $bop].trm_app [lang| $t1]) => `([lang| $t1 $bop $t2])
     | `([lang| $t1]) => `([lang| $t1 $t2])
-    | `(default_get') => return x
-    | `(trm_app default_get' [lang| $t1]) => `([lang| $t1[$t2]])
-    | `(default_set) => return x
-    | `(trm_app default_set [lang| $_]) => return x
+    | `(val_array_get) => return x
+    | `(trm_app val_array_get [lang| $t1]) => `([lang| $t1[$t2] ])
+    | `(val_array_set) => return x
+    | `(trm_app val_array_set [lang| $_]) => return x
     | `(trm_app $app [lang| $t1]) =>
       match app with
-      | `(trm_app default_set [lang| $t0]) => `([lang| $t0[$t1] := $t2])
+      | `(trm_app val_array_set [lang| $t0]) => `([lang| $t0[$t1] := $t2])
       -- | `(trm_app default_get [lang| $t0]) =>
       --   -- dbg_trace t2
       --   match t2 with
@@ -1057,7 +1057,7 @@ macro_rules
   | _ => throw ( )
 
 -- set_option pp.notation false
-#check [lang| x[3]]
+#check [lang| x[3] ]
 #check [lang| x[7](0)]
 #check [lang| x[3] := 5; mkarr 5 5]
 
@@ -1087,7 +1087,8 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
     then
       for i in [z : y] {
         let z := ref i in
-        let z := ref i in
+        let z := p[i] in
+        p[i] := z;
         !z
       }
     else
