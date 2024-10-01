@@ -55,9 +55,6 @@ by
   { move=> * ; apply eval.eval_binop=>//
     sby srw (purepostin) at * }
   { move=> * ; sby apply eval.eval_ref }
-  -- { move=> * ; sby apply (eval.eval_ref _ _ _ _ Q2 Q₁ Q₂) }
-  -- { move=> ?? hin * ; apply (eval.eval_ref _ _ _ _ Q2 Q₁ Q₂)=> //
-  --   sby move=> > /hin }
   { move=> * ; sby apply eval.eval_get }
   { move=> * ; sby apply eval.eval_set }
   -- { move=> * ; sby apply eval.eval_alloc }
@@ -272,6 +269,21 @@ lemma reinsert_erase_union (h1 h2 h3 : state) :
   move=> []
   sby srw Finmap.lookup_union_left
 
+lemma union_singleton_eq_erase (h h' : state) :
+  h.Disjoint (Finmap.singleton p v) →
+  h' = h ∪ Finmap.singleton p v →
+  h = h'.erase p := by
+  move=> hdisj []
+  apply Finmap.ext_lookup=> >
+  scase: [x = p]
+  { move=> ?
+    srw Finmap.lookup_erase_ne=> //
+    sby srw Finmap.lookup_union_left_of_not_in }
+  move=> []
+  srw Finmap.lookup_erase
+  srw Finmap.lookup_eq_none
+  sby move: hdisj ; unfold Finmap.Disjoint Not=> /[apply]
+
 
 /- ============== Necessary Lemmas about [eval] and [evalExact] ============== -/
 
@@ -298,9 +310,6 @@ lemma eval_sat :
   { move=> ?? ![>] /[swap] /[apply]
     scase: (finite_state w_1)=> p hp
     sby move: hp=> /[swap] /[apply] ![>] }
-  -- { move=> ?? hQ₂ ![>] /[swap] /[apply]
-  --   scase: (finite_state w_1)=> p hp
-  --   sby move: hp=> /[swap] /[apply] ![>] /hQ₂ }
   move=> ? /[swap]![>] /[swap] _ /[swap]/[apply]//
 
 lemma evalExact_sat :
@@ -315,9 +324,6 @@ lemma evalExact_sat :
   { move=> ?? ![>] /[swap] /[apply]
     scase: (finite_state w_1)=> p hp
     sby move: hp=> /[swap] /[apply] ![>] }
-  -- { move=> ?? hQ₂ ![>] /[swap] /[apply]
-  --   scase: (finite_state w_1)=> p hp
-  --   sby move: hp=> /[swap] /[apply] ![>] /hQ₂ }
   move=> ? /[swap]![>] /[swap] _ /[swap]/[apply]//
 
 lemma evalExact_post :
@@ -378,15 +384,6 @@ lemma evalExact_post :
     move: ih2=> /[apply]
     unfold qimpl himpl=> /== ?
     sby srw (insert_delete_id h p) }
-  -- { move=> ?? himp1 ih1 ih2 > [] Q₁' Q₂' hevEx hev₂ himp2
-  --   move=> > h
-  --   move: hevEx hev₂
-  --   move=> /[dup] /ih1 {}ih1 /evalExact_sat ![>] /[dup] /ih1 {}ih1
-  --   move=> /[swap] /[apply]
-  --   scase: (finite_state (h ∪ w_1))=> p /non_mem_union [] ? /[dup] hp hp'
-  --   move: hp' => /[swap] /[apply]
-  --   move: ih1 hp=> /ih2 /[apply] /[apply] {}ih2
-  --   sby srw (insert_delete_id h p)=> // /himp2 /ih2 /himp1 }
   { sby move=> ?? > [] // _ ?? }
   { move=> [] ?? > [] //
     { move=> > ? [] // }
@@ -396,28 +393,6 @@ lemma evalExact_post :
     move=> /[dup] /ih1 {}ih1 /evalExact_sat ![>] /[dup] /ih1 {}ih1
     move=> /[swap] /[apply]
     sby move: ih1=> /ih2 }
-
-
--- lemma evalExact_ref' (Q₁ Q₂ Q₃ : val → state → Prop) :
---   evalExact s t1 Q₁ →
---   (∀ v₁ s₁, Q₁ v₁ s₁ → -- t1 => v s     (ref v) s Q₂
---     (∀ v' s', Q₂ v' s' ↔ ∃ p, p ∉ s₁ ∧ v' = p ∧ s' = (s₁.insert p v₁))) →
---   (∀ v₂ s₂, Q₂ v₂ s₂ → evalExact s₂ (subst x v₂ t2) Q₃) →
---   (∀ (v₂ : loc) s₂ v₃ s₃, Q₂ v₂ s₂ → Q₃ v₃ s₃ →
---     (∀ v' s', Q v' s' ↔ v' = v₃ ∧ s' = s₃.erase v₂)) →
---   evalExact s (trm_ref x t1 t2) Q := by
---   move=> hev₁ href hev₂ hfree
---   constructor
---   { apply hev₁ }
---   { move=> > /href href
---     specialize (href p (s₂.insert p v))=> ?
---     have hex:(∃ p_1 ∉ s₂, val_loc p = val_loc p_1 ∧
---       Finmap.insert p v s₂ = Finmap.insert p_1 v s₂) := by exists p
---     sby move: hex=> /href /hev₂ }
---   move=> > ⟨|⟩
---   { scase=> p [] ? [] v
---     apply evalExact_sat in hev₁=> ![>] /href }
-
 
 lemma evalExact_WellAlloc :
   evalExact s t Q →
@@ -452,13 +427,6 @@ lemma evalExact_WellAlloc :
     move: hQ₁=> /ih2 /[apply] /== {}ih2
     srw [1](insert_delete_id s' p)=> //
     sby move=> /ih2 /hins }
-  -- { move=> > /evalExact_sat ![>] /[dup] hQ₁ /[swap] /[apply] ? hQ₂ ih1 ih2 >
-  --   move: hQ₁=> /[dup] hQ₁ /ih1 {}ih1
-  --   scase: (finite_state (s' ∪ w_1))=> p /non_mem_union []
-  --   move=> /[dup] /insert_same hins ? /[dup] /hins {}hins
-  --   move: hQ₁=> /ih2 /[apply] {}ih2
-  --   srw [1](insert_delete_id s' p)=> //
-  --   sby move=> /hQ₂ /ih2 /hins }
   { sdone }
   { move=> > _ ? > /= [] _ []
     sby srw insert_mem_keys }
@@ -580,9 +548,6 @@ lemma eval_imp_exact :
   { move=> *
     exists (fun v'' s' ↦ v'' = val_unit ∧ s' = s_1.insert p v')
     sby apply evalExact.set }
-  -- { move=> *
-  --   exists (fun v' s' ↦ v' = val_unit ∧ s' = s_1.erase p)
-  --   sby apply evalExact.free }
   -- { move=> *
   --   exists (fun v s ↦ ∃ p, p ≠ null ∧ v = p ∧
   --             sa.Disjoint (conseq (make_list n.natAbs val_uninit) p) ∧
@@ -949,35 +914,6 @@ by
   apply eval.eval_let
   { sby apply hH }
   sdone
-
-/-
-
--/
-
--- lemma triple_ref (v : val) :
---   triple (trm_app val_ref v)
---     emp
---     (fun r ↦ ∃ʰ p, ⌜r = val_loc p⌝ ∗ (p ~~> v)) :=
--- by
---   move=> ? []
---   apply eval.eval_ref=>// p ?
---   apply (hexists_intro _ p)
---   sby srw hstar_hpure_l
-
-lemma union_singleton_eq_erase (h h' : state) :
-  h.Disjoint (Finmap.singleton p v) →
-  h' = h ∪ Finmap.singleton p v →
-  h = h'.erase p := by
-  move=> hdisj []
-  apply Finmap.ext_lookup=> >
-  scase: [x = p]
-  { move=> ?
-    srw Finmap.lookup_erase_ne=> //
-    sby srw Finmap.lookup_union_left_of_not_in }
-  move=> []
-  srw Finmap.lookup_erase
-  srw Finmap.lookup_eq_none
-  sby move: hdisj ; unfold Finmap.Disjoint Not=> /[apply]
 
 -- WIP
 /- wp (trm_ref x (val_int n) t) Q =
