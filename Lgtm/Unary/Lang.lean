@@ -447,11 +447,6 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       purepostin s P Q ->
       eval s (trm_app (trm_app op v1) v2) Q
   | eval_ref : forall s x t1 t2 (Q Q₁ : val → state → Prop),
-      -- eval s t1 Q₁ →
-      -- (∀ v s₂ p, Q₁ v s₂ -> p ∉ s₂ ->
-      --   eval (s₂.insert p v) (subst x p t2) (Q₂ p)) ->
-      -- -- (∀ v' s' p, (Q₂ p) v' s' → p ∈ s') →
-      -- (∀ s₃ v' p, (Q₂ p) v' s₃ -> Q v' (s₃.erase p)) ->
     eval s t1 Q₁ →
     (∀ v1 s1, Q₁ v1 s1 → ∀ p ∉ s1,
      eval (s1.insert p v1) (subst x p t2) fun v s ↦ Q v (s.erase p)) →
@@ -465,10 +460,6 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       p ∈ s ->
       Q val_unit (Finmap.insert p v' s) ->
       eval s (trm_app (trm_app val_set (val_loc p)) v) Q
-  -- | eval_free : forall s p Q,
-  --     p ∈ s ->
-  --     Q val_unit (Finmap.erase p s) ->
-  --     eval s (trm_app val_free (val_loc p)) Q
   -- | eval_alloc : forall (n : Int) (sa : state) Q,
   --     n ≥ 0 →
   --     ( forall (p : loc) (sb : state),
@@ -620,10 +611,6 @@ inductive evalExact : state → trm → (val → state → Prop) -> Prop where
     evalExact s t1 Q₁ →
     (∀ v1 s1, Q₁ v1 s1 → ∀ p ∉ s1,
      evalExact (s1.insert p v1) (subst x p t2) fun v s ↦ Q v (s.erase p)) →
-      -- evalExact s t1 Q₁ →
-      -- (∀ v s₂ p, Q₁ v s₂ -> p ∉ s₂ ->
-      --   evalExact (s₂.insert p v) (subst x p t2) (Q₂ p)) ->
-      -- (∀ s₃ v', (∃ᵉ (p ∉ s₃) (v), (Q₂ p) v' (s₃.insert p v)) <-> Q v' s₃) ->
       evalExact s (trm_ref x t1 t2) Q
   | get : forall s p,
       p ∈ s ->
@@ -634,10 +621,6 @@ inductive evalExact : state → trm → (val → state → Prop) -> Prop where
       p ∈ s ->
       evalExact s (trm_app (trm_app val_set (val_loc p)) v)
         (fun v'' s' ↦ v'' = val_unit ∧ s' = s.insert p v')
-  -- | free : forall s p,
-  --     p ∈ s ->
-  --     evalExact s (trm_app val_free (val_loc p))
-  --       (fun v' s' ↦ v' = val_unit ∧ s' = s.erase p)
   -- | alloc : forall (n : Int) (sa : state),
   --     n ≥ 0 →
   --     evalExact sa (trm_app val_alloc n)
@@ -671,16 +654,6 @@ example :
   move=> > /= [->->] > ? ; simp [subst]
   sorry
 
--- example :
---   evalExact ∅ (trm_ref "x" (trm_val (val_int 0)) "x") fun v h => v.is_loc ∧ h = ∅ := by
---   move=> ⟨| | | |⟩
---   { exact (fun v s => v = 0 ∧ s = ∅) }
---   { exact (fun p v s => v = p ∧ s = Finmap.singleton p 0) }
---   { constructor }
---   { move=> > [->->] _; simp [subst]; constructor }
---   move=> > ⟨![p ? v ->]| []⟩
---   all_goals sorry
-
 lemma evalExact_post_eq :
   Q = Q' →
   evalExact s t Q →
@@ -704,17 +677,14 @@ lemma exact_imp_eval :
   { move=> * ; apply eval.eval_binop=> //
     sby unfold purepostin purepost }
   { move=> * ; sby apply eval.eval_ref }
-  -- { move=> ??? ih1 ih2 ; constructor
-  --   apply ih1
-  --   sby apply ih2 }
   { move=> * ; sby apply eval.eval_get }
   { move=> * ; sby apply eval.eval_set }
   { move=> ?ih ; sby constructor }
   move=> * ; sby constructor
 
 
-
 end eval
+
 
 /- ================================================================= -/
 /-* ** Notation for Concrete Terms -/
