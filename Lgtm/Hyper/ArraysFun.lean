@@ -30,11 +30,6 @@ local notation "hhProp" => hhProp α
 
 attribute [simp] hseg
 
-
-
-def hharrayFun (f : ℤ -> val)  (n : ℕ) (p : α -> loc) : hhProp :=
-  bighstar s (fun i => harrayFun f n (p i))
-
 lemma hharrayFunE (f : ℤ -> val) :
   hharrayFun s f n p = hharray s (@List.ofFn _ n (f ·.val)) p := by
   rfl

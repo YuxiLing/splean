@@ -45,7 +45,7 @@ lemma get_spec_out (s : Set ℝ) :
   ywp; yapp
   ywp; yif=> // _; ywp; yval; ysimp
 
-notation "·" => (Set.univ : Set ℝ)
+notation "·" => (Set.univ)
 
 def toProp : val -> Prop
   | val_bool v => v
@@ -61,25 +61,23 @@ attribute [-simp] fun_insert
 
 
 lemma nonempty_spec (r : ℝ)  :
-  { arr⟨⟪1, {r}⟫⟩(xind, x in N => x_ind x) ∗
-    arr⟨⟪1, {r}⟫⟩(xval, x in N => x_val x) ∗
-    arr⟨⟪2, ·⟫⟩(xind, x in N => x_ind x) ∗
-    arr⟨⟪2, ·⟫⟩(xval, x in N => x_val x) }
+  { arr⟨·⟩(xind, x in N => x_ind x) ∗
+    arr⟨·⟩(xval, x in N => x_val x) }
   [1| x in {r} => Lang.nonempty xind xval]
   [2| i in · => Lang.get xind xval ⟪i.val⟫]
   {v,
     ⌜ v ⟨1,r⟩ = ∃ i : ℝ, v ⟨2,i⟩ ⌝ ∗ (⊤ : hhProp (Labeled ℝ)) } := by
-  srw LGTM.triple
-  yfocus 2, (x_ind '' ⟦0, (N : ℤ)⟧)
-  yapp get_spec_out
-  ysimp_start
-  ysimp_step
-  ysimp_step
-  ysimp_step
-  ysimp_step
-  ysimp_step
-  ysimp_step
-  ysimp_step
+  -- srw LGTM.triple
+  -- yfocus 2, (x_ind '' ⟦0, (N : ℤ)⟧)
+  -- yapp get_spec_out
+  -- ysimp_start
+  -- ysimp_step
+  -- ysimp_step
+  -- ysimp_step
+  -- ysimp_step
+  -- ysimp_step
+  -- ysimp_step
+  -- ysimp_step
   sorry
 
 

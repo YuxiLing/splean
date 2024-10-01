@@ -66,15 +66,17 @@ attribute [heapSimp] hhstar_hhempty_l hhstar_hhempty_r
 
 /- **============ `ysimp` implementation ============** -/
 
-def YSimp (hl hr : hhProp × hhProp × hhProp) :=
-  let (hla, hlw, hlt) := hl
+
+def YSimp (hl : hhProp × hhProp × hhProp × hhProp) (hr : hhProp × hhProp × hhProp) :=
+  let (hla, hlw, hlt, hlu) := hl
   let (hra, hrg, hrt) := hr
-  hla ∗ hlw ∗ hlt ==> hra ∗ hrg ∗ hrt
+  hla ∗ hlw ∗ hlt ∗ hlu ==> hra ∗ hrg ∗ hrt
 
 structure YSimpR where
   hla : Term
   hlw : Term
   hlt : Term
+  hlu : Term
   ----------
   hra : Term
   hrg : Term
@@ -91,12 +93,13 @@ YSimp
 def YSimpRIni : TacticM YSimpR := withMainContext do
   (<- getMainGoal).setTag `ysimp_goal
   let goal <- getGoalStxNN
-  let `(@YSimp $_ $hl $hr) := goal | throwError "not a YSimp goal"
-  let `(@Prod.mk $_ $_ $hla $hlwt) := hl | throwError "not a YSimp goal"
-  let `(@Prod.mk $_ $_ $hlw $hlt) := hlwt | throwError "not a YSimp goal"
-  let `(@Prod.mk $_ $_ $hra $hrgt) := hr | throwError "not a YSimp goal"
-  let `(@Prod.mk $_ $_ $hrg $hrt) := hrgt | throwError "not a YSimp goal"
-  return { hla := hla, hlw := hlw, hlt := hlt, hra := hra, hrg := hrg, hrt := hrt }
+  let `(@YSimp $_ $hl $hr)          := goal  | throwError "not a YSimp goal"
+  let `(@Prod.mk $_ $_ $hla $hlwtu) := hl    | throwError "not a YSimp goal"
+  let `(@Prod.mk $_ $_ $hlw $hltu)  := hlwtu | throwError "not a YSimp goal"
+  let `(@Prod.mk $_ $_ $hlt $hlu)   := hltu  | throwError "not a YSimp goal"
+  let `(@Prod.mk $_ $_ $hra $hrgt) := hr    | throwError "not a YSimp goal"
+  let `(@Prod.mk $_ $_ $hrg $hrt)  := hrgt | throwError "not a YSimp goal"
+  return { hla := hla, hlw := hlw, hlt := hlt, hlu := hlu, hra := hra, hrg := hrg, hrt := hrt }
 
 
 /- ------------ Tactic for flipping an interated [∗] operation ------------ -/
@@ -170,14 +173,14 @@ elab "hhstar_flip" h:term : tactic => do
 
 lemma ysimp_flip_acc_l_lemma :
   hla = hla' →
-  YSimp (hla', emp, emp) (hra, hrg, emp) →
-  YSimp (hla, emp, emp) (hra, hrg, emp) := by
+  YSimp (hla', emp, emp, hlu) (hra, hrg, emp) →
+  YSimp (hla, emp, emp, hlu) (hra, hrg, emp) := by
   sby move=> h /h
 
 lemma ysimp_flip_acc_r_lemma :
   hra = hra' →
-  YSimp (hla, emp, emp) (hra', hrg, emp) →
-  YSimp (hla, emp, emp) (hra, hrg, emp) := by
+  YSimp (hla, emp, emp, hlu) (hra', hrg, emp) →
+  YSimp (hla, emp, emp, hlu) (hra, hrg, emp) := by
   sby move=> h /h
 
 elab "ysimp_flip_acc_l" hla:term : tactic =>
@@ -284,8 +287,17 @@ lemma ysimp_pick_lemma :
   YSimp (hla1, hlw, hlt) hr ->
   YSimp (hla2, hlw, hlt) hr := by sby move=>->
 
+lemma ysimp_pick_lemma_hlu :
+  hlu2 = hlu1 ->
+  YSimp (hla, hlw, hlt, hlu1) hr ->
+  YSimp (hla, hlw, hlt, hlu2) hr := by sby move=>->
+
 def ysimp_pick (i : Nat) (last? : Bool) : TacticM Unit :=
    {| apply ysimp_pick_lemma
+      · apply $(hhstar_pick_lemma i last?) |}
+
+def ysimp_pick_hlu (i : Nat) (last? : Bool) : TacticM Unit :=
+   {| apply ysimp_pick_lemma_hlu
       · apply $(hhstar_pick_lemma i last?) |}
 
 partial def hhstar_search [Nonempty α] (hs : Term) (test : Nat -> Term -> optParam Bool false -> TacticM α) :=
@@ -319,7 +331,7 @@ def ysimp_pick_applied (h hla : Term) : TacticM Unit := do
 
 /- ============ Theory for `ysimp` ============ -/
 lemma ysimp_start_lemma :
-  YSimp (emp, emp, h1 ∗ emp) (emp, emp, h2 ∗ emp) ->
+  YSimp (emp, emp, h1 ∗ emp, emp) (emp, emp, h2 ∗ emp) ->
   h1 ==> h2 := by
   sby srw YSimp ; hsimp
 
@@ -403,13 +415,13 @@ macro "ysimp_l_start'" : tactic =>
   `(tactic| (ysimp_l_start ; apply hhimpl_trans; try rotate_left=> //; hhstar_simp ; try hhstar_simp))
 
 lemma ysimp_l_hempty :
-  YSimp (hla, hlw, hlt) hr ->
-  YSimp (hla, hlw, emp ∗ hlt) hr := by
+  YSimp (hla, hlw, hlt, hlu) hr ->
+  YSimp (hla, hlw, emp ∗ hlt, hlu) hr := by
   sby hsimp
 
 lemma ysimp_l_hpure :
-  (p -> YSimp (hla, hlw, hlt) hr) ->
-  YSimp (hla, hlw, ⌜p⌝ ∗ hlt) hr := by
+  (p -> YSimp (hla, hlw, hlt, hlu) hr) ->
+  YSimp (hla, hlw, ⌜p⌝ ∗ hlt, hlu) hr := by
   ysimp_l_start
   rw [hhstar_pick_3]
   sby apply hhimpl_hstar_hhpure_l
@@ -419,35 +431,39 @@ lemma foo''' : (H ==> H) = true := by
   sby simp
 
 lemma ysimp_l_acc_wand :
-  YSimp (hla, h ∗ hlw, hlt) hr ->
-  YSimp (hla, hlw, h ∗ hlt) hr := by
+  YSimp (hla, h ∗ hlw, hlt, hlu) hr ->
+  YSimp (hla, hlw, h ∗ hlt, hlu) hr := by
   ysimp_l_start'
 
-
+lemma ysimp_l_acc_univ :
+  YSimp (hla, hlw, hlt, h ∗ hlu) hr ->
+  YSimp (hla, hlw, h ∗ hlt, hlu) hr := by
+  ysimp_l_start'
 
 lemma ysimp_l_acc_other :
-  YSimp (h ∗ hla, hlw, hlt) hr ->
-  YSimp (hla, hlw, h ∗ hlt) hr := by
+  YSimp (h ∗ hla, hlw, hlt, hlu) hr ->
+  YSimp (hla, hlw, h ∗ hlt, hlu) hr := by
   ysimp_l_start'
 
 lemma ysimp_l_hexists.{u} {β : Sort u} {j : β -> _} :
-  (∀ x, YSimp (hla, hlw, j x ∗ hlt) hr) ->
-  YSimp (hla, hlw, (hhexists j) ∗ hlt) hr := by
+  (∀ x, YSimp (hla, hlw, j x ∗ hlt, hlu) hr) ->
+  YSimp (hla, hlw, (hhexists j) ∗ hlt, hlu) hr := by
   srw ?YSimp=> H
-  rw [hhstar_pick_3, hhstar_hhexists_l]
-  apply (@hhimpl_hhexists_l _ β (hr.1 ∗ hr.2.1 ∗ hr.2.2) (fun x : β => j x ∗ hla ∗ hlw ∗ hlt))=> x
+  rw [hhstar_assoc, hhstar_pick_3, hhstar_hhexists_l]
+  apply (@hhimpl_hhexists_l _ β (hr.1 ∗ hr.2.1 ∗ hr.2.2) (fun x : β => j x ∗ hla ∗ hlw ∗ hlt ∗ hlu))=> x
   rw [<- hhstar_pick_3]
+  srw -[3]hhstar_assoc
   apply H
 
 lemma ysimp_l_cancel_hwand_hempty :
-  YSimp (hla, hlw, h ∗ hlt) hr ->
-  YSimp (hla, (emp -∗ h) ∗ hlw, hlt) hr := by
+  YSimp (hla, hlw, h ∗ hlt, hlu) hr ->
+  YSimp (hla, (emp -∗ h) ∗ hlw, hlt, hlu) hr := by
 
   ysimp_l_start'
 
 lemma ysimpl_l_cancel_hwand_hstar_hempty :
-  YSimp (Hla, Hlw, ((H2 -∗ H3) ∗ Hlt)) HR ->
-  YSimp (Hla, (((emp ∗ H2) -∗ H3) ∗ Hlw), Hlt) HR := by
+  YSimp (Hla, Hlw, ((H2 -∗ H3) ∗ Hlt), hlu) HR ->
+  YSimp (Hla, (((emp ∗ H2) -∗ H3) ∗ Hlw), Hlt, hlu) HR := by
   ysimp_l_start'
 
 lemma ysimp_l_keep_wand :
@@ -466,25 +482,30 @@ lemma ysimp_l_hwand_reorder :
 -/
 
 lemma ysimp_l_cancel_hwand_hstar :
-  YSimp (Hla, Hlw, (H2 -∗ H3) ∗ Hlt) HR →
-  YSimp ((H1 ∗ Hla), (((H1 ∗ H2) -∗ H3) ∗ Hlw), Hlt) HR := by
+  YSimp (Hla, Hlw, (H2 -∗ H3) ∗ Hlt, hlu) HR →
+  YSimp ((H1 ∗ Hla), (((H1 ∗ H2) -∗ H3) ∗ Hlw), Hlt, hlu) HR := by
   ysimp_l_start'
   srw hhwand_curry_eq
   apply hhwand_cancel
 
 lemma ysimp_l_cancel_hwand :
-  YSimp (emp, Hlw, Hla ∗ H2 ∗ Hlt) HR →
-  YSimp ((H1 ∗ Hla), ((H1 -∗ H2) ∗ Hlw), Hlt) HR := by
+  YSimp (emp, Hlw, Hla ∗ H2 ∗ Hlt, hlu) HR →
+  YSimp ((H1 ∗ Hla), ((H1 -∗ H2) ∗ Hlw), Hlt, hlu) HR := by
   ysimp_l_start'
   apply hhwand_cancel
 
 lemma ysimp_l_cancel_qwand β (Q1 Q2 : β -> hhProp) x :
-  YSimp (emp, Hlw, (Hla ∗ Q2 x ∗ Hlt)) HR ->
-  YSimp ((Q1 x ∗ Hla), ((Q1 -∗ Q2) ∗ Hlw), Hlt) HR := by
+  YSimp (emp, Hlw, (Hla ∗ Q2 x ∗ Hlt), hlu) HR ->
+  YSimp ((Q1 x ∗ Hla), ((Q1 -∗ Q2) ∗ Hlw), Hlt, hlu) HR := by
   ysimp_l_start'
   srw hhstar_comm
   apply (@hhimpl_hhstar_trans_l) ; apply (hqwand_specialize _ x)
   srw hhstar_comm ; apply hhwand_cancel
+
+lemma ysimpl_l_merge_hharrayFun (p : α -> loc) :
+  YSimp (hla, hlw, hlt, hharrayFun Set.univ f n p ∗ hlu) hr →
+  YSimp (hla, hlw, hharrayFun s f n p ∗ hlt, hharrayFun sᶜ f n p ∗ hlu) hr := by
+  sorry
 
 lemma ypull_protect (h : H1 ==> protect H2) : H1 ==> H2 :=
   by simp [protect] at h; assumption
@@ -544,58 +565,59 @@ macro "ysimp_lr_start''" : tactic =>
 
 
 lemma ysimp_lr_hwand_hfalse :
-  YSimp (Hla, emp, emp) ((⌜False⌝ -∗ H1) ∗ emp, emp, emp) := by
+  YSimp (Hla, emp, emp, hlu) ((⌜False⌝ -∗ H1) ∗ emp, emp, emp) := by
   ysimp_lr_start
   srw hhwand_equiv
   sby apply hhimpl_hstar_hhpure_l
 
 lemma ysimp_lr_cancel_same :
-  YSimp (hla, hlw, hlt) (hra, hrg, hrt) ->
-  YSimp (h ∗ hla, hlw, hlt) (hra, hrg, h ∗ hrt) := by
+  YSimp (hla, hlw, hlt, hlu) (hra, hrg, hrt) ->
+  YSimp (h ∗ hla, hlw, hlt, hlu) (hra, hrg, h ∗ hrt) := by
   ysimp_lr_start'
-  srw [2]hhstar_pick_3
+  srw [3]hhstar_pick_3
   sby apply hhimpl_frame_r
 
 lemma hhimpl_lr_refl :
-  YSimp (hla, emp, emp) (hla, emp, emp) := by
+  YSimp (hla, emp, emp, emp) (hla, emp, emp) := by
   ysimp_l_start'=> //
 
 lemma ysimp_lr_hwand :
-  YSimp (emp, emp, (H1 ∗ Hla)) (emp, emp, H2 ∗ emp) ->
-  YSimp (Hla, emp, emp) ((H1 -∗ H2) ∗ emp, emp, emp) := by
+  YSimp (emp, emp, (H1 ∗ Hla), hlu) (emp, emp, H2 ∗ emp) ->
+  YSimp (Hla, emp, emp, hlu) ((H1 -∗ H2) ∗ emp, emp, emp,) := by
   srw ?YSimp ; hsimp
   sby srw hhwand_equiv
 
 lemma ysimpl_lr_qwand β (Q1 Q2 : β -> hhProp) :
-  (forall x, YSimp (emp, emp, (Q1 x ∗ Hla)) (emp, emp, (Q2 x ∗ emp))) ->
-  YSimp (Hla, emp, emp) (((Q1 -∗ Q2) ∗ emp), emp, emp) := by
+  (forall x, YSimp (emp, emp, (Q1 x ∗ Hla), hlu) (emp, emp, (Q2 x ∗ emp))) ->
+  YSimp (Hla, emp, emp, hlu) (((Q1 -∗ Q2) ∗ emp), emp, emp) := by
   ysimp_lr_start
   srw hqwand_equiv=> ??
   srw hqstarE
   sdone
 
 lemma ysimpl_lr_qwand_unit (Q1 Q2 : Unit -> hhProp) :
-  YSimp (emp, emp, (Q1 ( ) ∗ Hla)) (emp, emp, (Q2 ( ) ∗ emp)) ->
-  YSimp (Hla, emp, emp) ((Q1 -∗ Q2) ∗ emp, emp, emp) := by
+  YSimp (emp, emp, (Q1 ( ) ∗ Hla), hlu) (emp, emp, (Q2 ( ) ∗ emp)) ->
+  YSimp (Hla, emp, emp, hlu) ((Q1 -∗ Q2) ∗ emp, emp, emp) := by
   move=> ?
   sby apply ysimpl_lr_qwand=> ?
 
 lemma hhimpl_lr_qwand_unify (Hla : hhProp) (Q : β -> hhProp):
-  YSimp (Hla, emp, emp) ((Q -∗ (Q ∗ Hla)) ∗ emp, emp, emp) := by
+  YSimp (Hla, emp, emp, hlu) ((Q -∗ (Q ∗ Hla ∗ hlu)) ∗ emp, emp, emp) := by
   srw ?YSimp ; hsimp
   sby srw hqwand_equiv
 
 lemma hhimpl_lr_htop :
-  YSimp (emp, emp, emp) (emp, Hrg, emp) ->
-  YSimp (Hla, emp, emp) (emp, ((⊤ : hhProp) ∗ Hrg), emp) := by
+  YSimp (emp, emp, emp, hlu) (emp, Hrg, emp) ->
+  YSimp (Hla, emp, emp, hlu) (emp, ((⊤ : hhProp) ∗ Hrg), emp) := by
   ysimp_lr_start=>?
   srw -(@hhstar_hhempty_l _ Hla)
   apply hhimpl_hhstar_trans_l=>// ; hhstar_simp
+  apply hhimpl_hhstar_trans_r=> //; hhstar_simp
   apply hhimpl_hhtop_r
 
 lemma ysimpl_lr_hforall (β : Type) (J : β -> hhProp) :
-  (forall x, YSimp (emp, emp, Hla) (emp, emp, J x ∗ emp)) ->
-  YSimp (Hla, emp, emp) ((hhforall J) ∗ emp, emp, emp) := by
+  (forall x, YSimp (emp, emp, Hla, hlu) (emp, emp, J x ∗ emp)) ->
+  YSimp (Hla, emp, emp, hlu) ((hhforall J) ∗ emp, emp, emp) := by
   ysimp_lr_start=>?
   apply hhimpl_hhforall_r=> ?
   sdone
@@ -621,22 +643,32 @@ lemma ysimpl_lr_cancel_same_hsingle (p : α -> loc) (v₁ v₂ : α -> val) :
   hhstar_simp
   sby srw (@hhstar_comm _ Hrt) (@hhstar_comm _ Hrg) ; hsimp
 
-lemma ysimpl_lr_cancel_same_hsingle_subset (p : α -> loc) (v₁ v₂ : α -> val) :
-  YSimp ([∗ i in s₁ \ s₂ | p i ~~> v₁ i] ∗ Hla, Hlw, Hlt) (Hra, Hrg, Hrt) →
-  s₂ ⊆ s₁ ->
-  (∀ i ∈ s₂, v₁ i = v₂ i) →
-  YSimp ([∗ i in s₁ | p i ~~> v₁ i] ∗ Hla, Hlw, Hlt) (Hra, Hrg, [∗ i in s₂ | p i ~~> v₂ i] ∗ Hrt) := by
-  move=> himpl h hveq; srw -(bighsingle_eq hveq)
-  srw -(Set.diff_union_of_subset h) -bighstar_hhstar_disj
-  { ysimp_lr_start; hhstar_simp
-    srw (@hhstar_comm _ Hrt) (@hhstar_comm _ Hrg)
-    move: himpl; srw YSimp /= ?hhstar_assoc // }
-  exact Set.disjoint_sdiff_left
+lemma ysimpl_lr_cancel_hharrayFun (p : α -> loc):
+  YSimp (hla, hlw, hlt, hharrayFun sᶜ f n p ∗ hlu) (hra, hrg, hrt) →
+  YSimp (hla, hlw, hlt, hharrayFun Set.univ f n p ∗ hlu) (hra, hrg, hharrayFun s f n p ∗ hrt) := by
+  sorry
+
+lemma ysimpl_lr_cancel_same_hharrayFun (p : α -> loc) :
+  YSimp (hla, hlw, hlt, hlu) (hra, hrg, hrt) →
+  YSimp (hla, hlw, hlt, hharrayFun Set.univ f n p ∗ hlu) (hra, hrg, hharrayFun Set.univ f n p ∗ hrt) := by
+  sorry
+
+-- lemma ysimpl_lr_cancel_same_hsingle_subset (p : α -> loc) (v₁ v₂ : α -> val) :
+--   YSimp ([∗ i in s₁ \ s₂ | p i ~~> v₁ i] ∗ Hla, Hlw, Hlt) (Hra, Hrg, Hrt) →
+--   s₂ ⊆ s₁ ->
+--   (∀ i ∈ s₂, v₁ i = v₂ i) →
+--   YSimp ([∗ i in s₁ | p i ~~> v₁ i] ∗ Hla, Hlw, Hlt) (Hra, Hrg, [∗ i in s₂ | p i ~~> v₂ i] ∗ Hrt) := by
+--   move=> himpl h hveq; srw -(bighsingle_eq hveq)
+--   srw -(Set.diff_union_of_subset h) -bighstar_hhstar_disj
+--   { ysimp_lr_start; hhstar_simp
+--     srw (@hhstar_comm _ Hrt) (@hhstar_comm _ Hrg)
+--     move: himpl; srw YSimp /= ?hhstar_assoc // }
+--   exact Set.disjoint_sdiff_left
 
 lemma ysimp_lr_exit :
-  Hla ==> Hra ∗ Hrg ->
-  YSimp (Hla, emp, emp) (Hra, Hrg, emp) := by
-  sby srw ?YSimp ; hsimp
+  hlu ∗ hla ==> hra ∗ hrg ->
+  YSimp (hla, emp, emp, hlu) (hra, hrg, emp) := by
+  sby srw ?YSimp ; hsimp; srw hhstar_comm
 
 lemma hqstar_simp (Q1 : β -> hhProp) :
   (Q1 ∗ H) x = Q1 x ∗ H := by rfl
@@ -654,6 +686,34 @@ def ysimp_pick_same_pointer (p hla : Term) : TacticM Unit := withMainContext do
         let .true <-
           withAssignableSyntheticOpaque <| isDefEq p' p | throwError "not equal"
       | _ => throwError "not equal"
+    ysimp_pick i last?
+
+def ysimp_pick_same_array (p hla : Term) : TacticM Unit := withMainContext do
+  let p  <- Tactic.elabTerm p none
+  hhstar_search hla fun i h' last? => do
+    match h' with
+      | `(@hharrayFun $_ $_ $_ $_ $p') =>
+        if p'.isMVarStx then throwError "not equal" else
+        let p' <- Tactic.elabTerm p' none
+        let .true <-
+          withAssignableSyntheticOpaque <| isDefEq p' p | throwError "not equal"
+      | _ => throwError "not equal"
+    ysimp_pick_hlu i last?
+
+-- def ysimp_pick_same_pointer (p s hla : Term) : TacticM Bool := withMainContext do
+--   let p  <- Tactic.elabTerm p none
+--   let s  <- Tactic.elabTerm s none
+--   hhstar_search (α := Bool) hla fun i h' last? => do
+--     match h' with
+--       | `(@hhsingle $_ $s' $p' $_) =>
+--         if p'.isMVarStx then throwError "not equal" else
+--         let p' <- Tactic.elabTerm p' none
+--         let s' <- Tactic.elabTerm s' none
+--         let .true <-
+--           withAssignableSyntheticOpaque <| isDefEq p' p | throwError "not equal"
+--         ysimp_pick i last?
+--         isDefEq s s'
+--       | _ => throwError "not equal"
 
 lemma hval_int_congr (s : Set α) (n1 n2 : α -> Int) :
   (∀ i ∈ s, n1 i = n2 i) →
@@ -722,7 +782,7 @@ partial def ysimp_step_l (ysimp : YSimpR) (cancelWand := true) : TacticM Unit :=
   | `(@HStar.hStar $_ $_ $_ $_ $h $_), _ =>
     match h with
     | `(@hhempty $_)         => {| apply ysimp_l_hempty |}
-    | `(@hhpure $_ $_)        =>
+    | `(@hhpure $_ $_)       =>
       let n <- fresh `n
       revExt.modifySSR (n :: ·)
       {| apply ysimp_l_hpure; intro $n:ident |}
@@ -735,6 +795,15 @@ partial def ysimp_step_l (ysimp : YSimpR) (cancelWand := true) : TacticM Unit :=
       revExt.modifySSR (x :: ·)
       {| apply ysimp_l_hexists; intro $x:term |}
     | `(@HWand.hWand $_    $_    $_ $_ $_ $_)   => {| apply ysimp_l_acc_wand |}
+    | `(@hharrayFun $_ $s $_ $_ $p) =>
+      match s with
+      | `(@Set.univ $_) => {| apply ysimp_l_acc_univ |}
+      | _ => try
+          ysimp_pick_same_array p ysimp.hlu
+          {| apply ysimpl_l_merge_hharrayFun |}
+        catch ex =>
+          trace[ysimp] ex.toMessageData
+          {| apply ysimp_l_acc_other |}
     | _              => {| apply ysimp_l_acc_other |}
   | `(@hhempty $_), `(@HStar.hStar $_ $_ $_ $_ $h1 $_) =>
     match h1 with
@@ -833,6 +902,15 @@ partial def ysimp_step_r (ysimp : YSimpR) : TacticM Unit := do
           -- trace[ysimp] g
           {| apply ysimpl_lr_cancel_same_hsingle <;>
              ysimp_hsingle_discharge |}
+      | `(@hharrayFun $_ $_ $_ $_ $p) =>
+        try
+          ysimp_pick_same_array p ysimp.hlu
+          {| first
+               | apply ysimpl_lr_cancel_same_hharrayFun
+               | apply ysimpl_lr_cancel_hharrayFun |}
+        catch _ =>
+          ysimp_pick_same h ysimp.hla
+          {| apply ysimp_lr_cancel_same |}
       | _ =>
         if h.isMVarStx then
           {| apply ysimp_r_keep |}
@@ -1035,7 +1113,7 @@ local elab "ysimp_pick_applied" h:term : tactic => do
 -- set_option pp.all true
 example (Q : Bool -> _):
   (forall HX HY,
-    YSimp ((H1 ∗ H2 ∗ H3 ∗ Q true ∗ (⌜P⌝ -∗ HX) ∗ HY ∗ emp), Hlw, Hlt)
+    YSimp ((H1 ∗ H2 ∗ H3 ∗ Q true ∗ (⌜P⌝ -∗ HX) ∗ HY ∗ emp), Hlw, Hlt, Hlu)
            (Hra, Hrg, Hrt)
   -> True) -> True := by
   move=> M
@@ -1199,9 +1277,12 @@ example (x : α -> loc) :
   x i ~⟨i in s⟩~> 1 ==> y ~⟨_ in s⟩~> 2 ∗ x i ~⟨i in s⟩~> 1 := by
   ysimp; sorry
 
+example (H₁ : β -> hhProp α) (v : β) :
+  hharrayFun (Set.univ : Set α) f n p ∗ H₁ v ==> hharrayFun s f n p ∗ ((fun v : β => hharrayFun s f n p) -∗ H₁) := by
+  ysimp; sorry
 
 
-set_option trace.ysimp true
+--
 
 example :
   H1 ∗ H2 ∗ ((H1 ∗ H3) -∗ (H4 -∗ H5)) ∗ H4 ==> ((H2 -∗ H3) -∗ H5) := by
@@ -1218,7 +1299,6 @@ example (Q : Int -> Bool -> _) :
   H1 ∗ Q 4 true ==> ∃ʰ x b, Q x b ∗ H1 := by
   move=> ?
   ysimp
-
 -- example :
 --   emp ==> (∃ʰ x, x ~~> 1) ∗ (∃ʰ x, x ~~> 2) := by
 --   ysimp_start

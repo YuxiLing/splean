@@ -286,6 +286,45 @@ lemma heval_ht_eq :
   heval s hh ht₁ hQ = heval s hh ht₂ hQ := by
   sby move=> hteq; apply propext=> ⟨|⟩ <;> apply heval_ht_imp
 
+-- lemma heval_nonrel_frame_in :
+--   hlocal s' hh' ->
+--   Disjoint s s' ->
+--   heval_nonrel s (hh ∪ hh') ht (fun a => hQ a ∗ (tohProp (· = hh' a))) ->
+--   heval_nonrel s hh ht hQ := by
+--   move=> hl /Set.disjoint_left dj /[swap] a /[swap] ain /(_ (ain)) /=
+--   srw hl //== => ?; apply eval_conseq=> // hv /= ? ![> ? -> _ -> //]
+
+lemma heval_nonrel_frame_in :
+  hlocal s' hh' ->
+  Disjoint s s' ->
+  heval_nonrel s (hh ∪ hh') ht hQ ->
+  heval_nonrel s hh ht hQ := by
+  move=> hl /Set.disjoint_left dj /[swap] a /[swap] ain /(_ (ain)) /=
+  srw hl //==
+
+lemma heval_frame_in :
+  hlocal s' hh' ->
+  hhlocal s' H' ->
+  (∀ hv, hhlocal s (hQ hv)) ->
+  Disjoint s s' ->
+  hlocal s hh ->
+  heval s (hh ∪ hh') ht (hQ ∗ H') ->
+  heval s hh ht hQ := by
+  move=> hl hhl ql /[dup] /Set.disjoint_left ? dj hdj ![Q /heval_nonrel_frame_in hev himpl] ⟨//|⟨//|hv⟩⟩
+  move=> h Hh
+  specialize himpl hv (h ∪ hh') ?_
+  { move=> a; scase_if=> ? /==;
+    { srw hl //==
+      move: (Hh a); srw if_pos //= }
+    move: (Hh a); srw if_neg // }
+  scase: himpl=> hv /= ![hh₁ hh₂ /= hQ hH' heq ?]
+  exists hv=> /=
+  shave-> //: h = hh₁
+  move=> !a; move: heq
+  srw funext_iff=> /(_ a) /=; scase: [a ∈ s]=> ?
+  { move=> _; move: (Hh a); srw if_neg // => ->
+    srw hdj // (ql _ _ hQ) // }
+  srw hl // (hhl _ hH') //
 
 end heval
 
@@ -565,6 +604,43 @@ lemma htriple_prod (H : α -> hProp) (Q : α -> val -> hProp) :
     move=> htr hh hH; apply heval_prod
     { sby move=> a /[dup]?/htr; sapply; move: (hH a) }
     sby move=> a; move: (hH a)
+
+lemma hhlocal_mem  (hh : hheap α):
+  hlocal s hh ->
+  x ∈ (hh a) -> a ∈ s := by sorry
+
+lemma htriple_frame_in :
+  hhlocal s' H' ->
+  hhlocal s H ->
+  (∀ (hv : hval), hhlocal s (Q hv)) ->
+  Disjoint s s' ->
+  (∃ hh', H' hh') ->
+  (htriple s t (H ∗ H') (Q ∗ H') <->
+  htriple s t H Q) := by
+  move=> hl' hl ? /[dup]? /Set.disjoint_left dj [hh' Hh'] /== ⟨|⟩
+  { move=> /[swap] hh /(_ (hh ∪ hh')) himpl Hh
+    specialize himpl ?_
+    { exists hh, hh'=> ⟨//|⟨//|⟨//|⟩⟩⟩ ?? /hhlocal_mem /(_ (hl _ Hh)) /[swap]
+      move=> /hhlocal_mem  /(_ (hl' _ Hh')) // }
+    apply heval_frame_in=> // }
+  apply htriple_frame
+
+open Classical in
+lemma htriple_extend_univ (Q : hval -> hhProp) (H' : hProp) :
+  s.Nonempty ->
+  hhlocal s H ->
+  (∀ (hv : hval), hhlocal s (Q hv)) ->
+  htriple s t (H ∗ [∗ in Set.univ | H']) (Q ∗ [∗ in @Set.univ α | H']) =
+  htriple s t (H ∗ [∗ in s| H']) (Q ∗ [∗ in s| H']) := by
+  scase: [∃ h, H' h]=> /==
+  { move=> unsat [a ain] * ⟨|⟩ ?? ![] >? /(_ a); srw if_pos// }
+  move=> h ? _ ??
+  srw (bighstarDef_univ_split (s := s))
+  srw -[2](htriple_frame_in (H' := [∗ in sᶜ| H']) (s' := sᶜ))=> //
+  { congr! 1=> [|!hv /=] <;> ysimp <;> ysimp }
+  { exact Set.disjoint_compl_right_iff_subset.mpr fun ⦃a⦄ a ↦ a }
+  exists (fun a => if a ∉ s then h else ∅)=> a /=
+  scase: [a ∈ sᶜ]=> /== //
 
 end
 

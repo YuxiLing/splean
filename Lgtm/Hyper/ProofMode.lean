@@ -13,7 +13,7 @@ import Lgtm.Hyper.WPUtil
 import Lgtm.Hyper.Subst
 import Lgtm.Hyper.ArraysFun
 import Lgtm.Hyper.HProp
-import Lgtm.Hyper.Loops
+import Lgtm.Hyper.Loops.YLemmas
 
 open Classical trm val prim
 open Lean Elab Term
@@ -848,6 +848,7 @@ declare_syntax_cat loop_type
 syntax "+" : loop_op
 syntax "||" : loop_op
 syntax "+." : loop_op
+syntax ident : loop_op
 
 syntax "(" ident ":=" term ")" : loop_arg
 syntax loop_arg loop_args : loop_args
@@ -857,9 +858,16 @@ syntax "ywhile" : loop_type
 syntax loop_type loop_op ? "with" (loop_arg colGe)* : tactic
 
 macro_rules
-  | `(tactic| yfor$loop_op ? with $[($x := $v)]*) => do
-    let yforLemm <- `(yfor_lemma (z := _) (n := _) $[ ( $x:ident := $v:term ) ]*)
+  | `(tactic| yfor$loop_op with $[($x := $v)]*) => do
+    let yforLemm <- `(
+      yfor_lemma
+        (z := _)
+        (n := _)
+        (add := $(mkIdent `add))
+        (valid := $(mkIdent `valid)) $[ ( $x:ident := $v:term ) ]*)
     let tac <- `(tactic| (eapply $yforLemm; ⟨
+      try solve | hsimp | ysimp; ysimp,
+      try simp, -- nonempty
       try simp; try omega, -- s' ⊥ sᵢ
       try simp; try omega, -- Pairwise disj
       omega, -- z <= n
@@ -868,21 +876,35 @@ macro_rules
       simp [hhlocalE], -- ∀ hhlocal
       simp [hhlocalE], -- ∀ hhlocal
       try solve | (simp=> > ?? ->->), -- Qeq
-      simp [LGTM.SHTs.set], -- step
-      skip, -- pre
-      (move=> > /==)⟩ -- post
+      (simp [LGTM.SHTs.set]; try hsimp), -- step
+      try hsimp, -- pre
+      (move=> >; try hsimp)⟩ -- post
       ))
-    match loop_op with
-    | .none => pure tac
-    | .some loop_op =>
       match loop_op with
       | `(loop_op| ||) => `(tactic| open OrPCM      in $tac:tactic)
       | `(loop_op| +)  => `(tactic| open AddPCM     in $tac:tactic)
       | `(loop_op| +.) => `(tactic| open AddRealPCM in $tac:tactic)
+      | `(loop_op| $i:ident) => `(tactic| open $i:ident in $tac:tactic)
       | _ => Macro.throwErrorAt loop_op "unsupported loop operation"
+
+@[simp]
+lemma nonempty_labSet :
+  ⟪n, s⟫.Nonempty = s.Nonempty := by sorry
 
 /- ============ Tests for y-loops lemmas ============ -/
 section
+
+instance (priority := 0) : FindUniversal H emp H where
+  univ := hempty
+  H_eq := by hsimp
+  Hu_eq := by hsimp
+
+
+instance (priority := high) :
+  FindUniversal (hharrayFun (@Set.univ α) f n (fun _ => p)) (hharrayFun Set.univ f n (fun _ => p)) emp where
+  univ := harrayFun f n p
+  H_eq := by hsimp
+  Hu_eq := by rfl
 
 
 local notation (priority := high) Q " ∗↑ " s:70 => bighstar s Q
@@ -892,11 +914,9 @@ example (F : False) :
      ⟨∑ i in ⟦1, 10⟧, {i}, ht⟩ ,
      ⟨∑ i in ⟦1, 10⟧, {-i}, ht⟩]
     ((x ⟨_ in {1}⟩|-> 0) ∗ R ∗↑ s)
-    (fun hv => ((x ⟨_ in {1}⟩|->  ∑ j in ⟦0, 10⟧, (hv j))) ∗ R' ∗↑ s) := by
+    (fun hv => ((x ⟨_ in {11}⟩|->  ∑ j in ⟦0, 10⟧, (hv j))) ∗ R' ∗↑ s) := by
   yfor+ with
     (Inv := fun _ => emp)
-    (valid := valid)
-    (add := add)
     (Q := fun i hv => x ⟨_ in {11}⟩|-> (hv i + hv (-i)))
     (H₀ := x ⟨_ in {11}⟩|-> 0)
     (R := R)
@@ -910,13 +930,24 @@ example (F : False) (n : ℕ) (f g : ℤ -> ℤ) :
     ((hharrayFun {-2} (f ·) n (fun _ => x)) ∗ R ∗↑ s)
     (fun hv => (hharrayFun {-2} (g ·) n (fun _ => x)) ∗ R' ∗↑ s) := by
   yfor+ with
-    (valid := valid)
-    (add := add)
     (Inv := fun _ => emp)
     (Q := (fun i hv => (x + 1 + i.natAbs) ⟨_ in {-2}⟩|-> hv i))
     (H₀ := hharrayFun {-2} (f ·) n (fun _ => x))
     (R := R)
     (R' := R')=> //
+
+
+example (F : False) (n : ℕ) (f g h : ℤ -> ℤ) :
+  LGTM.triple
+    [⟨{-2}, fun _ => trm_for vr (val.val_int 0) (val.val_int n) c⟩ ,
+     ⟨∑ i in ⟦(0:ℤ) , n⟧, {i}, ht⟩ ,
+     ⟨∑ i in ⟦(0:ℤ) , n⟧, {-1}, ht⟩]
+    ((hharrayFun {-2} (f ·) n (fun _ => x)) ∗ hharrayFun Set.univ (h ·) n (fun _ => p))
+    (fun hv => (hharrayFun {-2} (g ·) n (fun _ => x)) ∗ hharrayFun Set.univ (h ·) n (fun _ => p)) := by
+  yfor+ with
+    (Inv := fun _ => emp)
+    (Q := (fun i hv => (x + 1 + i.natAbs) ⟨_ in {-2}⟩|-> hv i))
+    (H₀ := hharrayFun {-2} (f ·) n (fun _ => x))=> //
 
 end
 
@@ -946,6 +977,14 @@ example :
   emp ==>
     WP [1 | i in {(1 : ℤ) ,3} => let x := ⟨i⟩ in x + 1]
     { v, ⌜v ⟨1,1⟩ = 2 ∧ v ⟨2,1⟩ = 2 ∧ v ⟨1,3⟩ = 4⌝ } := by sorry
+
+example (F : False) (H : hhProp Int)
+  (h :
+    hharrayFun {1} f n (fun _ => p) ==>
+      hwp {1} g fun hv => ⌜ hv = fun _ => 0 ⌝ ∗ H ∗ hharrayFun {1} f n (fun _ => p)) :
+  hharrayFun Set.univ f n (fun _ => p) ==>
+    hwp {1} g Q := by
+  yapp h=> //
 
 -- #check
 --   { (H ∗ H) }
