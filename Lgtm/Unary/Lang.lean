@@ -446,13 +446,16 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       evalbinop op v1 v2 P ->
       purepostin s P Q ->
       eval s (trm_app (trm_app op v1) v2) Q
-  | eval_ref : forall s x t1 t2 (Q Q₁ : val → state → Prop) (Q₂ : loc -> val -> state -> Prop),
-      eval s t1 Q₁ →
-      (∀ v s₂ p, Q₁ v s₂ -> p ∉ s₂ ->
-        eval (s₂.insert p v) (subst x p t2) (Q₂ p)) ->
-      -- (∀ v' s' p, (Q₂ p) v' s' → p ∈ s') →
-      (∀ s₃ v' p, (Q₂ p) v' s₃ -> Q v' (s₃.erase p)) ->
-      eval s (trm_ref x t1 t2) Q
+  | eval_ref : forall s x t1 t2 (Q Q₁ : val → state → Prop),
+      -- eval s t1 Q₁ →
+      -- (∀ v s₂ p, Q₁ v s₂ -> p ∉ s₂ ->
+      --   eval (s₂.insert p v) (subst x p t2) (Q₂ p)) ->
+      -- -- (∀ v' s' p, (Q₂ p) v' s' → p ∈ s') →
+      -- (∀ s₃ v' p, (Q₂ p) v' s₃ -> Q v' (s₃.erase p)) ->
+    eval s t1 Q₁ →
+    (∀ v1 s1, Q₁ v1 s1 → ∀ p ∉ s1,
+     eval (s1.insert p v1) (subst x p t2) fun v s ↦ Q v (s.erase p)) →
+    eval s (trm_ref x t1 t2) Q
   | eval_get : forall s p Q,
       p ∈ s ->
       Q (read_state p s) s ->
@@ -613,14 +616,15 @@ inductive evalExact : state → trm → (val → state → Prop) -> Prop where
   | binop : forall op s (v1 v2 : val) P,
       evalbinop op v1 v2 P ->
       evalExact s (trm_app (trm_app op v1) v2) (purepost s P)
-  | ref : forall s x t1 t2 Q Q₁ (Q₂ : loc → val → state → Prop),
-      evalExact s t1 Q₁ →
-      (∀ v s₂ p, Q₁ v s₂ -> p ∉ s₂ ->
-        evalExact (s₂.insert p v) (subst x p t2) (Q₂ p)) ->
-      (∀ s₃ v' p, (Q₂ p) v' s₃ <-> Q v' (s₃.erase p)) -> -- this is not right.`Q` has to be made exact
+  | ref : forall s x t1 t2 Q Q₁,
+    evalExact s t1 Q₁ →
+    (∀ v1 s1, Q₁ v1 s1 → ∀ p ∉ s1,
+     evalExact (s1.insert p v1) (subst x p t2) fun v s ↦ Q v (s.erase p)) →
+      -- evalExact s t1 Q₁ →
+      -- (∀ v s₂ p, Q₁ v s₂ -> p ∉ s₂ ->
+      --   evalExact (s₂.insert p v) (subst x p t2) (Q₂ p)) ->
+      -- (∀ s₃ v', (∃ᵉ (p ∉ s₃) (v), (Q₂ p) v' (s₃.insert p v)) <-> Q v' s₃) ->
       evalExact s (trm_ref x t1 t2) Q
-      -- (∀ s₃ v' p, (Q₂ p) v' s₃ ->
-      --   evalExact s (trm_ref x t1 t2) (fun v'' s' ↦ v'' = v' ∧ s' = s₃.erase p))
   | get : forall s p,
       p ∈ s ->
       evalExact s (trm_app val_get (val_loc p))
@@ -651,6 +655,37 @@ inductive evalExact : state → trm → (val → state → Prop) -> Prop where
     evalExact s (trm_while t₁ t₂) Q
 
 
+def evalExact_ref_nonpositive s x t1 t2 (Q : val → state → Prop) :=
+  ∃ Q₁, evalExact s t1 Q₁ ∧
+  (∀ v1 s1, Q₁ v1 s1 → ∀ p ∉ s1,
+    (evalExact (s1.insert p v1) (subst x p t2) (fun v s ↦ Q v (s.erase p))))
+
+def val.is_loc : val -> Prop
+  | val_loc _ => True
+  | _ => False
+
+example :
+  evalExact_ref_nonpositive ∅ "x" (trm_val (val_int 0)) (trm_var "x") fun v h => v.is_loc ∧ h = ∅ := by
+  unfold evalExact_ref_nonpositive
+  exists (fun v s ↦ v = 0 ∧ s = ∅)=> ⟨//| ⟩
+  move=> > /= [->->] > ? ; simp [subst]
+  sorry
+
+-- example :
+--   evalExact ∅ (trm_ref "x" (trm_val (val_int 0)) "x") fun v h => v.is_loc ∧ h = ∅ := by
+--   move=> ⟨| | | |⟩
+--   { exact (fun v s => v = 0 ∧ s = ∅) }
+--   { exact (fun p v s => v = p ∧ s = Finmap.singleton p 0) }
+--   { constructor }
+--   { move=> > [->->] _; simp [subst]; constructor }
+--   move=> > ⟨![p ? v ->]| []⟩
+--   all_goals sorry
+
+lemma evalExact_post_eq :
+  Q = Q' →
+  evalExact s t Q →
+  evalExact s t Q' := by sdone
+
 lemma exact_imp_eval :
   evalExact s t Q → eval s t Q := by
   elim=> >
@@ -668,9 +703,10 @@ lemma exact_imp_eval :
     sby unfold purepostin purepost }
   { move=> * ; apply eval.eval_binop=> //
     sby unfold purepostin purepost }
-  { move=> ??? ih1 ih2 ; constructor
-    apply ih1
-    sby apply ih2 }
+  { move=> * ; sby apply eval.eval_ref }
+  -- { move=> ??? ih1 ih2 ; constructor
+  --   apply ih1
+  --   sby apply ih2 }
   { move=> * ; sby apply eval.eval_get }
   { move=> * ; sby apply eval.eval_set }
   { move=> ?ih ; sby constructor }

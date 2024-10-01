@@ -993,6 +993,8 @@ def isubst (E : ctx) (t : trm) : trm :=
       trm_seq (isubst E t1) (isubst E t2)
   | trm_let x t1 t2 =>
       trm_let x (isubst E t1) (isubst (erase x E) t2)
+  | trm_ref x t1 t2 =>
+      trm_ref x (isubst E t1) (isubst (erase x E) t2)
   | trm_app t1 t2 =>
       trm_app (isubst E t1) (isubst E t2)
   | trm_for x n1 n2 t =>
@@ -1117,8 +1119,8 @@ lemma wp_structural : structural (wp t) := by
 #hint_xapp triple_get
 #hint_xapp triple_set
 #hint_xapp triple_add
-#hint_xapp triple_ref
-#hint_xapp triple_free
+-- #hint_xapp triple_ref
+-- #hint_xapp triple_free
 
 
 elab "xseq_xlet_if_needed_xwp" : tactic => do
