@@ -44,7 +44,7 @@ mutual
     | val_fix    : var -> var -> trm -> val
     | val_uninit : val
     | val_error : val
-    | val_alloc : val
+    -- | val_alloc : val
     -- | val_array_make : val
     -- | val_array_length : val
     -- | val_array_get : val
@@ -62,6 +62,7 @@ mutual
     | trm_for   : var -> trm -> trm -> trm -> trm
     | trm_while : trm -> trm -> trm
     | trm_ref   : var → trm → trm → trm
+    | trm_alloc : var → trm → trm → trm
 end
 
 /- States and heaps are represented as finite maps -/
@@ -127,6 +128,7 @@ def subst (y : var) (v' : val) (t : trm) : trm :=
   | trm_for x t1 t2 t3 => trm_for x (subst y v' t1) (subst y v' t2) (if_y_eq x t3 (subst y v' t3))
   | trm_while t1 t2    => trm_while (subst y v' t1) (subst y v' t2)
   | trm_ref x t1 t2    => trm_ref x (subst y v' t1) (if_y_eq x t2 (subst y v' t2))
+  | trm_alloc x t1 t2  => trm_alloc x (subst y v' t1) (if_y_eq x t2 (subst y v' t2))
 
 noncomputable def is_true (P : Prop) : Bool :=
   if P then true else false
@@ -397,6 +399,12 @@ def make_list {A} (n : Nat) (v : A) : List A :=
   | 0      => []
   | n' + 1 => v :: make_list n' v
 
+def test1 : Finmap (fun _ : ℕ ↦ ℕ) := Finmap.singleton 0 1
+def test2 : Finmap (fun _ : ℕ ↦ ℕ) := Finmap.singleton 1 2
+
+#reduce test1 \ test2
+-- { entries := Quot.mk List.Perm [⟨0, 1⟩], nodupKeys := ⋯ }
+
 
 /- Big-step relation -/
 inductive eval : state → trm → (val → state → Prop) -> Prop where
@@ -460,6 +468,18 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       p ∈ s ->
       Q val_unit (Finmap.insert p v' s) ->
       eval s (trm_app (trm_app val_set (val_loc p)) v) Q
+  | eval_alloc_arg : forall s Q₁ Q,
+    eval s t1 Q₁ →
+    (∀ v' s', Q₁ v' s' → eval s' (trm_alloc x v' t2) Q) →
+    eval s (trm_alloc x t1 t2) Q
+  | eval_alloc : forall (sa : state) (n : ℤ) Q,
+    n ≥ 0 →
+    (∀ (p : loc) (sb : state),
+      sb = conseq (make_list n.natAbs val_uninit) p →
+      p ≠ null →
+      Finmap.Disjoint sa sb →
+      eval (sb ∪ sa) (subst x p t2) fun v s ↦ Q v (s \ sb)) →
+    eval sa (trm_alloc x n t2) Q
   -- | eval_alloc : forall (n : Int) (sa : state) Q,
   --     n ≥ 0 →
   --     ( forall (p : loc) (sb : state),
@@ -621,6 +641,19 @@ inductive evalExact : state → trm → (val → state → Prop) -> Prop where
       p ∈ s ->
       evalExact s (trm_app (trm_app val_set (val_loc p)) v)
         (fun v'' s' ↦ v'' = val_unit ∧ s' = s.insert p v')
+  | alloc_arg : forall s Q₁ Q,
+    ¬ trm_is_val t1 →
+    evalExact s t1 Q₁ →
+    (∀ v' s', Q₁ v' s' → evalExact s' (trm_alloc x v' t2) Q) →
+    evalExact s (trm_alloc x t1 t2) Q
+  | alloc : forall (sa : state) (n : ℤ) Q,
+    n ≥ 0 →
+    (∀ (p : loc) (sb : state),
+      sb = conseq (make_list n.natAbs val_uninit) p →
+      p ≠ null →
+      Finmap.Disjoint sa sb →
+      evalExact (sb ∪ sa) (subst x p t2) fun v s ↦ Q v (s \ sb)) →
+    evalExact sa (trm_alloc x n t2) Q
   -- | alloc : forall (n : Int) (sa : state),
   --     n ≥ 0 →
   --     evalExact sa (trm_app val_alloc n)
@@ -679,6 +712,8 @@ lemma exact_imp_eval :
   { move=> * ; sby apply eval.eval_ref }
   { move=> * ; sby apply eval.eval_get }
   { move=> * ; sby apply eval.eval_set }
+  { move=> * ; sby apply eval.eval_alloc_arg }
+  { move=> * ; sby apply eval.eval_alloc }
   { move=> ?ih ; sby constructor }
   move=> * ; sby constructor
 
@@ -737,6 +772,7 @@ syntax "if " lang "then " lang "end " : lang
 syntax ppIndent("if " lang " then") ppSpace lang ppDedent(ppSpace) ppRealFill("else " lang) : lang
 syntax "let" ident " := " lang " in" ppDedent(ppLine lang) : lang
 syntax "ref" ident " := " lang " in" ppDedent(ppLine lang) : lang
+syntax "alloc" lang " as " ident " in" ppDedent(ppLine lang) : lang
 syntax "for" ident " in " "[" lang " : " lang "]" " {"  (ppLine lang) ( " }") : lang
 syntax "while" lang  " {"  (ppLine lang) ( " }") : lang
 -- TODO: I suspect it should be  `withPosition(lang ";") ppDedent(ppLine lang) : lang`, but Lean parser crashes. Report a bug.
@@ -749,7 +785,7 @@ syntax uop lang:30 : lang
 syntax lang:30 bop lang:30 : lang
 syntax "(" lang ")" : lang
 syntax "⟨" term "⟩" : lang
-syntax "alloc" lang : lang
+-- syntax "alloc" lang : lang
 syntax "⟨" term "⟩" : lang
 
 syntax " := " : bop
@@ -795,6 +831,8 @@ macro_rules
     `(trm_let $(%x) [lang| $t1] [lang| $t2])
   | `([lang| ref $x := $t1:lang in $t2:lang])     =>
     `(trm_ref $(%x) [lang| $t1] [lang| $t2])
+  | `([lang| alloc $t1:lang as $x in $t2:lang])   =>
+    `(trm_alloc $(%x) [lang| $t1] [lang| $t2])
   | `([lang| $t1 ; $t2])                => `(trm_seq [lang| $t1] [lang| $t2])
   | `([lang| fun_ $xs* => $t])             => do
     let xs <- xs.mapM fun x => `(term| $(%x))
@@ -811,7 +849,7 @@ macro_rules
   -- | `([lang| ref $t])                   => `(trm_val (val_prim val_ref) [lang| $t])
   | `([lang| free $t])                  => `(trm_val (val_prim val_free) [lang| $t])
   | `([lang| not $t])                   => `(trm_val (val_prim val_not) [lang| $t])
-  | `([lang| alloc $n])                => `(trm_val (val_alloc) [lang| $n])
+  -- | `([lang| alloc $n])                => `(trm_val (val_alloc) [lang| $n])
   | `([lang| !$t])                      => `(trm_val val_get [lang| $t])
   | `([lang| $t1 := $t2])               => `(trm_val val_set [lang| $t1] [lang| $t2])
   | `([lang| $t1 + $t2])                => `(trm_val val_add [lang| $t1] [lang| $t2])
@@ -899,7 +937,7 @@ def val_array_fill : val := [lang|
 def val_array_make : val := [lang|
   fun n v =>
     let m := n + 1 in
-    let p := alloc m in
+    alloc m as p in
     (val_set p) n ;
     (((val_array_fill p) 0) n) v ;
     p ]
@@ -1024,6 +1062,13 @@ macro_rules
     `([lang| ref $name := $t1 in $t2])
   | _ => throw ( )
 
+@[app_unexpander trm_alloc] def unexpandAlloc : Lean.PrettyPrinter.Unexpander
+  | `($(_) $x:str [lang| $t1] [lang| $t2]) =>
+    let str := x.getString
+    let name := Lean.mkIdent $ Lean.Name.mkSimple str
+    `([lang| alloc $t1 as $name in $t2])
+  | _ => throw ( )
+
 @[app_unexpander trm_for] def unexpandFor : Lean.PrettyPrinter.Unexpander
   | `($(_) $x:str [lang| $n1] [lang| $n2] [lang| $t]) =>
     let str := x.getString
@@ -1096,9 +1141,9 @@ macro_rules
     `([lang| fix $nameF $nameX => $t])
   | _ => throw ( )
 
-@[app_unexpander val_alloc] def unexpandVAlloc : Lean.PrettyPrinter.Unexpander
-  | `($(_) [lang| $n]) => `([lang| alloc $n])
-  | _ => throw ( )
+-- @[app_unexpander val_alloc] def unexpandVAlloc : Lean.PrettyPrinter.Unexpander
+--   | `($(_) [lang| $n]) => `([lang| alloc $n])
+--   | _ => throw ( )
 
 -- @[app_unexpander trm_apps] def unexpandApps : Lean.PrettyPrinter.Unexpander
 --   -- Unexpand function applications when arguments are program-variables
@@ -1202,7 +1247,7 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
         i}
       ]
 #check [lang| 1 ++ 2]
-#check [lang| let x := 6 in alloc(x)]
+#check [lang| let x := 6 in alloc(x) as y in ()]
 
 #check fun (p : loc)  => [lang|
   fix f y z =>
