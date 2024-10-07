@@ -327,25 +327,6 @@ lemma disjoint_keys (h₁ h₂ : state) :
   move=> hFmap > /hFmap ? > hb
   sby srw Not
 
--- lemma disjoint_entries (h₁ h₂ : state) :
---   h₁.Disjoint h₂ →
---   Disjoint h₁.entries h₂.entries := by
---   unfold Finmap.Disjoint=> ?
-
--- lemma sdiff_keys (h₁ h₂ : state) :
---   (h₁ \ h₂).keys = h₁.keys \ h₂.keys := by
---   apply Finset.ext=> > /==
-
--- theorem finmap_sdiff_keys_iff (h₁ h₂ : state) :
---   x ∈ h₁ \ h₂ ↔ x ∈ h₁ ∧ x ∉ h₂ := by
---   srw -?Finmap.mem_keys
-
--- lemma state_cancel_r_iff (h₁ h₂ : state) :
---   h₁.Disjoint h₂ →
---   ∀ x, x ∈ (h₁ ∪ h₂) \ h₂ ↔ x ∈ h₁ := by
---   move=> /disjoint_keys /Finset.union_sdiff_cancel_right >
---   srw -?Finmap.mem_keys -Finmap.keys_union
-
 lemma non_mem_diff_helper1 (h₁ : state) (l : @AList loc fun _ ↦ val) :
   a ∉ l →
   p ∈ List.foldl (fun d s ↦ Finmap.erase s.fst d) (Finmap.erase a h₁) l.entries →
@@ -464,19 +445,6 @@ lemma union_difference_id (h₁ h₂ : state) :
   srw remove_not_in_l=> //
   sby srw -insert_delete_id
 
-lemma difference_cancel (h₁ h₂ h₃ : state) :
-  (∀ p ∈ h₂, h₁.lookup p = h₂.lookup p) →
-  h₁ \ h₂ = h₃ →
-  h₁ = h₃ ∪ h₂ := by sorry
-
-lemma difference_cancel_union (h₁ h₂ h₃ h₄ : state) :
-  (∀ p ∈ h₂, h₁.lookup p = h₂.lookup p) →
-  h₄.Disjoint h₂ →
-  h₁ \ h₂ = h₃ ∪ h₄ →
-  h₁ = (h₃ ∪ h₂) ∪ h₄ := by
-  move=> ? /Finmap.union_comm_of_disjoint h /difference_cancel
-  sby srw Finmap.union_assoc h Finmap.union_assoc
-
 lemma diff_disjoint (h₁ h₂ : state) :
   h₂.Disjoint (h₁ \ h₂) := by sdone
 
@@ -517,15 +485,217 @@ lemma union_diff_disjoint_r (h₁ h₂ h₃ : state) :
     sby srw ?lookup_diff_none }
   sby move=> /hdis
 
+  lemma intersect_comm (s2 d : state) (a₁ : loc) (b₁ : val) (a₂ : loc) (b₂ : val) :
+  (fun s x _ ↦ if x ∈ s2 then s else Finmap.erase x s)
+      ((fun s x _ ↦ if x ∈ s2 then s else Finmap.erase x s) d a₁ b₁) a₂ b₂ =
+    (fun s x _ ↦ if x ∈ s2 then s else Finmap.erase x s)
+      ((fun s x _ ↦ if x ∈ s2 then s else Finmap.erase x s) d a₂ b₂) a₁ b₁ := by
+  dsimp
+  scase: [a₁ ∈ s2]=> > /=
+  scase: [a₂ ∈ s2]=> > /=
+  apply Finmap.erase_erase
+
+def intersect (s1 s2 : state) :=
+  s1.foldl (fun s x _ ↦ if x ∈ s2 then s else s.erase x) (intersect_comm s2) s1
+
+def st1 : state := (Finmap.singleton 0 1).insert 1 1
+def st2 : state := ((Finmap.singleton 0 2).insert 2 2).insert 1 2
+#reduce intersect st1 st2
+
+lemma insert_eq_union_singleton (s : state) :
+  p ∉ s →
+  s.insert p v = Finmap.singleton p v ∪ s := by
+  move=> ?
+  apply Finmap.ext_lookup=> >
+  scase: [x = p]
+  { move=> ?
+    sby srw Finmap.lookup_insert_of_ne }
+  move=> ->
+  sby srw Finmap.lookup_insert Finmap.lookup_union_left_of_not_in
+
+lemma AList_erase_entries (l : @AList loc (fun _ ↦ val)) :
+  (l.erase p).entries = (l.entries).kerase p := by sdone
+
+lemma Alist_insert_delete_id (l : @AList loc (fun _ ↦ val)) :
+  p ∉ l →
+  (l.insert p v).erase p = l := by
+  move=> ?
+  elim: l p v=> > /==
+  { move=> >
+    apply AList.ext=> /=
+    sby srw AList_erase_entries }
+  move=> ? ? > ??>
+  apply AList.ext=> /==
+  srw AList_erase_entries=> /==
+  sby srw List.kerase_of_not_mem_keys
+
+lemma intersect_foldl_mem (s₂ : state) (l₁ l₂ : @AList loc fun _ ↦ val):
+  p ∈ List.foldl (fun d s ↦ if s.fst ∈ s₂ then d else Finmap.erase s.fst d)
+    l₁.toFinmap l₂.entries →
+  p ∈ l₁ := by
+  elim: l₂ l₁=> > //
+  move=> ? ih /==
+  srw List.kerase_of_not_mem_keys=> // >
+  sby scase_if=> // ? /ih
+
+lemma intersect_mem_l (s₁ s₂ : state) :
+  p ∈ (intersect s₁ s₂) → p ∈ s₁ := by
+  refine Finmap.induction_on s₁ ? _
+  move=> >
+  unfold intersect Finmap.foldl=> /==
+  elim: a=> //=
+  move=> > ? ih
+  srw List.kerase_of_not_mem_keys=> //
+  scase_if=> ? /==
+  { sby move=> /intersect_foldl_mem }
+  sby srw Alist_insert_delete_id
+
+lemma intersect_mem_r_helper (s₂ : state) (l : @AList loc fun _ ↦ val) :
+  (p ∈ List.foldl (fun d s ↦ if s.fst ∈ s₂ then d else Finmap.erase s.fst d)
+    l.toFinmap l.entries → p ∈ s₂) →
+  a ∈ s₂ →
+  p ∈ List.foldl (fun d s ↦ if s.fst ∈ s₂ then d else Finmap.erase s.fst d)
+    (AList.insert a b l).toFinmap l.entries →
+  p ∈ s₂ := by
+  elim: l=> > /==
+  { sby move=> _ ? /AList.mem_keys }
+  move=> ? ih1 >
+  srw List.kerase_of_not_mem_keys=> //
+  move=> ih2 ?
+  sorry
+
+lemma intersect_foldl_mem_s2 (s₂ : state) (l₁ : @AList loc fun _ ↦ val) :
+  p ∈ List.foldl (fun d s ↦ if s.fst ∈ s₂ then d else Finmap.erase s.fst d)
+    l₁.toFinmap l₁.entries →
+  p ∈ s₂ := by
+  elim: l₁=> // >
+  move=> ? ih /==
+  srw Alist_insert_delete_id=> //
+  srw List.kerase_of_not_mem_keys=> //
+  scase_if=> ? //
+  sorry
+
+lemma intersect_mem_r (s₁ s₂ : state) :
+  p ∈ (intersect s₁ s₂) → p ∈ s₂  := by
+  refine Finmap.induction_on s₁ ? _
+  move=> >
+  unfold intersect Finmap.foldl=> /=
+  elim: a=> > //=
+  move=> ? ih
+  srw List.kerase_of_not_mem_keys=> //==
+  srw Alist_insert_delete_id=> //
+  scase_if=> //
+  move: ih=> /== /intersect_mem_r_helper ih
+  specialize (ih a b)
+  sby move=> /ih
+
+lemma mem_intersect :
+  p ∈ s₁ ∧ p ∈ s₂ → p ∈ (intersect s₁ s₂) := by
+  refine Finmap.induction_on s₁ ? _
+  move=> >
+  unfold intersect Finmap.foldl=> /==
+  elim: a=> > //? ih ? /==
+  move=> ?
+  srw Alist_insert_delete_id=> //
+  sorry
+
+@[simp]
+lemma intersect_mem_iff (s₁ s₂ : state) :
+  p ∈ (intersect s₁ s₂) ↔ p ∈ s₁ ∧ p ∈ s₂ := by
+  apply Iff.intro
+  { sby move=> /[dup] /intersect_mem_l ? /intersect_mem_r }
+  apply mem_intersect
+
+lemma lookup_intersect (s₁ s₂ : state) :
+  p ∈ s₁ ∧ p ∈ s₂ →
+  (intersect s₁ s₂).lookup p = s₁.lookup p := by
+  move=> ?
+  refine Finmap.induction_on s₁ ? _
+  move=> >
+  unfold intersect Finmap.foldl=> /==
+  elim: a=> > //
+  move=> ? ih /==
+  scase_if=> ? ; srw List.kerase_of_not_mem_keys=> //
+  { sorry }
+  srw Alist_insert_delete_id=> //
+  sorry
+
+lemma diff_insert_intersect_id (s₁ s₂ : state) :
+  (s₁ \ s₂) ∪ (intersect s₁ s₂) = s₁ := by
+  apply Finmap.ext_lookup=> >
+  scase: [x ∈ s₁]
+  { move=> /[dup] ? /Finmap.lookup_eq_none ->
+    srw Finmap.lookup_union_right=> //
+    have eqn:(x ∉ intersect s₁ s₂) := by sdone
+    sby move: eqn=> /Finmap.lookup_eq_none }
+  move=> ?
+  scase: [x ∈ s₂]=> ?
+  { srw Finmap.lookup_union_left=> //
+    sby srw lookup_diff }
+  srw Finmap.lookup_union_right=> //
+  sby srw lookup_intersect
+
+lemma union_monotone_r (s₃ s₁ s₂ : state) :
+  s₁ = s₂ →
+  s₁ ∪ s₃ = s₂ ∪ s₃ := by sdone
+
+lemma disjoint_intersect_r (s₁ s₂ s₃ : state) :
+  s₂.Disjoint s₃ →
+  (intersect s₁ s₂).Disjoint s₃ := by
+  sby unfold Finmap.Disjoint
+
+lemma intersect_disjoint_cancel (s₁ s₂ s₃ : state) :
+  s₁.Disjoint s₃ →
+  (s₁ ∪ intersect s₂ s₃) \ s₃ = s₁ := by
+  unfold Finmap.Disjoint=> hdis
+  apply Finmap.ext_lookup=> >
+  scase: [x ∈ s₁]
+  { move=> /[dup] ? /Finmap.lookup_eq_none ->
+    scase: [x ∈ s₃]
+    { move=> ?
+      srw lookup_diff=> //
+      srw Finmap.lookup_union_right=> //
+      sby srw Finmap.lookup_eq_none }
+    sby move=> /lookup_diff_none }
+  move=> /[dup] ? /hdis ?
+  sby srw lookup_diff
+
 
 /- ============== Necessary Lemmas about [eval] and [evalExact] ============== -/
 
 lemma finite_state (s : state) :
-  ∃ p, p ∉ s := by sorry
+  ∃ p, p ∉ s := by
+  scase: [s.keys.Nonempty]
+  { srw Finset.nonempty_iff_ne_empty=> /== ?
+    exists 0 ; unfold Not
+    sby srw -Finmap.mem_keys }
+  move=> /Finset.max_of_nonempty [>]
+  have eqn:(w < w + 1) := by sdone
+  move: eqn=> /Finset.not_mem_of_max_lt /[apply] ?
+  exists (w + 1)
+
+lemma conseq_ind (n : ℕ) (v : val) (p : loc) :
+  x ∈ conseq (make_list n v) p → x ≥ p := by
+  elim: n p=> > //
+  move=> ih >
+  unfold conseq make_list=> /== [] //
+  move=> /ih ; omega
 
 lemma finite_state' n (s : state) :
   ∃ p, p ≠ null ∧
-    Finmap.Disjoint s (conseq (make_list n val_uninit) p) := by sorry
+    Finmap.Disjoint s (conseq (make_list n val_uninit) p) := by
+  scase: [s.keys.Nonempty]
+  { srw Finset.nonempty_iff_ne_empty=> /== ?
+    exists 1 ; unfold null Finmap.Disjoint=> /== >
+    sby srw -Finmap.mem_keys }
+  move=> /Finset.max_of_nonempty [>] hmax
+  exists (w + 1)=> ⟨|⟩
+  { sby unfold null }
+  unfold Finmap.Disjoint=> >
+  move: hmax=> /[swap]
+  srw -Finmap.mem_keys=> /Finset.le_max_of_eq /[apply] ?
+  unfold Not=> /conseq_ind /==
+  sby srw Nat.lt_succ_iff
 
 lemma eval_sat :
   eval h t Q -> ∃ h v, Q h v := by
@@ -1006,8 +1176,20 @@ by
       { sby apply disjoint_disjoint_diff }
       apply union_diff_disjoint_r
       sby apply Finmap.Disjoint.symm }
-    move=> ![>] /= ? -> ?
-    sorry }
+    move=> ![>] /= ? -> ? /[dup] heq
+    have eqn:((w ∪ h2).Disjoint sb) := by
+      { srw -heq ; unfold Finmap.Disjoint=> /== }
+    move: eqn=> /Finmap.disjoint_union_left [ ? _]
+    move=> /(union_monotone_r (intersect h sb))
+    srw diff_insert_intersect_id Finmap.union_assoc [2]Finmap.union_comm_of_disjoint
+    rotate_left
+    { apply Finmap.Disjoint.symm ; sby apply disjoint_intersect_r }
+    srw -Finmap.union_assoc=> ?
+    exists (w ∪ intersect h sb), h2=> //== ⟨|⟩
+    { sby srw intersect_disjoint_cancel }
+    constructor=> //
+    srw Finmap.disjoint_union_left ; constructor=> //
+    sby apply disjoint_intersect_r }
   { move=> // }
   move=> > ?? ih₁ ih₂ ??; econstructor
   { apply ih₁=> // }
