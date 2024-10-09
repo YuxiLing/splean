@@ -3,6 +3,8 @@ import Lean
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
+import Lgtm.Common.State
+
 import Lgtm.Unary.Util
 import Lgtm.Unary.HProp
 import Lgtm.Unary.XSimp
@@ -144,7 +146,8 @@ by
 
 lemma wp_ref x v t Q :
   (h∀ p, (p ~~> v) -∗ wp (subst x p t) (Q ∗ ∃ʰ v', (p ~~> v'))) ==>
-  wp (trm_ref x v t) Q := by
+  wp (trm_ref x v t) Q :=
+by
   move=> > /hforall_inv hwp
   apply (eval.eval_ref _ _ _ _ _ (fun v' s' ↦ v' = v ∧ s' = h))=> //== > ?
   apply (eval_conseq _ _ (Q ∗ ∃ʰ v', p ~~> v' ))
@@ -458,8 +461,10 @@ def wpgen_while (F1 F2 : formula) : formula := mkstruct fun Q =>
     let F := wpgen_if_trm F1 (wpgen_seq F2 R) (wpgen_val val_unit)
     ⌜structural R ∧ F ===> R⌝ -∗ R Q
 
--- def wpgen_ref
 --   wpgen_ref p v F Q = (p ~~> v) -∗ protect $ F(Q ∗ ∃ʰ u,, p ~~> u)
+def wpgen_ref (t : trm) (F : formula) : formula :=
+  fun Q ↦ ∃ʰ v,
+    ⌜t = trm_val v⌝ ∗ h∀ p, (p ~~> v) -∗ protect (F (Q ∗ ∃ʰ u, p ~~> u))
 
 /- Recursive Definition of [wpgen] -/
 
@@ -475,6 +480,7 @@ def wpgen (t : trm) : formula :=
   | trm_app _ _        => wpgen_app t
   | trm_for x v1 v2 t1 => wpgen_for v1 v2 (fun v ↦ wp $ subst x v t1)
   | trm_while t0 t1    => wpgen_while (wp t0) (wp t1)
+  | trm_ref x t1 t2    => wpgen_ref t1 (wp t2)
   | _ => wp t
   )
 
