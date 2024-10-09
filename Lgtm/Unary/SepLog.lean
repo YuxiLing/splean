@@ -64,6 +64,7 @@ by
   { move=> * ; sby constructor }
   move=> * ; sby constructor
 
+
 /- ========= Useful Lemmas about disjointness and state operations ========= -/
 
 lemma disjoint_update_not_r (h1 h2 : state) (x : loc) (v: val) :
@@ -318,6 +319,11 @@ lemma union_singleton_eq_erase (h h' : state) :
   srw Finmap.lookup_erase
   srw Finmap.lookup_eq_none
   sby move: hdisj ; unfold Finmap.Disjoint Not=> /[apply]
+
+lemma union_singleton_eq_insert (h : state) :
+  Finmap.singleton p v ∪ h = h.insert p v := by
+  apply Finmap.ext_lookup=> >
+  sby scase: [x = p]
 
 lemma disjoint_keys (h₁ h₂ : state) :
   h₁.Disjoint h₂ →
@@ -597,6 +603,7 @@ lemma mem_intersect :
   elim: a=> > //? ih ? /==
   move=> ?
   srw Alist_insert_delete_id=> //
+  srw List.kerase_of_not_mem_keys=> //
   sorry
 
 @[simp]
@@ -1382,6 +1389,16 @@ by
   { sby apply hH }
   sdone
 
+lemma triple_let_val x v1 t2 H Q :
+  triple (subst x v1 t2) H Q →
+  triple (trm_let x v1 t2) H Q :=
+by
+  move=> ?
+  apply triple_let _ _ _ (fun v ↦ ⌜v = v1⌝ ∗ H)
+  { apply triple_val ; xsimp }
+  move=> ?
+  sby apply triple_hpure
+
 -- WIP
 /- wp (trm_ref x (val_int n) t) Q =
    (p ~~> n) -* wp (subst x t) (Q * ∃ʰ n, (p ~~> n)) -/
@@ -1404,16 +1421,6 @@ lemma triple_ref (v : val) :
   apply hsingle_intro=> ⟨|⟩
   apply disjoint_single=>//
   sby apply insert_eq_union_single=> //
-
-lemma triple_let_val x v1 t2 H Q :
-  triple (subst x v1 t2) H Q →
-  triple (trm_let x v1 t2) H Q :=
-by
-  move=> ?
-  apply triple_let _ _ _ (fun v ↦ ⌜v = v1⌝ ∗ H)
-  { apply triple_val ; xsimp }
-  move=> ?
-  sby apply triple_hpure
 
 lemma triple_if (b : Bool) t1 t2 H Q :
   triple (if b then t1 else t2) H Q →

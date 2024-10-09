@@ -1229,6 +1229,8 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
       }; !z
       ]
 
+#print val_array_make
+
 -- set_option pp.notation false
 #check fun (p : loc)  => [lang|
   fix f y z =>

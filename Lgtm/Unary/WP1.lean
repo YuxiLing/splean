@@ -142,6 +142,22 @@ by
   { sby scase_if=> ?? }
   apply wp_if
 
+lemma wp_ref x v t Q :
+  (h∀ p, (p ~~> v) -∗ wp (subst x p t) (Q ∗ ∃ʰ v', (p ~~> v'))) ==>
+  wp (trm_ref x v t) Q := by
+  move=> > /hforall_inv hwp
+  apply (eval.eval_ref _ _ _ _ _ (fun v' s' ↦ v' = v ∧ s' = h))=> //== > ?
+  apply (eval_conseq _ _ (Q ∗ ∃ʰ v', p ~~> v' ))
+  { move: (hwp p)=> {hwp} /(hwand_inv (Finmap.singleton p v))
+    srw union_singleton_eq_insert=> wp
+    apply wp=> //
+    sby unfold Finmap.Disjoint=> > /== -> }
+  move=> > s ![>] ? [v'] /= /hsingl_inv -> hdis ->
+  srw Finmap.union_comm_of_disjoint=> //
+  srw union_singleton_eq_insert -insert_delete_id=> //
+  move: hdis=> /Finmap.Disjoint.symm
+  sby unfold Finmap.Disjoint
+
 
 /- ======================= WP Generator ======================= -/
 /- Below we define a function [wpgen t] recursively over [t] such that
@@ -442,6 +458,9 @@ def wpgen_while (F1 F2 : formula) : formula := mkstruct fun Q =>
     let F := wpgen_if_trm F1 (wpgen_seq F2 R) (wpgen_val val_unit)
     ⌜structural R ∧ F ===> R⌝ -∗ R Q
 
+-- def wpgen_ref
+--   wpgen_ref p v F Q = (p ~~> v) -∗ protect $ F(Q ∗ ∃ʰ u,, p ~~> u)
+
 /- Recursive Definition of [wpgen] -/
 
 def wpgen (t : trm) : formula :=
@@ -486,7 +505,7 @@ lemma mkstruct_sound t F :
   formula_sound t F →
   formula_sound t (mkstruct F) :=
 by
-  srw []formula_sound => ? ?
+  srw ?formula_sound => ? ?
   srw -mkstruct_wp
   sby apply mkstruct_monotone=> ??
 
@@ -529,7 +548,7 @@ lemma wpgen_seq_sound F1 F2 t1 t2 :
   formula_sound t2 F2 →
   formula_sound (trm_seq t1 t2) (wpgen_seq F1 F2) :=
 by
-  srw []formula_sound => ?? Q
+  srw ?formula_sound => ?? Q
   srw wpgen_seq
   apply (himpl_trans (wp t1 (fun _ ↦ wp t2 Q)))
   { apply (himpl_trans (wp t1 fun _ ↦ F2 Q))
@@ -543,7 +562,7 @@ lemma wpgen_let_sound F1 F2of x t1 t2 :
   (forall v, formula_sound (subst x v t2) (F2of v)) →
   formula_sound (trm_let x t1 t2) (wpgen_let F1 F2of) :=
 by
-  srw []formula_sound => ?? Q
+  srw ?formula_sound => ?? Q
   srw wpgen_let
   apply himpl_trans (wp t1 (fun v ↦ wp (subst x v t2) Q))
   { apply himpl_trans (wp t1 (fun v ↦ F2of v Q ))
@@ -557,7 +576,7 @@ lemma wpgen_if_sound F1 F2 t0 t1 t2 :
   formula_sound t2 F2 →
   formula_sound (trm_if t0 t1 t2) (wpgen_if t0 F1 F2) :=
 by
-  srw []formula_sound => ?? Q
+  srw ?formula_sound => ?? Q
   srw wpgen_if
   xpull=> >
   apply himpl_trans (wp (trm_if b t1 t2) Q)=> //
@@ -662,6 +681,12 @@ by
 
 /- ================================================================= -/
 /-* ** Lemmas for Tactics to Manipulate [wpgen] Formulae -/
+
+/-
+
+xref = xseq_xlet; apply xref_lemma; xsimp
+
+-/
 
 lemma xstruct_lemma F H Q :
   H ==> F Q →
@@ -995,6 +1020,8 @@ def isubst (E : ctx) (t : trm) : trm :=
       trm_let x (isubst E t1) (isubst (erase x E) t2)
   | trm_ref x t1 t2 =>
       trm_ref x (isubst E t1) (isubst (erase x E) t2)
+  | trm_alloc x t1 t2 =>
+      trm_alloc x (isubst E t1) (isubst (erase x E) t2)
   | trm_app t1 t2 =>
       trm_app (isubst E t1) (isubst E t2)
   | trm_for x n1 n2 t =>

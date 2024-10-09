@@ -74,17 +74,15 @@ lemma triple_ptr_add_nonneg (p : loc) (n : Int) :
 
 /- Semantics of Low-Level Block Allocation -/
 
-#check val_alloc
-
 #check eval.eval_alloc
-/- eval.eval_alloc (n : ℤ) (sa : state) (Q : val → state → Prop) :
+/- eval.eval_alloc {x : var} {t2 : trm} (sa : state) (n : ℤ) (Q : val → state → Prop) :
   n ≥ 0 →
-  (∀ (p : loc) (sb : state),
-      sb = conseq val (make_list n.natAbs val_uninit) p →
-      p ≠ null →
-      Finmap.Disjoint sa sb →
-      Q p (sb ∪ sa)) →
-      eval sa (trm_app val_aloc n) Q
+    (∀ (p : loc) (sb : state),
+        sb = conseq (make_list n.natAbs val_uninit) p →
+          p ≠ null →
+          Finmap.Disjoint sa sb → eval (sb ∪ sa)
+            (subst x p t2) fun v s ↦ Q v (s \ sb)) →
+      eval sa (trm_alloc x ([lang| n]) t2) Q
  -/
 
 /- Heap predicate for describing a range of cells -/
@@ -100,15 +98,80 @@ lemma hrange_intro L p :
   apply hstar_intro=>//
   sby apply disjoint_single_conseq
 
+lemma triple_alloc_arg :
+  ¬trm_is_val t1 →
+  triple t1 H Q1 →
+  (∀ v, triple (trm_alloc x (trm_val v) t2) (Q1 v) Q ) →
+  triple (trm_alloc x t1 t2) H Q := by
+  unfold triple=> ? hs ? > /hs ?
+  sby apply eval.eval_alloc_arg
+
+#check triple_ref
+
+lemma int_eq_sub (l m n : ℤ) :
+  l + m = n → l = n - m := by omega
+
+lemma list_inc_natabs {α : Type} (L : List α) :
+  ((L.length : ℤ) + 1).natAbs = (L.length : ℤ).natAbs + 1 := by
+  omega
+
+lemma hrange_eq_conseq (L : List val) (n : ℤ) (p : loc) (s : state) :
+  L.length = n →
+  hrange L p s →
+  s.keys = (conseq (make_list n.natAbs val_uninit) p).keys := by
+  elim: L n p s=> > ; unfold hrange
+  { sby move=> /= <- /= /hempty_inv -> }
+  move=> ih > /== /[dup] /int_eq_sub /[dup] hn /ih {}ih  <-
+  srw -hn at ih
+  move: ih=> /= ih {hn}
+  unfold hrange=> ![>] /hsingl_inv ? /ih {}ih ? ->
+  unfold conseq make_list
+  srw list_inc_natabs=> /== >
+  move: ih
+  sby srw ?Finset.ext_iff Finmap.mem_keys=> ?
+
+lemma diff_disjoint_eq (s₁ s₂ s₃ : state) :
+  s₁.Disjoint s₂ →
+  s₂.keys = s₃.keys →
+  (s₁ ∪ s₂) \ s₃  = s₁ := by
+  srw Finmap.Disjoint.symm_iff Finmap.Disjoint=> hdis
+  srw Finset.ext_iff Finmap.mem_keys=> hsub
+  apply Finmap.ext_lookup=> >
+  scase: [x ∈ s₃]
+  { move=> /[dup] ? /lookup_diff ->
+    srw Finmap.lookup_union_left_of_not_in
+    sby unfold Not=> /hsub }
+  move=> /[dup] /hsub /hdis /Finmap.lookup_eq_none ->
+  sby move=> /lookup_diff_none
+
 lemma triple_alloc (n : Int) :
   n ≥ 0 →
-  triple [lang| alloc n ]
-    emp
-    (funloc p ↦ hrange (make_list n.natAbs val_uninit) p ∗ ⌜p ≠ null⌝ ) := by
-  move=> ?? [] ; apply eval.eval_alloc=>// > *
-  apply (hexists_intro _ p)
-  srw hstar_hpure_l Finmap.union_empty hstar_hpure_r => ⟨|⟨|⟩⟩ //
-  subst sb ; apply hrange_intro
+  (∀ (p : loc), triple (subst x p t)
+    (H ∗ ⌜p ≠ null⌝ ∗ hrange (make_list n.natAbs val_uninit) p)
+    (Q ∗ ⌜p ≠ null⌝  ∗ ∃ʰ L, ⌜L.length = n⌝ ∗ hrange L p) ) →
+  triple (trm_alloc x n t) H Q := by
+  move=> ? htriple h ?
+  apply eval.eval_alloc=> // > *
+  move: (htriple p)=> /triple_conseq {}htriple
+  specialize (htriple (H ∗ ⌜p ≠ null⌝ ∗ hrange (make_list n.natAbs val_uninit) p))
+  specialize (htriple (fun v s ↦ Q v (s \ sb)))
+  have eqn:(triple (subst x p t)
+    (H ∗ ⌜p ≠ null⌝ ∗ hrange (make_list n.natAbs val_uninit) p)
+    fun v s ↦ Q v (s \ sb)) := by
+    { apply htriple=> // {htriple}
+      move=> > s ![>] ? ![>] /hpure_inv [] _ ->
+      move=> /hexists_inv [L] ![>] /hpure_inv [] ? -> ? _
+      move=> /== -> _ -> ? ->
+      srw diff_disjoint_eq=> //
+      subst sb ; sby apply hrange_eq_conseq }
+  move=> {htriple}
+  apply eqn
+  exists h, sb=> ⟨//|⟩ ⟨|⟩
+  { exists ∅, sb => ⟨//|/==⟩ ⟨|⟩
+    subst sb ; apply hrange_intro
+    sdone }
+  constructor=> //
+  sby srw Finmap.union_comm_of_disjoint Finmap.Disjoint.symm_iff
 
 
 /- Implementing absolute value operator -/
@@ -406,24 +469,24 @@ lemma make_list_len (n : Int) (v : val) :
   move=> ? /=
   sby srw make_list
 
-lemma triple_array_make_hseg (n : Int) (v : val) :
-  n >= 0 →
-  triple (trm_app val_array_make n v)
-    emp
-    (funloc p ↦ hheader n.natAbs p ∗ hseg (make_list (n.natAbs) v) p 0) := by
-  xwp
-  xapp triple_add ; xwp
-  xapp triple_alloc=> > ; xwp
-  rw [nat_abs_succ, make_list, hrange]
-  srw ?of_nat_nat //== ; any_goals omega
-  xapp ; xwp
-  srw -hheader_eq -(hseg_eq_hrange (make_list n.natAbs val_uninit) p 0)
-  xapp triple_array_fill ; xwp
-  { xval ; xsimp => //
-    apply himpl_of_eq
-    sby srw nonneg_eq_abs }
-  srw make_list_len
-  omega
+-- lemma triple_array_make_hseg (n : Int) (v : val) :
+--   n >= 0 →
+--   triple (trm_app val_array_make n v)
+--     emp
+--     (funloc p ↦ hheader n.natAbs p ∗ hseg (make_list (n.natAbs) v) p 0) := by
+--   xwp
+--   xapp triple_add ; xwp
+--   xapp triple_alloc=> > ; xwp
+--   rw [nat_abs_succ, make_list, hrange]
+--   srw ?of_nat_nat //== ; any_goals omega
+--   xapp ; xwp
+--   srw -hheader_eq -(hseg_eq_hrange (make_list n.natAbs val_uninit) p 0)
+--   xapp triple_array_fill ; xwp
+--   { xval ; xsimp => //
+--     apply himpl_of_eq
+--     sby srw nonneg_eq_abs }
+--   srw make_list_len
+--   omega
 
 lemma triple_array_get L (p : loc) (i : Int) : --(v : 0 <= i ∧ i < L.length) :
    0 <= i ∧ i < L.length →
@@ -453,18 +516,18 @@ lemma triple_array_length L (p : loc) :
     xapp triple_array_length_hheader
     xsimp
 
-lemma triple_array_make (n : Int) (v : val) :
-  n ≥ 0 →
-  triple (trm_app val_array_make n v)
-    emp
-    (funloc p ↦ harray (make_list n.natAbs v) p) := by
-  move=> ?
-  xtriple
-  srw harray
-  xapp triple_array_make_hseg=> >
-  xsimp
-  { sdone }
-  sby srw make_list_len nonneg_eq_abs
+-- lemma triple_array_make (n : Int) (v : val) :
+--   n ≥ 0 →
+--   triple (trm_app val_array_make n v)
+--     emp
+--     (funloc p ↦ harray (make_list n.natAbs v) p) := by
+--   move=> ?
+--   xtriple
+--   srw harray
+--   xapp triple_array_make_hseg=> >
+--   xsimp
+--   { sdone }
+--   sby srw make_list_len nonneg_eq_abs
 
 
 /- Rules for [default_get] and [default_set] -/
