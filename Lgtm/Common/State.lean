@@ -432,6 +432,20 @@ lemma union_diff_disjoint_r (h₁ h₂ h₃ : state) :
     sby srw ?lookup_diff_none }
   sby move=> /hdis
 
+  lemma diff_disjoint_eq (s₁ s₂ s₃ : state) :
+  s₁.Disjoint s₂ →
+  s₂.keys = s₃.keys →
+  (s₁ ∪ s₂) \ s₃  = s₁ := by
+  srw Finmap.Disjoint.symm_iff Finmap.Disjoint=> hdis
+  srw Finset.ext_iff Finmap.mem_keys=> hsub
+  apply Finmap.ext_lookup=> >
+  scase: [x ∈ s₃]
+  { move=> /[dup] ? /lookup_diff ->
+    srw Finmap.lookup_union_left_of_not_in
+    sby unfold Not=> /hsub }
+  move=> /[dup] /hsub /hdis /Finmap.lookup_eq_none ->
+  sby move=> /lookup_diff_none
+
   lemma intersect_comm (s2 d : state) (a₁ : loc) (b₁ : val) (a₂ : loc) (b₂ : val) :
   (fun s x _ ↦ if x ∈ s2 then s else Finmap.erase x s)
       ((fun s x _ ↦ if x ∈ s2 then s else Finmap.erase x s) d a₁ b₁) a₂ b₂ =

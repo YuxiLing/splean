@@ -1,18 +1,18 @@
 import Lean
 
-import Lgtm.WP1
+import Lgtm.Unary.WP1
 
-open val prim trm
+open val prim trm Unary
 
 /- ################################################################# -/
 /-* * Demo Programs -/
 
 #hint_xapp triple_lt
 #hint_xapp triple_get
-#hint_xapp triple_ref
+-- #hint_xapp triple_ref
 #hint_xapp triple_add
 #hint_xapp triple_set
-#hint_xapp triple_free
+-- #hint_xapp triple_free
 
 lang_def incr :=
   fun p =>
@@ -24,23 +24,34 @@ lang_def incr :=
 lemma triple_incr (p : loc) (n : Int) :
   {p ~~> n}
   [incr p]
-  {p ~~> n + 1} := by
+  {p ~~> val_int (n + 1)} := by
   repeat (xwp; xapp)
 
 lang_def mysucc :=
   fun n =>
-    let r := ref n in
+    ref r := n in
     incr r;
     let x := !r in
-    free r;
     x
 
+set_option trace.xsimp true
 lemma triple_mysucc (n : Int) :
   { emp }
   [mysucc n]
-  {v, ⌜ v = n + 1 ⌝} := by
-  sdo 4 (xwp; xapp);
-  xwp; xval; xsimp=> //
+  {v, ⌜ v = val_int (n + 1) ⌝} := by
+  xwp ; xref
+  xwp ; xapp
+  xwp ; xapp
+  xwp ; xval
+  xsimp_start
+  xsimp_step ; xsimp_step
+  -- xsimp_step
+  apply (xsimp_r_hexists)
+  xsimp_step
+  try rev_pure
+  try hide_mvars
+  try hsimp
+
 
 lang_def addp :=
   fun n m =>
@@ -54,17 +65,17 @@ lang_def addp :=
 lemma triple_addp (p q : loc) (m n : Int) :
   { p ~~> n ∗ q ~~> m ∗ ⌜m >= 0⌝ }
   [addp p q]
-  { p ~~> n + m ∗ q ~~> m } := by
+  { p ~~> val_int (n + m) ∗ q ~~> m } := by
   xwp; xapp=> ?
-  xfor (fun i => p ~~> n + i)=> //
+  xfor (fun i => p ~~> val_int (n + i))=> //
   { move=> ? _; xapp; xsimp; omega }
   xapp
 
 
 lang_def mulp :=
   fun n m =>
-    let i := ref 0 in
-    let ans := ref 0 in
+    ref i :=  0 in
+    ref ans := 0 in
     let m := !m in
     while (
       let i := !i in
@@ -94,10 +105,10 @@ lemma triple_mulp (p q : loc) (m n : Int) :
   { p ~~> n ∗ q ~~> m ∗ ⌜m > 0 ∧ n >= 0⌝ }
   [mulp p q]
   {ans, ⌜ans = n * m⌝ ∗ ⊤ } := by
-  xwp; xapp=> ? i
-  xwp; xapp=> ans
-  xwp; xapp
-  xwhile_up (fun b j => p ~~> n ∗ q ~~> m ∗ i ~~> j ∗ ans ~~> n * j ∗ ⌜(b = decide (j < m)) ∧ 0 <= j ∧ j <= m⌝) m
+  xwp ; xref=> ?
+  xwp ; xref
+  xwp ; xapp
+  xwhile_up (fun b j => p ~~> n ∗ q ~~> m ∗ p_1 ~~> j ∗ p_2 ~~> n * j ∗ ⌜(b = decide (j < m)) ∧ 0 <= j ∧ j <= m⌝) m
   { xsimp=> // }
   { sby move=>>; xwp; xapp=> ?; xapp; xsimp }
   { move=> X; xwp; xapp=> []??
@@ -106,4 +117,4 @@ lemma triple_mulp (p q : loc) (m n : Int) :
   move=> ? /=; xsimp=> a /== * -- here we need to do [xsimp] before [xapp]
                                -- to introduce variable [a], which is needed
                                -- to instantiate the `ans`
-  sby xapp; xsimp
+  sby xapp; xsimp --same xsimp bug as in [triple_mysucc]

@@ -8,173 +8,19 @@ import Lgtm.Unary.WP1
 import Lgtm.Unary.Lang
 
 
-/- ============== Definitions for Arrays ============== -/
-
 open val trm prim
 open Unary
 
-def hheader (n : Int) (p : loc) : hProp :=
-  p ~~> (val_int n)
+/- Syntax for array operations -/
 
-lemma hheader_eq p n :
-  (hheader n p) = (p ~~> (val_int n)) := by
-  sdone
+-- set_option pp.notation false
+#check [lang|
+  let arr := mkarr 5 1 in
+  arr[4] := 2 ;
+  arr[3]
+  ]
 
-def hcell (v : val) (p : loc) (i : Int) : hProp :=
-  ((p + 1 + (Int.natAbs i)) ~~> v) ∗ ⌜i >= 0⌝
-
-lemma hcell_eq v p i :
-  (hcell v p i) = ((p + 1 + (Int.natAbs i)) ~~> v) ∗ ⌜i >= 0⌝ := by
-  sdone
-
-lemma hcell_nonneg v p i :
-  hcell v p i ==> hcell v p i ∗ ⌜i >= 0⌝ := by
-  sby srw hcell_eq ; xsimp
-
-def hseg (L : List val) (p : loc) (j : Int) : hProp :=
-  match L with
-  | []      => emp
-  | x :: L' => (hcell x p j) ∗ (hseg L' p (j + 1))
-
-def harray (L : List val) (p : loc) : hProp :=
-  hheader (L.length) p ∗ hseg L p 0
-
-lemma harray_eq p L :
-  harray L p = ∃ʰ n, ⌜n = L.length⌝ ∗ hheader n p ∗ hseg L p 0 := by
-  sby srw harray ; sorry
-
-/- inversion lemma for hseg -/
-
-lemma hseg_start_eq L p j1 j2 :
-  j1 = j2 →
-  hseg L p j1 ==> hseg L p j2 := by
-  sdone
-
-
-/- ================== Implementation of Arrays ================= -/
-
-/- A simplified specification for non-negative pointer addition -/
-
-lemma natabs_nonneg (p : Nat) (n : Int) :
-  n ≥ 0 → (p + n).natAbs = p + n.natAbs := by
-  omega
-
-lemma triple_ptr_add_nonneg (p : loc) (n : Int) :
-  n >= 0 →
-  triple [lang| p ++ n]
-    emp
-    (fun r ↦ ⌜r = val_loc (p + Int.natAbs n)⌝) := by
-  move=> ?
-  apply (triple_conseq _ emp
-    (fun r ↦ ⌜r = val_loc (Int.toNat (Int.natAbs (p + n)))⌝))
-  apply triple_ptr_add
-  { omega }
-  { xsimp }
-  xsimp ; xsimp=> /==
-  sby apply natabs_nonneg
-
-
-/- Semantics of Low-Level Block Allocation -/
-
-#check eval.eval_alloc
-/- eval.eval_alloc {x : var} {t2 : trm} (sa : state) (n : ℤ) (Q : val → state → Prop) :
-  n ≥ 0 →
-    (∀ (p : loc) (sb : state),
-        sb = conseq (make_list n.natAbs val_uninit) p →
-          p ≠ null →
-          Finmap.Disjoint sa sb → eval (sb ∪ sa)
-            (subst x p t2) fun v s ↦ Q v (s \ sb)) →
-      eval sa (trm_alloc x ([lang| n]) t2) Q
- -/
-
-/- Heap predicate for describing a range of cells -/
-
-def hrange (L : List val) (p : loc) : hProp :=
-  match L with
-  | []      => emp
-  | x :: L' => (p ~~> x) ∗ (hrange L' (p + 1))
-
-lemma hrange_intro L p :
-  (hrange L p) (conseq L p) := by
-  induction L generalizing p ; srw conseq hrange=> //
-  apply hstar_intro=>//
-  sby apply disjoint_single_conseq
-
-lemma triple_alloc_arg :
-  ¬trm_is_val t1 →
-  triple t1 H Q1 →
-  (∀ v, triple (trm_alloc x (trm_val v) t2) (Q1 v) Q ) →
-  triple (trm_alloc x t1 t2) H Q := by
-  unfold triple=> ? hs ? > /hs ?
-  sby apply eval.eval_alloc_arg
-
-#check triple_ref
-
-lemma int_eq_sub (l m n : ℤ) :
-  l + m = n → l = n - m := by omega
-
-lemma list_inc_natabs {α : Type} (L : List α) :
-  ((L.length : ℤ) + 1).natAbs = (L.length : ℤ).natAbs + 1 := by
-  omega
-
-lemma hrange_eq_conseq (L : List val) (n : ℤ) (p : loc) (s : state) :
-  L.length = n →
-  hrange L p s →
-  s.keys = (conseq (make_list n.natAbs val_uninit) p).keys := by
-  elim: L n p s=> > ; unfold hrange
-  { sby move=> /= <- /= /hempty_inv -> }
-  move=> ih > /== /[dup] /int_eq_sub /[dup] hn /ih {}ih  <-
-  srw -hn at ih
-  move: ih=> /= ih {hn}
-  unfold hrange=> ![>] /hsingl_inv ? /ih {}ih ? ->
-  unfold conseq make_list
-  srw list_inc_natabs=> /== >
-  move: ih
-  sby srw ?Finset.ext_iff Finmap.mem_keys=> ?
-
-lemma diff_disjoint_eq (s₁ s₂ s₃ : state) :
-  s₁.Disjoint s₂ →
-  s₂.keys = s₃.keys →
-  (s₁ ∪ s₂) \ s₃  = s₁ := by
-  srw Finmap.Disjoint.symm_iff Finmap.Disjoint=> hdis
-  srw Finset.ext_iff Finmap.mem_keys=> hsub
-  apply Finmap.ext_lookup=> >
-  scase: [x ∈ s₃]
-  { move=> /[dup] ? /lookup_diff ->
-    srw Finmap.lookup_union_left_of_not_in
-    sby unfold Not=> /hsub }
-  move=> /[dup] /hsub /hdis /Finmap.lookup_eq_none ->
-  sby move=> /lookup_diff_none
-
-lemma triple_alloc (n : Int) :
-  n ≥ 0 →
-  (∀ (p : loc), triple (subst x p t)
-    (H ∗ ⌜p ≠ null⌝ ∗ hrange (make_list n.natAbs val_uninit) p)
-    (Q ∗ ⌜p ≠ null⌝  ∗ ∃ʰ L, ⌜L.length = n⌝ ∗ hrange L p) ) →
-  triple (trm_alloc x n t) H Q := by
-  move=> ? htriple h ?
-  apply eval.eval_alloc=> // > *
-  move: (htriple p)=> /triple_conseq {}htriple
-  specialize (htriple (H ∗ ⌜p ≠ null⌝ ∗ hrange (make_list n.natAbs val_uninit) p))
-  specialize (htriple (fun v s ↦ Q v (s \ sb)))
-  have eqn:(triple (subst x p t)
-    (H ∗ ⌜p ≠ null⌝ ∗ hrange (make_list n.natAbs val_uninit) p)
-    fun v s ↦ Q v (s \ sb)) := by
-    { apply htriple=> // {htriple}
-      move=> > s ![>] ? ![>] /hpure_inv [] _ ->
-      move=> /hexists_inv [L] ![>] /hpure_inv [] ? -> ? _
-      move=> /== -> _ -> ? ->
-      srw diff_disjoint_eq=> //
-      subst sb ; sby apply hrange_eq_conseq }
-  move=> {htriple}
-  apply eqn
-  exists h, sb=> ⟨//|⟩ ⟨|⟩
-  { exists ∅, sb => ⟨//|/==⟩ ⟨|⟩
-    subst sb ; apply hrange_intro
-    sdone }
-  constructor=> //
-  sby srw Finmap.union_comm_of_disjoint Finmap.Disjoint.symm_iff
-
+/- ==================== Properties of Arrays ==================== -/
 
 /- Implementing absolute value operator -/
 
@@ -198,18 +44,6 @@ lemma triple_abs (i : Int) :
   xwp ; xval ; xsimp
   sby srw nonneg_eq_abs
 
-
-/- Syntax for array operations -/
-
--- set_option pp.notation false
-#check [lang|
-  let arr := mkarr 5 1 in
-  arr[4] := 2 ;
-  arr[3]
-  ]
-
-
-/- ==================== Properties of Arrays ==================== -/
 
 /- properties of [hseg] -/
 
