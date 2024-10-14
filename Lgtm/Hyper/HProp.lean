@@ -19,7 +19,9 @@ def hhProp (α : Type) := @hheap α -> Prop
 
 @[ext]
 lemma hhProp_ext (h₁ h₂ : hhProp α) :
-  (∀ a, h₁ a = h₂ a) -> (h₁ = h₂)  := by sorry
+  (∀ a, h₁ a = h₂ a) -> (h₁ = h₂)  := by
+  move=> ?
+  sby funext
 
 def hunion (h₁ h₂ : @hheap α) : @hheap α :=
   λ a => h₁ a ∪ h₂ a

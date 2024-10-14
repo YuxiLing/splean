@@ -514,7 +514,6 @@ def wpgen_while (F1 F2 : formula) : formula := mkstruct fun Q =>
     let F := wpgen_if_trm F1 (wpgen_seq F2 R) (wpgen_val val_unit)
     ⌜structural R ∧ F ===> R⌝ -∗ R Q
 
---   wpgen_ref p v F Q = (p ~~> v) -∗ protect $ F(Q ∗ ∃ʰ u,, p ~~> u)
 def wpgen_ref (x : var) (t1 t2 : trm) : formula :=
   fun Q ↦ ∃ʰ v, ⌜t1 = trm_val v⌝ ∗
     h∀ p, (p ~~> v) -∗ protect (wp (subst x p t2) (fun hv ↦ Q hv ∗ ∃ʰ u, p ~~> u))
@@ -789,12 +788,6 @@ by
   srw wpgen_ref=> /hforall_inv {}h
   exists v=> /==
   sby srw hstar_hpure_l
-
-lemma xalloc_lemma x t1 t2 H Q :
-
-  H ==> wpgen_alloc x t1 t2 Q :=
-by
-  sorry
 
 lemma xstruct_lemma F H Q :
   H ==> F Q →
