@@ -754,7 +754,9 @@ def eApplyAndName (lem : Name) (mvarName : Name) : TacticM Unit := withMainConte
 def xsimp_r_hexists_apply_hints (x : Ident) : TacticM Unit := do
   let hints <- hintExt.getSSR
   match hints with
-  | [] => eApplyAndName `xsimp_r_hexists $ `xsimp ++ x.getId
+  | [] =>
+    trace[xsimp] "no hints"
+    eApplyAndName `xsimp_r_hexists $ `xsimp ++ x.getId
   | h :: hs =>
     hintExt.setSSR hs
     match h with
@@ -861,6 +863,21 @@ elab "xsimp_step" : tactic => do
     xsimp_step_l  xsimp <|>
     xsimp_step_r  xsimp <|>
     xsimp_step_lr xsimp
+
+elab "xsimp_step_l_tac" : tactic => do
+  let xsimp <- XSimpRIni
+  withMainContext do
+    xsimp_step_l  xsimp
+
+elab "xsimp_step_r_tac" : tactic => do
+  let xsimp <- XSimpRIni
+  withMainContext do
+    xsimp_step_r  xsimp
+
+elab "xsimp_step_lr_tac" : tactic => do
+  let xsimp <- XSimpRIni
+  withMainContext do
+    xsimp_step_lr  xsimp
 
 elab "rev_pure" : tactic => do
   {| try subst_vars |}

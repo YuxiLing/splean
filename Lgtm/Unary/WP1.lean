@@ -3,6 +3,8 @@ import Lean
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
+import Lgtm.Common.State
+
 import Lgtm.Unary.Util
 import Lgtm.Unary.HProp
 import Lgtm.Unary.XSimp
@@ -141,6 +143,76 @@ by
   apply himpl_trans (wp (if b then t1 else t2) Q)
   { sby scase_if=> ?? }
   apply wp_if
+
+lemma wp_ref x v t Q :
+  (h∀ p, (p ~~> v) -∗ wp (subst x p t) (Q ∗ ∃ʰ v', (p ~~> v'))) ==>
+  wp (trm_ref x v t) Q :=
+by
+  move=> > /hforall_inv hwp
+  apply (eval.eval_ref _ _ _ _ _ (fun v' s' ↦ v' = v ∧ s' = h))=> //== > ?
+  apply (eval_conseq _ _ (Q ∗ ∃ʰ v', p ~~> v' ))
+  { move: (hwp p)=> {hwp} /(hwand_inv (Finmap.singleton p v))
+    srw union_singleton_eq_insert=> wp
+    apply wp=> //
+    sby unfold Finmap.Disjoint=> > /== -> }
+  move=> > s ![>] ? [v'] /= /hsingl_inv -> hdis ->
+  srw Finmap.union_comm_of_disjoint=> //
+  srw union_singleton_eq_insert -insert_delete_id=> //
+  move: hdis=> /Finmap.Disjoint.symm
+  sby unfold Finmap.Disjoint
+
+lemma wp_ref_trm x t1 t2 Q :
+  wp t1 (fun v ↦ h∀ p, (p ~~> v) -∗ wp (subst x p t2) (Q ∗ ∃ʰ v', (p ~~> v'))) ==>
+  wp (trm_ref x t1 t2) Q :=
+by
+  move=> > hwp
+  apply eval.eval_ref
+  { apply hwp }
+  move=> > /hforall_inv {}hwp > ?
+  move: (hwp p)=> /(hwand_inv (Finmap.singleton p v1)) {}hwp
+  srw -union_singleton_eq_insert
+  apply (eval_conseq _ _ (Q ∗ ∃ʰ v', p ~~> v' ))
+  { apply hwp=> //
+    sby unfold Finmap.Disjoint }
+  move=> > s ![>] ? [v'] /= /hsingl_inv -> hdis ->
+  srw Finmap.union_comm_of_disjoint=> //
+  srw union_singleton_eq_insert -insert_delete_id=> //
+  move: hdis=> /Finmap.Disjoint.symm
+  sby unfold Finmap.Disjoint
+
+lemma mem_conseq :
+  x ∈ conseq L p → p ≤ x := by
+  elim: L p=> > //
+  move=> ih >
+  unfold conseq=> /== [] // /ih
+  omega
+
+lemma hrange_of_conseq :
+  (hrange L p) (conseq L p) := by
+  elim: L p=> > //
+  move=> ? >
+  unfold hrange conseq
+  exists (Finmap.singleton p head), conseq tail (p + 1)=> ⟨//|⟩ ⟨//|⟩ ⟨|//⟩
+  unfold Finmap.Disjoint=> > /== -> /mem_conseq
+  omega
+
+lemma wp_alloc x (n : ℤ) t Q :
+  n ≥ 0 →
+  (h∀ p, (hrange (make_list n.natAbs val_uninit) p) -∗
+    wp (subst x p t) (Q ∗ ⌜p ≠ null⌝ ∗ ∃ʰ L, ⌜L.length = n⌝ ∗ hrange L p)) ==>
+  wp (trm_alloc x n t) Q :=
+by
+  move=> ? h /hforall_inv hwp
+  apply eval.eval_alloc=> // > *
+  apply (eval_conseq _ _ (Q ∗ ⌜p ≠ null⌝ ∗ ∃ʰ L, ⌜↑L.length = n⌝ ∗ hrange L p))
+  { move: (hwp p)=> /(hwand_inv sb)
+    srw Finmap.Disjoint.symm_iff=> {}hwp
+    apply hwp=> // ; subst sb
+    apply hrange_of_conseq }
+  move=> > s ![>] ? ![>] /hpure_inv [_ ->] /==
+  move=> /hexists_inv [L] ![>] /hpure_inv [? ->] /== ? _ -> _ -> ? ->
+  srw diff_disjoint_eq=> // ; subst sb
+  sby apply hrange_eq_conseq
 
 
 /- ======================= WP Generator ======================= -/
@@ -442,6 +514,18 @@ def wpgen_while (F1 F2 : formula) : formula := mkstruct fun Q =>
     let F := wpgen_if_trm F1 (wpgen_seq F2 R) (wpgen_val val_unit)
     ⌜structural R ∧ F ===> R⌝ -∗ R Q
 
+def wpgen_ref (x : var) (t1 t2 : trm) : formula :=
+  fun Q ↦ ∃ʰ v, ⌜t1 = trm_val v⌝ ∗
+    h∀ p, (p ~~> v) -∗ protect (wp (subst x p t2) (fun hv ↦ Q hv ∗ ∃ʰ u, p ~~> u))
+
+def wpgen_alloc (x : var) (t1 t2 : trm) : formula :=
+  fun Q ↦ ∃ʰ n : ℤ,
+    ⌜n ≥ 0 ∧ t1 = trm_val n⌝ ∗
+    h∀ p,
+      (hrange (make_list n.natAbs val_uninit) p) -∗
+      protect wp (subst x p t2) (Q ∗ ⌜p ≠ null⌝ ∗ ∃ʰ L, ⌜L.length = n⌝ ∗ hrange L p)
+
+
 /- Recursive Definition of [wpgen] -/
 
 def wpgen (t : trm) : formula :=
@@ -456,6 +540,8 @@ def wpgen (t : trm) : formula :=
   | trm_app _ _        => wpgen_app t
   | trm_for x v1 v2 t1 => wpgen_for v1 v2 (fun v ↦ wp $ subst x v t1)
   | trm_while t0 t1    => wpgen_while (wp t0) (wp t1)
+  | trm_ref x t1 t2    => wpgen_ref x t1 t2
+  | trm_alloc x t1 t2  => wpgen_alloc x t1 t2
   | _ => wp t
   )
 
@@ -486,7 +572,7 @@ lemma mkstruct_sound t F :
   formula_sound t F →
   formula_sound t (mkstruct F) :=
 by
-  srw []formula_sound => ? ?
+  srw ?formula_sound => ? ?
   srw -mkstruct_wp
   sby apply mkstruct_monotone=> ??
 
@@ -510,18 +596,26 @@ lemma wpgen_fun_sound x t1 Fof :
   (forall vx, formula_sound (subst x vx t1) (Fof vx)) →
   formula_sound (trm_fun x t1) (wpgen_fun Fof) :=
 by
-  move=> ? ?
+  srw ?formula_sound=> h >
   srw wpgen_fun
   apply (himpl_hforall_l _ (val_fun x t1))
-  sorry -- xchange hwand_hpure_l
+  srw hwand_hpure_l=> //
+  apply wp_fun=> >
+  xchange h
+  sby apply wp_app_fun
 
 lemma wpgen_fix_sound f x t1 Fof :
   (forall vf vx, formula_sound (subst v vx (subst f vf t1)) (Fof vf vx)) →
   formula_sound (trm_fix f x t1) (wpgen_fix Fof) :=
 by
-  move=> ? ?
+  srw ?formula_sound=> h >
   srw wpgen_fix
   apply (himpl_hforall_l _ (val_fix f x t1))
+  srw hwand_hpure_l
+  { apply wp_fix }
+  move=> >
+  xchange h
+  apply wp_app_fix
   sorry -- xchange hwand_hpure_l
 
 lemma wpgen_seq_sound F1 F2 t1 t2 :
@@ -529,7 +623,7 @@ lemma wpgen_seq_sound F1 F2 t1 t2 :
   formula_sound t2 F2 →
   formula_sound (trm_seq t1 t2) (wpgen_seq F1 F2) :=
 by
-  srw []formula_sound => ?? Q
+  srw ?formula_sound => ?? Q
   srw wpgen_seq
   apply (himpl_trans (wp t1 (fun _ ↦ wp t2 Q)))
   { apply (himpl_trans (wp t1 fun _ ↦ F2 Q))
@@ -543,7 +637,7 @@ lemma wpgen_let_sound F1 F2of x t1 t2 :
   (forall v, formula_sound (subst x v t2) (F2of v)) →
   formula_sound (trm_let x t1 t2) (wpgen_let F1 F2of) :=
 by
-  srw []formula_sound => ?? Q
+  srw ?formula_sound => ?? Q
   srw wpgen_let
   apply himpl_trans (wp t1 (fun v ↦ wp (subst x v t2) Q))
   { apply himpl_trans (wp t1 (fun v ↦ F2of v Q ))
@@ -557,7 +651,7 @@ lemma wpgen_if_sound F1 F2 t0 t1 t2 :
   formula_sound t2 F2 →
   formula_sound (trm_if t0 t1 t2) (wpgen_if t0 F1 F2) :=
 by
-  srw []formula_sound => ?? Q
+  srw ?formula_sound => ?? Q
   srw wpgen_if
   xpull=> >
   apply himpl_trans (wp (trm_if b t1 t2) Q)=> //
@@ -607,37 +701,53 @@ lemma wpgen_for_sound x v1 v2 F1 :
   { sorry }
   sorry
 
+lemma wpgen_ref_sound x t1 t2 :
+  formula_sound (trm_ref x t1 t2) (wpgen_ref x t1 t2) :=
+by
+  srw ?formula_sound=> >
+  unfold wpgen_ref
+  xpull=> >
+  apply wp_ref
+
+lemma wpgen_alloc_sound x t1 t2 :
+  formula_sound (trm_alloc x t1 t2) (wpgen_alloc x t1 t2) :=
+by
+  srw formula_sound=> >
+  unfold wpgen_alloc
+  xpull=> > [? ->]
+  sby apply wp_alloc
 
 /- Main soundness lemma -/
 
 lemma wpgen_sound t :
   formula_sound t (wpgen t) :=
-by sorry
+by
   -- elim: t
-  -- scase: t
-  -- any_goals move=> * ; srw wpgen ; try apply mkstruct_sound
-  -- { apply wpgen_val_sound }
+  scase: t
+  any_goals move=> > * ; srw wpgen ; try apply mkstruct_sound=> /=
+  { apply wpgen_val_sound }
+  { sorry }
   -- { srw wpgen_var
   --   cases eqn:(lookup _ E)=> /=
   --   { apply wpgen_fail_sound }
   --   apply wpgen_val_sound }
-  -- { apply wpgen_fun_sound=> ?
-  --   srw -isubst_rem
-  --   sorry /- need induction -/ }
-  -- { apply wpgen_fix_sound=> *
-  --   srw -isubst_rem_2
-  --   sorry }
-  -- { srw isubst
-  --   apply wpgen_app_sound }
-  -- { apply wpgen_seq_sound
-  --   sorry ; sorry }
-  -- { apply wpgen_let_sound
-  --   sorry
-  --   move=> ?
-  --   srw -isubst_rem
-  --   sorry }
-  -- { apply wpgen_if_sound
-  --   sorry ; sorry }
+  { apply wpgen_fun_sound=> >
+    sby srw formula_sound }
+  { apply wpgen_fix_sound=> >
+    rotate_left ; apply a_1
+    sby srw formula_sound }
+  { apply wpgen_app_sound }
+  { apply wpgen_seq_sound
+    sby srw formula_sound }
+  { apply wpgen_let_sound
+    sby srw formula_sound }
+  { apply wpgen_if_sound
+    sby srw formula_sound }
+  { apply wpgen_for_sound
+    sby srw formula_sound }
+  { sorry }
+  { apply wpgen_ref_sound }
+  { apply wpgen_alloc_sound }
 
 lemma himpl_wpgen_wp t Q :
   wpgen t Q ==> wp t Q :=
@@ -662,6 +772,22 @@ by
 
 /- ================================================================= -/
 /-* ** Lemmas for Tactics to Manipulate [wpgen] Formulae -/
+
+/-
+
+xref = xseq_xlet; apply xref_lemma; xsimp
+
+-/
+
+lemma xref_lemma x v t2 H Q :
+  H ==> (h∀ p, (p ~~> v) -∗
+    protect (wp (subst x p t2) (fun hv ↦ Q hv ∗ ∃ʰ u, p ~~> u))) →
+  H ==> wpgen_ref x (trm_val v) t2 Q :=
+by
+  move=> h s /h
+  srw wpgen_ref=> /hforall_inv {}h
+  exists v=> /==
+  sby srw hstar_hpure_l
 
 lemma xstruct_lemma F H Q :
   H ==> F Q →
@@ -814,6 +940,10 @@ elab "xseq_xlet_if_needed" : tactic => do
 macro "xif" : tactic => do
   `(tactic|
   (xseq_xlet_if_needed; xstruct_if_needed; apply xif_lemma))
+
+macro "xref" : tactic => do
+  `(tactic|
+    (xseq_xlet_if_needed ; xstruct_if_needed ; apply xref_lemma ; xsimp))
 
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
@@ -993,6 +1123,10 @@ def isubst (E : ctx) (t : trm) : trm :=
       trm_seq (isubst E t1) (isubst E t2)
   | trm_let x t1 t2 =>
       trm_let x (isubst E t1) (isubst (erase x E) t2)
+  | trm_ref x t1 t2 =>
+      trm_ref x (isubst E t1) (isubst (erase x E) t2)
+  | trm_alloc x t1 t2 =>
+      trm_alloc x (isubst E t1) (isubst (erase x E) t2)
   | trm_app t1 t2 =>
       trm_app (isubst E t1) (isubst E t2)
   | trm_for x n1 n2 t =>
@@ -1117,8 +1251,8 @@ lemma wp_structural : structural (wp t) := by
 #hint_xapp triple_get
 #hint_xapp triple_set
 #hint_xapp triple_add
-#hint_xapp triple_ref
-#hint_xapp triple_free
+-- #hint_xapp triple_ref
+-- #hint_xapp triple_free
 
 
 elab "xseq_xlet_if_needed_xwp" : tactic => do

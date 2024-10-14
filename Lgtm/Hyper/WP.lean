@@ -176,6 +176,29 @@ lemma hwp_for' (n₁ n₂ : α -> Int) (ht : α -> trm) (vr : α -> var) (Q : hv
   hwp s (fun a => trm_for (vr a) (n₁ a) (n₂ a) (ht a)) Q := by
   sby move=> ??; apply heval_for'
 
+lemma hunion_equiv (h₁ h₂ : @hheap α) :
+  h₁ ∪ h₂ = fun a ↦ h₁ a ∪ h₂ a := by sdone
+
+lemma hwp_ref (x : α → var) (hv : α → val) (ht : α → val) (Q : hval → hhProp) :
+  (h∀ (p : α → loc), p i ~⟨i in s⟩~> hv i -∗
+    hwp s (fun a ↦ subst (x a) (p a) (ht a)) (Q ∗ ∃ʰ (u : α → val), p i ~⟨i in s⟩~> u i)) ==>
+  hwp s (fun a ↦ trm_ref (x a) (hv a) (ht a)) Q :=
+by
+  move=> > /hhforall_inv Hwp ; apply heval_ref=> >
+  move: (Hwp p)=> {Hwp} /hhwand_inv Hwp hmem
+  specialize Hwp (fun i ↦ if i ∈ s then Finmap.singleton (p i) (hv i) else ∅)
+  have eqn:((fun i ↦ if i ∈ s then Finmap.singleton (p i) (hv i) else ∅) ∪ h =
+    fun i ↦ if i ∈ s then Finmap.insert (p i) (hv i) (h i) else h i) := by
+    { srw hunion_equiv
+      apply funext=> > ; sby scase_if }
+  srw -eqn
+  apply Hwp=> {Hwp} /= >
+  { unfold hhsingle bighstar=> /= >
+    sby scase_if }
+  scase_if=> _
+  { sby unfold Finmap.Disjoint }
+  apply Finmap.disjoint_empty
+
 /- ------------------ Definition of [hwpgen] ------------------ -/
 
 /- Defining [hmkstruct] -/
@@ -293,6 +316,13 @@ def wpgen_while (F1 F2 : hformula) : hformula := hmkstruct fun Q =>
     let F := hwpgen_if_trm F1 (hwpgen_seq F2 R) (hwpgen_val fun _ => val_unit)
     ⌜hstructural R ∧ F ===> R⌝ -∗ R Q
 
+def hwpgen_ref (s : Set α) (x : α → var) (ht₁ ht₂ : htrm) : hformula :=
+  fun Q ↦ ∃ʰ hv : hval, ⌜ht₁ = fun a ↦ trm_val (hv a)⌝ ∗
+    h∀ (p : α → loc),
+      (p i ~⟨i in s⟩~> hv i) -∗
+      protect (hwp s (fun i ↦ subst (x i) (p i) (ht₂ i))
+        (fun hv ↦ Q hv ∗ ∃ʰ u : hval, p i ~⟨i in s⟩~> u i))
+
 -- @[simp]
 -- abbrev isubst (E : ctx α) (a : α) (t : trm) : trm :=
 --   match t with
@@ -379,7 +409,6 @@ example :
     if i > 0 then
        let x := 5 in
        let y := 7 in
-       free (x + y);
        y
     else
       y := x + 6;

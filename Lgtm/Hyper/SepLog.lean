@@ -520,6 +520,33 @@ lemma heval_fix (s : Set α) (x f : α -> var) (ht₁ : α -> trm) :
   move=> hv' /= ? /= H ⟨|⟨|⟩⟩/=; exact (fun a => val_fix (f a) (x a) (ht₁ a))
   all_goals sby funext a; move: (H a); scase_if
 
+/- def heval (s : Set α) (hh : hheap) (ht : htrm) (hQ : hval -> hhProp) : Prop :=
+   ∃ (hQ' : α -> val -> hProp),
+    heval_nonrel s hh ht hQ' ∧
+    ∀ hv, bighstarDef s (fun a => hQ' a (hv a)) hh ==> ∃ʰ hv', hQ (hv ∪_s hv') -/
+
+/-heval_let :
+  heval s hh ht₁ (fun hv h₂ => heval s h₂ (fun d => subst (x d) (hv d) (ht₂ d)) Q) ->
+  heval s hh (fun d => trm_let (x d) (ht₁ d) (ht₂ d)) Q := by
+    scase! => hQ₁ hev₁ /= himp
+    exists fun a v =>
+      hexists fun h' => hexists fun v' => hpure (hQ₁ a v' h') ∗ sP h' (subst (x a) v' (ht₂ a)) v -/
+lemma heval_ref (x : α → var) (hh : α → heap) (hv : α → val) (ht : α → trm) :
+  (∀ (p : α → loc), (∀ i, p i ∉ hh i) →
+    heval s (fun i ↦ if i ∈ s then (hh i).insert (p i) (hv i) else hh i)
+      (fun d ↦ subst (x d) (p d) (ht d)) (Q ∗ ∃ʰ (u : α → val), p i ~⟨i in s⟩~> u i )) →
+  heval s hh (fun d ↦ trm_ref (x d) (hv d) (ht d)) Q :=
+by
+  move=> h
+  exists (fun a v ↦ hexists fun p ↦ hexists fun u ↦
+    fun h' ↦ p ∉ h' ∧
+      (sP ((hh a).insert p (hv a)) (subst (x a) p (ht a)) v) (h'.insert p u) )
+  constructor
+  { move=> /== > ?
+    apply (eval.eval_ref _ _ _ _ _ (fun v s ↦ v = hv a ∧ s = hh a ))=> //
+    move=> > [-> ->]
+    sorry }
+  sorry
 
 end HEvalTrm
 
@@ -701,12 +728,12 @@ notation (priority := high) "funloc" p "=>" H => fun hv => ∃ʰ p, ⌜ hv = val
 
 open Classical
 
-lemma htriple_ref' (v : α -> val) :
-  htriple s (fun a => trm_app val_ref (v a))
-    emp
-    (fun hv => [∗ i in s| hexists fun p => hpure (hv i = val_loc p) ∗ p ~~> v i]) := by
-    srw -(bighstar_hhempty (s := s)); apply htriple_prod (Q := fun a v' => hexists fun p => hpure (v' = val_loc p) ∗ p ~~> v a)
-    move=> ??; apply triple_ref
+-- lemma htriple_ref' (v : α -> val) :
+--   htriple s (fun a => trm_app val_ref (v a))
+--     emp
+--     (fun hv => [∗ i in s| hexists fun p => hpure (hv i = val_loc p) ∗ p ~~> v i]) := by
+--     srw -(bighstar_hhempty (s := s)); apply htriple_prod (Q := fun a v' => hexists fun p => hpure (v' = val_loc p) ∗ p ~~> v a)
+--     move=> ??; apply triple_ref
 
 lemma htriple_hv_ext :
   htriple s ht H (fun hv => ∃ʰ hv', Q (hv ∪_s hv')) ->
@@ -717,18 +744,18 @@ lemma htriple_hv_ext :
   sby srw fun_insert_ss
 
 
-lemma htriple_ref (v : α -> val) :
-  htriple s (fun a => trm_app val_ref (v a))
-    emp
-    (funloc p =>  p i ~⟨i in s⟩~> v i) := by
-    apply htriple_hv_ext
-    apply htriple_conseq; apply htriple_ref'; apply hhimpl_refl
-    move=> hv /=; srw bighstar_hexists
-    ypull=> p;
-    srw -bighstar_hhstar bighstar
-    erw [(bighstarDef_hpure (P := fun i => hv i = val_loc (p i)))]
-    ysimp[val_loc ∘ p, p]=> //
-    sby funext x
+-- lemma htriple_ref (v : α -> val) :
+--   htriple s (fun a => trm_app val_ref (v a))
+--     emp
+--     (funloc p =>  p i ~⟨i in s⟩~> v i) := by
+--     apply htriple_hv_ext
+--     apply htriple_conseq; apply htriple_ref'; apply hhimpl_refl
+--     move=> hv /=; srw bighstar_hexists
+--     ypull=> p;
+--     srw -bighstar_hhstar bighstar
+--     erw [(bighstarDef_hpure (P := fun i => hv i = val_loc (p i)))]
+--     ysimp[val_loc ∘ p, p]=> //
+--     sby funext x
 
 lemma htriple_prod_val_eq (ht : htrm) (H : α -> _) (Q : α -> _) (fv : hval) :
   (∀ a ∈ s, triple (ht a) (H a) (fun v => hpure (v = fv a) ∗ Q a)) ->
@@ -769,13 +796,13 @@ lemma htriple_set (hv hu : hval) (p : α -> loc) :
     apply htriple_prod_val_eq
     move=> ??; apply triple_set
 
-lemma htriple_free (hv : hval) (p : α -> loc) :
-  htriple s (fun a => trm_app val_free (val_loc (p a)))
-    [∗ i in s| p i ~~> hv i]
-    (fun _ => emp) := by
-    srw -(bighstar_hhempty (s := s))
-    apply htriple_prod (Q := fun _ _ => hempty)
-    move=> ??; apply triple_free
+-- lemma htriple_free (hv : hval) (p : α -> loc) :
+--   htriple s (fun a => trm_app val_free (val_loc (p a)))
+--     [∗ i in s| p i ~~> hv i]
+--     (fun _ => emp) := by
+--     srw -(bighstar_hhempty (s := s))
+--     apply htriple_prod (Q := fun _ _ => hempty)
+--     move=> ??; apply triple_free
 
 lemma htriple_unop (op : α -> prim) (v₁ v : hval) :
   (∀ a ∈ s, evalunop (op a) (v₁ a) (· = v a)) ->
