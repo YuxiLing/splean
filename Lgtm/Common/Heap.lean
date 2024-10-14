@@ -2,6 +2,9 @@ import Lean
 
 import Mathlib.Data.Finmap
 import Mathlib.Algebra.Group.Basic
+import Mathlib.Algebra.BigOperators.Group.Finset
+import Mathlib.Algebra.BigOperators.Intervals
+import Mathlib.Data.Int.Interval
 
 import Ssreflect.Lang
 
@@ -147,7 +150,7 @@ variable {val : Type} [Inhabited val]
 abbrev add : val -> val -> val := fun _ _ => default
 abbrev valid : val -> Prop := fun _ => False
 
-instance (priority := low) : AddCommSemigroup val where
+scoped instance (priority := low) : AddCommSemigroup val where
   add := add
   add_assoc := by sdone
   add_comm := by sdone
@@ -177,3 +180,17 @@ lemma Heap.add_union_validInter (h₁ h₂ : Heap.heap val) {_ : h₁ ⊥ʰ h₂
   h₁ +ʰ h₂ = h₁ ∪ h₂ := by sorry
 
 end EmptyPCM
+
+
+notation "⟦" z ", " n "⟧" => Finset.Ico z n
+
+lemma sum_Ico_succl {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
+  i < j ->
+  ∑ i in ⟦i, j⟧, f i = f i + ∑ i in ⟦i+1, j⟧, f i := by sorry
+
+lemma sum_Ico_succlr {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
+  ∑ i in ⟦i, j⟧, f (i+1) = ∑ i in ⟦i+1, j+1⟧, f i := by sorry
+
+lemma sum_Ico_predr {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
+  i < j ->
+  ∑ i in ⟦i, j⟧, f i = (∑ i in ⟦i, j - 1⟧, f i) + f (j -1) := by sorry

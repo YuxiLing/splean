@@ -243,7 +243,7 @@ by
     sdo 3 apply And.intro=> //
     { sby srw Finmap.disjoint_union_right }
     sby srw Finmap.union_assoc }
-  { move=> ![h1 ?? [h2 [h3 ![??? h23eq]]] /h23eq
+  { move=> ![h1 ?? [h2 [h3 ![??? h23eq] ] ] /h23eq
       /(Finmap.disjoint_union_right h1 h2 h3) [??] /h23eq hU]
     exists (h1 ∪ h2), h3
     sdo 3 apply And.intro=>//
@@ -270,8 +270,8 @@ lemma hstar_hexists A (J : A → hProp) H :
   (hexists J) ∗ H = hexists (fun x => (J x) ∗ H) :=
 by
   apply himpl_antisym
-  { sby move=> ? ![?? []] }
-  sby move=> ? [? ![]]
+  { sby move=> ? ![?? [] ] }
+  sby move=> ? [? ![] ]
 
 lemma hstar_hforall A (J : A → hProp) H :
   (hforall J) ∗ H ==> hforall (J ∗ H) :=
@@ -553,7 +553,7 @@ lemma hwand_inv h1 h2 H1 H2 :
   Finmap.Disjoint h1 h2 →
   H2 (h1 ∪ h2) :=
 by
-  move=> [? ![hW1 ?? [/himpl h1W hW2emp] ? /hW2emp /Finmap.union_empty hU *]]
+  move=> [? ![hW1 ?? [/himpl h1W hW2emp] ? /hW2emp /Finmap.union_empty hU *] ]
   apply h1W ; exists h1, hW1
   sby srw hU
 
@@ -769,6 +769,22 @@ instance [PartialCommMonoid val] : AddCommMonoid hProp where
 instance [PartialCommMonoidWRT val add valid] : AddCommMonoidWRT hProp hadd where
   addE := by sdone
 
+@[simp]
+lemma Heap.add_single (v v' : val) [PartialCommMonoid val] :
+  (Finmap.singleton p v) +ʰ (Finmap.singleton p v') = (Finmap.singleton p (v + v')) := by
+  apply Finmap.ext_lookup; srw Heap.add_lookup /== => l
+  scase_if=> [->//|?]; srw ?Finmap.lookup_eq_none.mpr //
+
+
+lemma hadd_single_gen (v v' : val) [PartialCommMonoid val] :
+  PartialCommMonoid.valid v ->
+  PartialCommMonoid.valid v' ->
+  (p ~~> v) + (p ~~> v') = p ~~> (v + v') := by
+  move=> ?? !h ⟨![??->-> ? ->]|->⟩ //
+  srw -Heap.add_single; exists (Finmap.singleton p v), (Finmap.singleton p v')
+  sdo 3 constructor=> //
+  move=> /==; srw validLoc Finmap.lookup_singleton_eq //
+
 namespace EmptyPCM
 
 @[simp]
@@ -814,20 +830,10 @@ scoped instance inst : PartialCommMonoidWRT val add valid where
   validE := by rfl
   addE := by rfl
 
-@[simp]
-lemma Heap.add_single (v v' : val) :
-  (Finmap.singleton p v) +ʰ (Finmap.singleton p v') = (Finmap.singleton p (v + v')) := by
-  apply Finmap.ext_lookup; srw Heap.add_lookup /== => l
-  scase_if=> [->//|?]; srw ?Finmap.lookup_eq_none.mpr //
-
 
 lemma hadd_single (v v' : Int) :
   (p ~~> v) + (p ~~> v') = p ~~> (v + v') := by
-  move=> !h ⟨![??->-> ? ->]|->⟩ //
-  srw -Heap.add_single; exists (Finmap.singleton p v), (Finmap.singleton p v')
-  sdo 3 constructor=> //
-  move=> /==; srw validLoc Finmap.lookup_singleton_eq /==
-  srw (PartialCommMonoidWRT.validE (add' := add) (valid' := valid)) //
+  sby apply hadd_single_gen
 
 lemma sum_single (v : β -> Int) (fs : Finset β) :
   (p ~~> 0) + ∑ i in fs, (p ~~> v i) = p ~~> val.val_int (∑ i in fs, v i) := by
@@ -836,6 +842,88 @@ lemma sum_single (v : β -> Int) (fs : Finset β) :
 
 
 end AddPCM
+
+namespace OrPCM
+
+@[simp]
+abbrev add : val -> val -> val
+  | .val_bool i, .val_bool j => val.val_bool (i || j)
+  | _, _ => val.val_unit
+@[simp]
+abbrev valid : val -> Prop
+  | .val_bool _ => True
+  | _ => False
+
+scoped instance : PartialCommMonoid val where
+  add := add
+  add_assoc := by
+    move=> [] // [] [] // [] [] //
+  add_comm := by
+    move=> a b; scase: a <;> scase: b=> //==
+  valid := valid
+  valid_add := by
+    move=> a b; scase: a <;> scase: b=> //==
+
+scoped instance inst : PartialCommMonoidWRT val add valid where
+  validE := by rfl
+  addE := by rfl
+
+
+lemma hadd_single (v v' : Bool) :
+  (p ~~> v) + (p ~~> v') = p ~~> (v || v') := by
+  sby apply hadd_single_gen
+
+lemma sum_single (v : β -> Bool) (fs : Finset β) :
+  (p ~~> false) + ∑ i in fs, (p ~~> v i) =
+  p ~~> val.val_bool (∃ i ∈ fs, v i) := by
+  induction fs using Finset.induction_on=> //==
+  rename_i ih; srw ?Finset.sum_insert // add_left_comm ih hadd_single //
+
+
+end OrPCM
+
+
+namespace AddRealPCM
+
+@[simp]
+abbrev add : val -> val -> val
+  | .val_real i, .val_real j => val.val_real (i + j)
+  | _, _ => val.val_unit
+@[simp]
+abbrev valid : val -> Prop
+  | .val_real _ => True
+  | _ => False
+
+scoped instance : PartialCommMonoid val where
+  add := add
+  add_assoc := by
+    move=> [] // ? [] // ? [] // ? /==;
+    unfold HAdd.hAdd instHAdd=> /=; apply congrArg
+    srw add_assoc
+  add_comm := by
+    move=> a b; scase: a <;> scase: b=> //==
+    move=> ??
+    unfold HAdd.hAdd instHAdd=> /=; srw add_comm
+  valid := valid
+  valid_add := by
+    move=> a b; scase: a <;> scase: b=> //==
+
+scoped instance inst : PartialCommMonoidWRT val add valid where
+  validE := by rfl
+  addE := by rfl
+
+
+lemma hadd_single (v v' : ℝ) :
+  (p ~~> val.val_real v) + (p ~~> val.val_real v') = p ~~> val.val_real (v + v') := by
+  sby apply hadd_single_gen
+
+lemma sum_single (v : β -> ℝ) (fs : Finset β) :
+  (p ~~> val.val_real 0) + ∑ i in fs, (p ~~> val.val_real (v i)) = p ~~> val.val_real (∑ i in fs, v i) := by
+  induction fs using Finset.induction_on=> //==
+  rename_i ih; srw ?Finset.sum_insert // add_left_comm ih hadd_single //
+
+
+end AddRealPCM
 
 def hProp.Disjoint (H₁ H₂ : hProp) :=
   forall h1 h2, H₁ h1 -> H₂ h2 -> h1.Disjoint h2

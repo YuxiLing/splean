@@ -6,7 +6,7 @@ import Mathlib.Algebra.BigOperators.Group.Finset
 
 import Lgtm.Unary.Util
 import Lgtm.Unary.HProp
-
+import Lgtm.Unary.ArraysFun
 
 open Classical
 
@@ -103,6 +103,9 @@ def hhempty : hhProp := (· = ∅)
 notation:max (priority := high) "emp" => hhempty
 
 abbrev hhsingle (s : Set α) (p : α -> loc) (v : α -> val) : hhProp := [∗ i in s | p i ~~> v i]
+
+def hharrayFun (s : Set α) (f : ℤ -> val)  (n : ℕ) (p : α -> loc) : hhProp :=
+  bighstar s (fun i => harrayFun f n (p i))
 
 -- notation:60 p:57 " ~" s:max "~> " v:57 => hhsingle s p v
 -- notation:60 p:57 " ~" s:max "~> " v:57 => hhsingle s (fun _ => p) (fun _ => v)
@@ -654,7 +657,7 @@ lemma hhwand_inv (h1 h2 : hheap) (H1 H2 : hhProp) :
   hdisjoint h1 h2 →
   H2 (h1 ∪ h2) :=
 by
-  move=> [? ![hW1 ?? [/hhimpl h1W hW2emp] /hW2emp /hunion_empty hU *]]
+  move=> [? ![hW1 ?? [/hhimpl h1W hW2emp] /hW2emp /hunion_empty hU *] ]
   apply h1W ; exists h1, hW1
   sby srw hU
 
@@ -989,6 +992,12 @@ lemma bighstar_hpure_nonemp (s : Set α) (P : Prop) :
     sby move: (H σ); scase_if=> // ? []? }
   sby move=> h []p /=-> ?; scase_if
 
+lemma bighstarDef_univ_split :
+  bighstar Set.univ H = bighstar s H ∗ bighstar sᶜ H := by
+    srw bighstar_hhstar_disj //
+    exact Set.disjoint_compl_right_iff_subset.mpr fun ⦃a⦄ a ↦ a
+
+
 /- -------------------- Properties of [hhsingle] -------------------- -/
 
 variable (s : Set α)
@@ -1013,6 +1022,12 @@ by
   { apply bighstar_himpl=> ??; apply hstar_hsingle_same_loc }
   sby srw bighstar_hpure_nonemp
 
+lemma hhadd_hhsingle_gen (v v' : α -> val) (p : α -> loc) [PartialCommMonoid val] :
+  (∀ i, PartialCommMonoid.valid (v i)) ->
+  (∀ i, PartialCommMonoid.valid (v' i)) ->
+  (p i ~⟨i in s⟩~> v i) + (p i ~⟨i in s⟩~> v' i) = p i ~⟨i in s⟩~> (v i + v' i) := by
+  srw ?hhsingle bighstar_hhadd; congr!; srw hadd_single_gen=> //
+
 open AddPCM in
 lemma hhadd_hhsingle (v v' : α -> Int) (p : α -> loc) :
   (p i ~⟨i in s⟩~> v i) + (p i ~⟨i in s⟩~> v' i) = p i ~⟨i in s⟩~> val.val_int (v i + v' i) := by
@@ -1025,11 +1040,53 @@ lemma sum_hhsingle (v : α -> β -> Int) (fs : Finset β) (p : α -> loc) :
   p i ~⟨i in s⟩~> val.val_int (∑ j in fs, v i j) := by
   srw ?hhsingle bighstar_sum bighstar_hhadd; congr!; srw sum_single
 
+open OrPCM in
+lemma or_hhsingle (v : α -> β -> Bool) (fs : Finset β) (p : α -> loc) :
+  (p i ~⟨i in s⟩~> false) + ∑ j in fs, (p i ~⟨i in s⟩~> v i j) =
+  p i ~⟨i in s⟩~> val.val_bool (∃ j ∈ fs, v i j) := by
+  srw ?hhsingle bighstar_sum bighstar_hhadd; congr!; srw sum_single
+
 lemma bighstar_eq (H H' : α -> hProp) :
   (∀ a ∈ s, H a = H' a) ->
   [∗ i in s| H i] = [∗ i in s| H' i] := by
     sby move=> ?; apply hhimpl_antisymm=> h /[swap] a /(_ a) <;> scase_if
 
+/- -------------------- Universal Heap Proposition -------------------- -/
+
+structure Universal (H : hhProp) where
+  getUnary : hProp
+  eq_unary : H = [∗ in Set.univ | getUnary]
+
+-- instance (hH₁ hH₂ : hhProp) [Universal hH₁] [Universal hH₂]  : Universal (hH₁ ∗ hH₂) where
+--   getUnary := fun i => (Universal.getUnary hH₁ i) ∗ (Universal.getUnary hH₂ i)
+--   eq_unary := by srw -bighstar_hhstar Universal.eq_unary
+
+-- instance : Universal (bighstar Set.univ H) where
+--   getUnary := H
+--   eq_unary := rfl
+
+class FindUniversal (H : hhProp) (Hu : outParam hhProp) (Hr : outParam hhProp) where
+  univ : hProp
+  Hu_eq : Hu = [∗ in Set.univ | univ]
+  H_eq : H = Hu ∗ Hr
+
+instance : FindUniversal (bighstar (@Set.univ α) (fun _ => H)) (bighstar Set.univ (fun _ => H)) emp where
+  univ := H
+  Hu_eq := rfl
+  H_eq := by srw hhstar_hhempty_r
+
+instance
+  [inst₁ : FindUniversal H₁ Hu₁ Hr₁] [inst₂ : FindUniversal H₂ Hu₂ Hr₂]
+  : FindUniversal (H₁ ∗ H₂) (Hu₁ ∗ Hu₂) (Hr₁ ∗ Hr₂) where
+  univ := (FindUniversal.univ H₁) ∗ (FindUniversal.univ H₂)
+  Hu_eq := by
+    srw -bighstar_hhstar [1]inst₁.Hu_eq [1]inst₂.Hu_eq
+  H_eq := by
+    srw [1]inst₁.H_eq [1]inst₂.H_eq hhstar_assoc -[2]hhstar_assoc
+    srw [3]hhstar_comm !hhstar_assoc
+
+def find_universal_universal {H : FindUniversal H Hu Hr} :
+  Universal Hu := by scase: H=> * ⟨|⟩//
 
 -- lemma hhadd_hhsingle_hhstar (v v' : α -> val) (p p' : α -> loc) [PartialCommMonoid val] :
 --   (∀ i ∈ s, p i ≠ p' i) ->

@@ -939,6 +939,13 @@ lemma triple_add n1 n2 :
 by
   sby apply triple_binop
 
+lemma triple_addr r1 r2 :
+  triple (trm_app val_add (val_real r1) (val_real r2))
+    emp
+    (fun r ↦ ⌜r = val_real (r1 + r2)⌝) :=
+by
+  sby apply triple_binop
+
 lemma triple_div n1 n2 :
   n2 ≠ 0 →
   triple (trm_app val_div (val_int n1) (val_int n2))
@@ -947,6 +954,13 @@ lemma triple_div n1 n2 :
 by
   move=> ?
   sby apply triple_binop
+
+lemma triple_divr r1 r2 :
+  r2 ≠ 0 →
+  triple (trm_app val_div (val_real r1) (val_real r2))
+    emp
+    (fun r ↦ ⌜r = val_real (r1 / r2)⌝) :=
+by move=> ?; sby apply triple_binop
 
 lemma triple_rand n :
   n > 0 →
@@ -971,6 +985,12 @@ lemma triple_opp n1 :
 by
   sby apply triple_unop
 
+lemma triple_oppr r1 :
+  triple (trm_app val_opp (val_real r1))
+    emp
+    (fun r ↦ ⌜r = val_real (-r1)⌝) :=
+by sby apply triple_unop
+
 lemma triple_eq v1 v2 :
   triple (trm_app val_eq (trm_val v1) (trm_val v2))
     emp
@@ -992,11 +1012,23 @@ lemma triple_sub n1 n2 :
 by
   sby apply triple_binop
 
+lemma triple_subr r1 r2 :
+  triple (trm_app val_sub (val_real r1) (val_real r2))
+    emp
+    (fun r ↦ ⌜r = val_real (r1 - r2)⌝):=
+by sby apply triple_binop
+
 lemma triple_mul n1 n2 :
   triple (trm_app val_mul (val_int n1) (val_int n2))
     emp
     (fun r ↦ ⌜r = val_int (n1 * n2)⌝):=
 by
+  sby apply triple_binop
+
+lemma triple_mulr r1 r2 :
+  triple (trm_app val_mul (val_real r1) (val_real r2))
+    emp
+    (fun r ↦ ⌜r = val_real (r1 * r2)⌝):= by
   sby apply triple_binop
 
 lemma triple_mod n1 n2 :
@@ -1015,12 +1047,24 @@ lemma triple_le n1 n2 :
 by
   sby apply triple_binop
 
+lemma triple_ler r1 r2 :
+  triple (trm_app val_le (val_real r1) (val_real r2))
+    emp
+    (fun r ↦ ⌜r = val_bool (r1 <= r2)⌝) :=
+by sby apply triple_binop
+
 lemma triple_lt n1 n2 :
   triple (trm_app val_lt (val_int n1) (val_int n2))
     emp
     (fun r ↦ ⌜r = val_bool (n1 < n2)⌝) :=
 by
   sby apply triple_binop
+
+lemma triple_ltr r1 r2 :
+  triple (trm_app val_lt (val_real r1) (val_real r2))
+    emp
+    (fun r ↦ ⌜r = val_bool (r1 < r2)⌝) :=
+by sby apply triple_binop
 
 lemma triple_ge n1 n2 :
   triple (trm_app val_ge (val_int n1) (val_int n2))
@@ -1029,6 +1073,12 @@ lemma triple_ge n1 n2 :
 by
   sby apply triple_binop
 
+lemma triple_ger r1 r2 :
+  triple (trm_app val_ge (val_real r1) (val_real r2))
+    emp
+    (fun r ↦ ⌜r = val_bool (r1 >= r2)⌝) :=
+by sby apply triple_binop
+
 lemma triple_gt n1 n2 :
   triple (trm_app val_gt (val_int n1) (val_int n2))
     emp
@@ -1036,7 +1086,13 @@ lemma triple_gt n1 n2 :
 by
   sby apply triple_binop
 
-private lemma abs_nonneg n :
+lemma triple_gtr r1 r2 :
+  triple (trm_app val_gt (val_real r1) (val_real r2))
+    emp
+    (fun r ↦ ⌜r = val_bool (r1 > r2)⌝) :=
+by sby apply triple_binop
+
+private lemma abs_nonneg' n :
   n ≥ 0 → Int.natAbs n = n :=
 by
   move=> ?

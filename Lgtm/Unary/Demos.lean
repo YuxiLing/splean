@@ -20,12 +20,15 @@ lang_def incr :=
     let m := n + 1 in
     p := m
 
+open Unary
+
 @[xapp]
 lemma triple_incr (p : loc) (n : Int) :
   {p ~~> n}
   [incr p]
   {p ~~> val_int (n + 1)} := by
   repeat (xwp; xapp)
+
 
 lang_def mysucc :=
   fun n =>
@@ -34,7 +37,6 @@ lang_def mysucc :=
     let x := !r in
     x
 
-set_option trace.xsimp true
 lemma triple_mysucc (n : Int) :
   { emp }
   [mysucc n]

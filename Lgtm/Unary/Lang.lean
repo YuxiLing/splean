@@ -1,5 +1,6 @@
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
+import Mathlib.Data.Real.Basic
 
 import Lgtm.Unary.Util
 import Lgtm.Common.Heap
@@ -38,6 +39,7 @@ mutual
     | val_unit   : val
     | val_bool   : Bool → val
     | val_int    : Int → val
+    | val_real   : ℝ → val
     | val_loc    : loc → val
     | val_prim   : prim → val
     | val_fun    : var -> trm -> val
@@ -283,6 +285,8 @@ inductive evalunop : prim → val → (val → Prop) → Prop where
       evalunop val_neg (val_bool b1) (fun v => v = val_bool (¬ b1))
   | evalunop_opp : forall n1,
       evalunop val_opp (val_int n1) (fun v => v = val_int (- n1))
+  | evalunop_oppr : forall r1,
+      evalunop val_opp (val_real r1) (fun v => v = val_real (- r1))
   | evalunop_rand : forall n,
       n > 0 →
       evalunop val_rand (val_int n)
@@ -297,16 +301,29 @@ inductive evalbinop : val → val → val → (val->Prop) → Prop where
   | evalbinop_add : forall n1 n2,
       evalbinop val_add (val_int n1) (val_int n2)
         (fun v => v = val_int (n1 + n2))
+  | evalbinop_addr : forall r₁ r₂,
+      evalbinop val_add (val_real r₁) (val_real r₂)
+        (fun v => v = val_real (r₁ + r₂))
   | evalbinop_sub : forall n1 n2,
       evalbinop val_sub (val_int n1) (val_int n2)
         (fun v => v = val_int (n1 - n2))
+  | evalbinop_subr : forall r1 r2,
+      evalbinop val_sub (val_real r1) (val_real r2)
+        (fun v => v = val_real (r1 - r2))
   | evalbinop_mul : forall n1 n2,
       evalbinop val_mul (val_int n1) (val_int n2)
         (fun v => v = val_int (n1 * n2))
+  | evalbinop_mulr : forall r1 r2,
+      evalbinop val_mul (val_real r1) (val_real r2)
+        (fun v => v = val_real (r1 * r2))
   | evalbinop_div : forall n1 n2,
       ¬(n2 = 0) →
       evalbinop val_div (val_int n1) (val_int n2)
         (fun v => v = val_int (n1 / n2))
+  | evalbinop_divr : forall r1 r2,
+      ¬(r2 = 0) →
+      evalbinop val_div (val_real r1) (val_real r2)
+        (fun v => v = val_real (r1 / r2))
   | evalbinop_mod : forall n1 n2,
       ¬(n2 = 0) →
       evalbinop val_mod (val_int n1) (val_int n2)
@@ -314,15 +331,27 @@ inductive evalbinop : val → val → val → (val->Prop) → Prop where
   | evalbinop_le : forall n1 n2,
       evalbinop val_le (val_int n1) (val_int n2)
         (fun v => v = val_bool (n1 <= n2))
+  | evalbinop_ler : forall r1 r2,
+      evalbinop val_le (val_real r1) (val_real r2)
+        (fun v => v = val_bool (r1 <= r2))
   | evalbinop_lt : forall n1 n2,
       evalbinop val_lt (val_int n1) (val_int n2)
         (fun v => v = val_bool (n1 < n2))
+  | evalbinop_ltr : forall r1 r2,
+      evalbinop val_lt (val_real r1) (val_real r2)
+        (fun v => v = val_bool (r1 < r2))
   | evalbinop_ge : forall n1 n2,
       evalbinop val_ge (val_int n1) (val_int n2)
         (fun v => v = val_bool (n1 >= n2))
+  | evalbinop_ger : forall r1 r2,
+      evalbinop val_ge (val_real r1) (val_real r2)
+        (fun v => v = val_bool (r1 >= r2))
   | evalbinop_gt : forall n1 n2,
       evalbinop val_gt (val_int n1) (val_int n2)
         (fun v => v = val_bool (n1 > n2))
+  | evalbinop_gtr : forall r1 r2,
+      evalbinop val_gt (val_real r1) (val_real r2)
+        (fun v => v = val_bool (r1 > r2))
 
   -- Not really sure what's going on in the last rule here since
   -- in the original CFML code, p2 doesn't have to be a valid pointer (it has
@@ -525,6 +554,15 @@ by
   { apply evalbinop.evalbinop_add }
   sdone
 
+lemma eval_addr s r1 r2 Q :
+  Q (val_real (r1 + r2)) s →
+  eval s (trm_app (trm_app val_add (val_real r1)) (val_real r2)) Q :=
+by
+  move=> ?
+  apply eval.eval_binop
+  { apply evalbinop.evalbinop_addr }
+  sdone
+
 lemma eval_div s n1 n2 Q :
   n2 ≠ 0 ->
   Q (val_int (n1 / n2)) s ->
@@ -533,6 +571,16 @@ by
   move=> *
   apply eval.eval_binop
   { apply evalbinop.evalbinop_div=>// }
+  sdone
+
+lemma eval_divr s r1 r2 Q :
+  r2 ≠ 0 ->
+  Q (val_real (r1 / r2)) s ->
+  eval s (trm_app (trm_app val_div (val_real r1)) (val_real r2)) Q :=
+by
+  move=> *
+  apply eval.eval_binop
+  { apply evalbinop.evalbinop_divr=>// }
   sdone
 
 lemma eval_rand s (n : ℤ) Q :
@@ -786,7 +834,7 @@ syntax lang:30 bop lang:30 : lang
 syntax "(" lang ")" : lang
 syntax "⟨" term "⟩" : lang
 -- syntax "alloc" lang : lang
-syntax "⟨" term "⟩" : lang
+syntax "⟪" term "⟫" : lang
 
 syntax " := " : bop
 syntax " + " : bop
@@ -867,6 +915,7 @@ macro_rules
   | `([lang| $t1 ++ $t2])               => `(trm_val val_ptr_add [lang| $t1] [lang| $t2])
   | `([lang| ($t)]) => `([lang| $t])
   | `([lang| ⟨$t⟩]) => `(val_int $t)
+  | `([lang| ⟪$t⟫]) => `(val_real $t)
   | `([lang| for $x in [$n1 : $n2] { $t } ]) =>
     `(trm_for $(%x) [lang| $n1] [lang| $n2] [lang| $t])
   | `([lang| while $c:lang { $t:lang } ]) =>
@@ -946,9 +995,9 @@ abbrev default_get' := default_get (val_int 0)
 
 macro_rules
   | `([lang| len $p])                => `(trm_val val_array_length [lang| $p])
-  | `([lang| $arr[$i]])              => `(trm_val default_get' [lang| $arr] [lang| $i])
+  | `([lang| $arr[$i] ])              => `(trm_val val_array_get [lang| $arr] [lang| $i])
   -- | `([lang| $arr[$i]($d)])           => `(trm_val default_get [lang| $arr] [lang| $i] [lang| $d])
-  | `([lang| $arr[$i] := $v])        => `(trm_app default_set [lang| $arr] [lang| $i] [lang| $v])
+  | `([lang| $arr[$i] := $v])        => `(trm_app val_array_set [lang| $arr] [lang| $i] [lang| $v])
   | `([lang| mkarr $n:lang $v:lang]) => `(trm_val val_array_make [lang| $n] [lang| $v])
 
 
@@ -960,6 +1009,12 @@ macro_rules
   | `($(_) $n:num) => `($n:num)
   | `($(_) $n:ident) => `($n:ident)
   | `($(_) $n:term) => `(⟨$n:term⟩)
+  | _ => throw ( )
+
+@[app_unexpander val_real] def unexpandReal : Lean.PrettyPrinter.Unexpander
+  | `($(_) $n:num) => `($n:num)
+  | `($(_) $n:ident) => `($n:ident)
+  | `($(_) $n:term) => `(lang|⟪$n:term⟫)
   | _ => throw ( )
 
 @[app_unexpander val_loc] def unexpandLoc : Lean.PrettyPrinter.Unexpander
@@ -991,8 +1046,8 @@ macro_rules
   match x with
   | `($(_) $x:ident) =>
     match x with
-    | `(default_get') => `($x)
-    | `(default_set) => `($x)
+    | `(val_array_get) => `($x)
+    | `(val_array_set) => `($x)
     | `(val_unit) => `([lang| ()])
     | `(val_array_make) => `([uop| mkarr])
     | _ => `([lang| $x:ident])
@@ -1016,13 +1071,13 @@ macro_rules
     match app with
     | `([bop| $bop].trm_app [lang| $t1]) => `([lang| $t1 $bop $t2])
     | `([lang| $t1]) => `([lang| $t1 $t2])
-    | `(default_get') => return x
-    | `(trm_app default_get' [lang| $t1]) => `([lang| $t1[$t2]])
-    | `(default_set) => return x
-    | `(trm_app default_set [lang| $_]) => return x
+    | `(val_array_get) => return x
+    | `(trm_app val_array_get [lang| $t1]) => `([lang| $t1[$t2] ])
+    | `(val_array_set) => return x
+    | `(trm_app val_array_set [lang| $_]) => return x
     | `(trm_app $app [lang| $t1]) =>
       match app with
-      | `(trm_app default_set [lang| $t0]) => `([lang| $t0[$t1] := $t2])
+      | `(trm_app val_array_set [lang| $t0]) => `([lang| $t0[$t1] := $t2])
       -- | `(trm_app default_get [lang| $t0]) =>
       --   -- dbg_trace t2
       --   match t2 with
@@ -1187,7 +1242,7 @@ macro_rules
   | _ => throw ( )
 
 -- set_option pp.notation false
-#check [lang| x[3]]
+#check [lang| x[3] ]
 #check [lang| x[7](0)]
 #check [lang| x[3] := 5; mkarr 5 5]
 
@@ -1197,6 +1252,7 @@ macro_rules
     then
       let y := ⟨1 + 1⟩in
       let y := 1 + 1 in
+      let y := ⟪0 + 1⟫ in
       let z := !p in
       y + z
     else

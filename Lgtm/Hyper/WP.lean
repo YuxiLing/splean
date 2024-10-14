@@ -1,5 +1,4 @@
 import Lean
-
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
@@ -573,6 +572,15 @@ abbrev triple (shts : SHTs α) (H : hhProp) (Q : hval -> hhProp) : Prop :=
 lemma wp_frame (Q : hval -> hhProp) (H : hhProp) :
   wp sht Q ∗ H ==> wp sht (Q ∗ H) := by
   apply hwp_frame
+
+lemma triple_extend_univ (Q : hval -> hhProp) :
+  shts.set.Nonempty ->
+  hhlocal shts.set H ->
+  (∀ (hv : hval), hhlocal shts.set (Q hv)) ->
+  triple shts (H ∗ [∗ in Set.univ | H']) (Q ∗ [∗ in @Set.univ α| H']) =
+  triple shts (H ∗ [∗ in shts.set | H']) (Q ∗ [∗ in shts.set| H'])
+   := by
+  apply htriple_extend_univ
 
 macro "auto" : tactic => `(tactic|
   try solve

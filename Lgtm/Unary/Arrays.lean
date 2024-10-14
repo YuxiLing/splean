@@ -30,6 +30,8 @@ lemma nonneg_eq_abs (n : Int) :
 lemma neg_mul_abs (n : Int) :
   n < 0 → -1 * n = n.natAbs := by omega
 
+attribute [-simp] Int.natCast_natAbs
+
 lemma triple_abs (i : Int) :
   triple [lang| val_abs i]
     emp
@@ -40,7 +42,7 @@ lemma triple_abs (i : Int) :
   xapp triple_mul ; xwp
   xif=> /== ?
   { xwp ; xval ; xsimp
-    sby srw neg_mul_abs }
+    congr!; omega }
   xwp ; xval ; xsimp
   sby srw nonneg_eq_abs
 
@@ -441,18 +443,18 @@ lemma set_out_of_bounds (L : List val) i v :
   scase: i ; all_goals sdone
 
 -- set_option pp.all true
-lemma triple_array_default_set L (p : loc) (i : Int) (v : val) :
-  triple [lang| p[i] := v]
-    (harray L p)
-    (fun _ ↦ harray (L.set (Int.natAbs i) v) p) := by
-    xwp
-    xapp triple_abs ; xwp
-    xapp triple_array_length ; xwp
-    xapp triple_lt ; xwp
-    xif=> /== lh
-    { xapp triple_array_set }
-    xwp; xval
-    sby srw List.set_eq_of_length_le
+-- lemma triple_array_default_set L (p : loc) (i : Int) (v : val) :
+--   triple [lang| p[i] := v]
+--     (harray L p)
+--     (fun _ ↦ harray (L.set (i.natAbs) v) p) := by
+--     xwp
+--     xapp triple_abs ; xwp
+--     xapp triple_array_length ; xwp
+--     xapp triple_lt ; xwp
+--     xif=> /== lh
+--     { xapp triple_array_set }
+--     xwp; xval
+--     sby srw List.set_eq_of_length_le
 
 /- Rules and definitions for integer arrays -/
 
@@ -466,18 +468,18 @@ def harray_int (L : List Int) : loc → hProp :=
   harray (L.map val_int)
 
 -- set_option maxHeartbeats 400000
-lemma triple_array_default_get_int (p : loc) (i : Int) (L : List Int) :
-  triple [lang| p[i]]
-    (harray_int L p)
-    (fun r ↦ ⌜r = L[i]!⌝ ∗ harray_int L p) := by
-  unfold harray_int
-  xwp
-  xapp triple_abs ; xwp
-  xapp triple_array_length ; xwp
-  xapp triple_lt ; xwp
-  xif=> /==
-  srw -(List.length_map L val_int)=> ?
-  { xapp triple_array_get; xsimp
-    srw ?getElem!_pos ?getElem?_pos // }
-  xwp; xval; xsimp
-  sby srw get_out_of_bounds
+-- lemma triple_array_default_get_int (p : loc) (i : Int) (L : List Int) :
+--   triple [lang| p[i]]
+--     (harray_int L p)
+--     (fun r ↦ ⌜r = L[i]!⌝ ∗ harray_int L p) := by
+--   unfold harray_int
+--   xwp
+--   xapp triple_abs ; xwp
+--   xapp triple_array_length ; xwp
+--   xapp triple_lt ; xwp
+--   xif=> /==
+--   srw -(List.length_map L val_int)=> ?
+--   { xapp triple_array_get; xsimp
+--     srw ?getElem!_pos ?getElem?_pos // }
+--   xwp; xval; xsimp
+--   sby srw get_out_of_bounds

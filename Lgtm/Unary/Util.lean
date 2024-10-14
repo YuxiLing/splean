@@ -8,6 +8,7 @@ open Lean Lean.Expr Lean.Meta Qq
 open Lean Elab Command Term Meta Tactic
 
 register_simp_attr heapSimp
+register_simp_attr disjE
 
 -- partial def getList! (xs : Expr) : MetaM (List Expr) := do
 --   match_expr xs with
@@ -119,3 +120,8 @@ elab_rules : tactic
 --   let x <- `(term| [true,true,true])
 --   let x <- liftCommandElabM $ liftTermElabM $ Term.elabTerm x none
 --   toLeanList x
+
+abbrev VerseSectExtState := List Name
+
+initialize verseSect : EnvExtension VerseSectExtState ←
+  registerEnvExtension (pure [])
