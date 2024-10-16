@@ -16,13 +16,13 @@ lang_def Lang.get :=
 lang_def Lang.nonempty :=
   fun xind xval =>
     let N := len xind in
-    let ans := ref false in
+    ref ans := false in
     for i in [0:N] {
       let v := xval[i] in
       ans ||= v
     }
     let a := !ans in
-    free ans; a
+    a
 
 variable (xind xval : loc) (N : ℕ)
 variable (x_ind : ℤ -> ℝ) (x_val : ℤ -> Bool)
@@ -67,7 +67,12 @@ lemma nonempty_spec (r : ℝ)  :
   [2| i in · => Lang.get xind xval ⟪i.val⟫]
   {v,
     ⌜ v ⟨1,r⟩ = ∃ i : ℝ, v ⟨2,i⟩ ⌝ ∗ (⊤ : hhProp (Labeled ℝ)) } := by
-  -- srw LGTM.triple
+  srw LGTM.triple
+  yfocus 1
+  ywp ; yapp
+  ywp ; --yref --ysimp broken?
+
+
   -- yfocus 2, (x_ind '' ⟦0, (N : ℤ)⟧)
   -- yapp get_spec_out
   -- ysimp_start

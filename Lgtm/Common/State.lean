@@ -128,7 +128,7 @@ lemma insert_mem_keys (s : state) :
   sby srw ?Finmap.mem_keys
 
 lemma non_mem_union (h1 h2 : state) :
-  a ∉ h1 ∪ h2 → a ∉ h1 ∧ a ∉ h2 := by sdone
+  a ∉ h1 ∪ h2 ↔ a ∉ h1 ∧ a ∉ h2 := by sdone
 
 lemma insert_delete_id (h : state) (p : loc) :
   p ∉ h →
@@ -600,6 +600,26 @@ lemma diff_insert_intersect_id (s₁ s₂ : state) :
 lemma union_monotone_r (s₃ s₁ s₂ : state) :
   s₁ = s₂ →
   s₁ ∪ s₃ = s₂ ∪ s₃ := by sdone
+
+lemma non_mem_union' (s₁ s₂ : state) :
+  x ∉ s₁ → x ∉ s₂ → x ∉ s₁ ∪ s₂ := by sdone
+
+lemma union_same_eq_r (s₁ s₂ s₃ : state) :
+  s₁.Disjoint s₃ →
+  s₂.Disjoint s₃ →
+  s₁ ∪ s₃ = s₂ ∪ s₃ →
+  s₁ = s₂ := by
+  move=> hdis₁ hdis₂ heq
+  apply Finmap.ext_lookup=> >
+  scase: [x ∈ s₁]
+  { move=> /[dup] /Finmap.lookup_eq_none ->
+    scase: [x ∈ s₃]
+    { move=> h /non_mem_union'
+      move: h=> /[swap] /[apply]
+      sby srw heq=> /== /Finmap.lookup_eq_none }
+    sby srw Finmap.Disjoint.symm_iff at hdis₂=> /hdis₂ /Finmap.lookup_eq_none }
+  move=> /[dup] /hdis₁ ? /Finmap.lookup_union_left h
+  specialize h s₃ ; sby srw -h heq Finmap.lookup_union_left_of_not_in
 
 lemma disjoint_intersect_r (s₁ s₂ s₃ : state) :
   s₂.Disjoint s₃ →

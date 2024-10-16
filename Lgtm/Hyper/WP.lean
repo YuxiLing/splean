@@ -179,13 +179,13 @@ lemma hwp_for' (n₁ n₂ : α -> Int) (ht : α -> trm) (vr : α -> var) (Q : hv
 lemma hunion_equiv (h₁ h₂ : @hheap α) :
   h₁ ∪ h₂ = fun a ↦ h₁ a ∪ h₂ a := by sdone
 
-lemma hwp_ref (x : α → var) (hv : α → val) (ht : α → val) (Q : hval → hhProp) :
+lemma hwp_ref (x : α → var) (hv : α → val) (ht : α → trm) (Q : hval → hhProp) :
   (h∀ (p : α → loc), p i ~⟨i in s⟩~> hv i -∗
     hwp s (fun a ↦ subst (x a) (p a) (ht a)) (Q ∗ ∃ʰ (u : α → val), p i ~⟨i in s⟩~> u i)) ==>
   hwp s (fun a ↦ trm_ref (x a) (hv a) (ht a)) Q :=
 by
   move=> > /hhforall_inv Hwp ; apply heval_ref=> >
-  move: (Hwp p)=> {Hwp} /hhwand_inv Hwp hmem
+  move: (Hwp p)=> {Hwp} /hhwand_inv Hwp hmem -- fun i ↦ Finmap.singleton (p i) (hv i)
   specialize Hwp (fun i ↦ if i ∈ s then Finmap.singleton (p i) (hv i) else ∅)
   have eqn:((fun i ↦ if i ∈ s then Finmap.singleton (p i) (hv i) else ∅) ∪ h =
     fun i ↦ if i ∈ s then Finmap.insert (p i) (hv i) (h i) else h i) := by
@@ -195,7 +195,7 @@ by
   apply Hwp=> {Hwp} /= >
   { unfold hhsingle bighstar=> /= >
     sby scase_if }
-  scase_if=> _
+  scase_if=> ?
   { sby unfold Finmap.Disjoint }
   apply Finmap.disjoint_empty
 
@@ -397,6 +397,9 @@ instance {x : α -> var} {t₁ t₂ : htrm} :
 instance {t₁ t₂ : htrm} : HWpSound s (fun a => trm_app (t₁ a) (t₂ a)) (hwpgen_app s (fun a => trm_app (t₁ a) (t₂ a))) := ⟨by
   sby move=> Q; srw hwpgen_app; ysimp⟩
 
+instance {x : α → var} {t₁ t₂ : htrm} :
+  HWpSound s (fun a ↦ trm_ref (x a) (t₁ a) (t₂ a)) (hwpgen_ref s x t₁ t₂) := ⟨by
+  move=> > ; srw hwpgen_ref ; ypull=> > ; apply hwp_ref ⟩
 
 lemma hwp_of_hwpgen [inst: HWpSound s t F] :
   H ==> F Q ->

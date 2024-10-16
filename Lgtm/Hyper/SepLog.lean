@@ -10,6 +10,7 @@ import Lgtm.Hyper.HProp
 import Lgtm.Hyper.YSimp
 import Lgtm.Hyper.YChange
 
+import Lgtm.Common.State
 
 section HSepLog
 
@@ -525,27 +526,78 @@ lemma heval_fix (s : Set α) (x f : α -> var) (ht₁ : α -> trm) :
     heval_nonrel s hh ht hQ' ∧
     ∀ hv, bighstarDef s (fun a => hQ' a (hv a)) hh ==> ∃ʰ hv', hQ (hv ∪_s hv') -/
 
-/-heval_let :
-  heval s hh ht₁ (fun hv h₂ => heval s h₂ (fun d => subst (x d) (hv d) (ht₂ d)) Q) ->
-  heval s hh (fun d => trm_let (x d) (ht₁ d) (ht₂ d)) Q := by
-    scase! => hQ₁ hev₁ /= himp
-    exists fun a v =>
-      hexists fun h' => hexists fun v' => hpure (hQ₁ a v' h') ∗ sP h' (subst (x a) v' (ht₂ a)) v -/
+def fresh_ptr (s : state) : loc :=
+  match s.keys.max with
+  | ⊥      => 1
+  | some n => n + 1
+
+theorem fresh_ptr_sound (s : state) :
+  fresh_ptr s ∉ s :=
+by
+  unfold fresh_ptr
+  cases eqn:(s.keys.max)=> /=
+  { move: eqn=> /Finset.max_eq_bot
+    sby srw Not -Finmap.mem_keys }
+  move: eqn=> /Finset.not_mem_of_max_lt
+  sby srw -Finmap.mem_keys
+
+lemma mem_exists_union (p : loc) (h : state) :
+  p ∈ h →
+  ∃ v, h = Finmap.singleton p v ∪ (h.erase p) := by
+  move=> /Finmap.mem_iff [v] ?
+  exists  v=> /==
+  apply Finmap.ext_lookup=> >
+  scase: [x = p]
+  { move=> ?
+    sby srw Finmap.lookup_union_right }
+  move=> ->
+  sby srw Finmap.lookup_union_left
+
+lemma hwand_pointer_erase :
+  p ∈ h →
+  H h →
+  (hexists fun u ↦ p ~~> u -∗ H) (h.erase p) := by
+  move=> /mem_exists_union [v] heq ?
+  srw hwandE
+  exists v=> /=
+  exists (fun h' ↦ Finmap.singleton p v ∪ h' = h)=> /=
+  srw hstar_hpure_r=> ⟨//|⟩
+  sby move=> s ![>] /hsingl_inv -> /= -> ? ->
+
+/- def heval_nonrel (s : Set α) (hh : hheap) (ht : htrm) (hQ : α -> val -> hProp) : Prop :=
+  ∀ a ∈ s, eval (hh a) (ht a) (hQ a) -/
 lemma heval_ref (x : α → var) (hh : α → heap) (hv : α → val) (ht : α → trm) :
-  (∀ (p : α → loc), (∀ i, p i ∉ hh i) →
-    heval s (fun i ↦ if i ∈ s then (hh i).insert (p i) (hv i) else hh i)
-      (fun d ↦ subst (x d) (p d) (ht d)) (Q ∗ ∃ʰ (u : α → val), p i ~⟨i in s⟩~> u i )) →
+  (∀ (hp : α → loc), (∀ i ∈ s, hp i ∉ hh i) →
+    heval s (fun i ↦ if i ∈ s then (hh i).insert (hp i) (hv i) else hh i) -- ∪_s
+      (fun d ↦ subst (x d) (hp d) (ht d)) (Q ∗ ∃ʰ (hu : α → val), hp i ~⟨i in s⟩~> hu i )) →
   heval s hh (fun d ↦ trm_ref (x d) (hv d) (ht d)) Q :=
 by
   move=> h
-  exists (fun a v ↦ hexists fun p ↦ hexists fun u ↦
-    fun h' ↦ p ∉ h' ∧
-      (sP ((hh a).insert p (hv a)) (subst (x a) p (ht a)) v) (h'.insert p u) )
-  constructor
-  { move=> /== > ?
+  exists (fun a v ↦ hexists fun p ↦ hpure (p ∉ hh a) ∗
+    (hexists fun u ↦ p ~~> u -∗ sP ((hh a).insert p (hv a)) (subst (x a) p (ht a)) v))
+  constructor=> /==
+  { move=> /== > /[dup] ain ?
     apply (eval.eval_ref _ _ _ _ _ (fun v s ↦ v = hv a ∧ s = hh a ))=> //
-    move=> > [-> ->]
+    move=> > [-> ->] > ?
+    let hp (d : α) := if d = a then p else fresh_ptr (hh d)
+    have hin:(∀ i ∈ s, hp i ∉ hh i) := by
+      { move=> > _ ; srw hp
+        scase_if=> // _ ; apply fresh_ptr_sound }
+    apply h in hin=> {h} ![hQ' hev himp]
+    move: (heval_nonrel_sat' hev)=> ![hh₂' hv₂' hQH₁ hheq]
+    have hheq':(∀ a ∉ s, hh₂' a = hh a) := by
+      { move=> > /[dup] ? /hheq ; sby scase_if }
+    move=> {hheq}
+    specialize hev a ; apply hev in ain=> /== ; scase_if=> // _
+    srw hp=> /= {}hev
+    apply (eval_conseq (Q1 := sP (Finmap.insert p (hv a) (hh a)) (subst (x a) p (ht a))))
+    { sby apply sP_post }
+    move=> v h /= hsP
+    exists p=> /==
+    srw hstar_hpure_l=> ⟨//|⟩
+    apply hwand_pointer_erase=> //
     sorry }
+  move=> hv' ; srw ?bighstarDef_hexists
   sorry
 
 end HEvalTrm

@@ -71,7 +71,7 @@ lemma incr_spec (p : loc) (n : Int) :
 lang_def findIdx :=
   fun arr target  =>
     let N := len arr in
-    let ind := ref 0 in
+    ref ind := 0 in
     while (
       let ind    := !ind in
       let indLN  := ind < N in
@@ -82,7 +82,7 @@ lang_def findIdx :=
         incr ind
     };
     let res := !ind in
-    free ind ; res
+    res
 
 abbrev to_real (v : val) : ℝ :=
   match v with
@@ -99,11 +99,11 @@ instance : Coe val ℝ := ⟨to_real⟩
 instance : Coe val ℤ := ⟨to_int⟩
 
 -- #hint_xapp triple_arrayFun_length ????
-#hint_xapp triple_ref
+-- #hint_xapp triple_ref
 #hint_xapp triple_get
 #hint_xapp triple_lt
 #hint_xapp triple_neq
-#hint_xapp triple_free
+-- #hint_xapp triple_free
 #hint_xapp incr_spec
 #hint_xapp triple_arrayFun_length
 #hint_xapp triple_harrayFun_get
@@ -126,7 +126,7 @@ lemma findIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ) (N : ℕ) :
   { v, ⌜ v = f.invFunOn ⟦0, (N : ℤ)⟧ target ⌝ ∗ arr(arr, x in N => f x) } := by
   move=> inj fin
   xwp; xapp triple_arrayFun_length
-  xwp; xapp=> p
+  xwp; xref
   let cond (i : ℤ) := (i < N ∧ f.invFunOn ⟦0, (N : ℤ)⟧ target != i)
   xwhile_up (fun b i =>
     ⌜0 <= i ∧ i <= N ∧ target ∉ f '' ⟦0, i⟧⌝ ∗
@@ -156,7 +156,15 @@ lemma findIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ) (N : ℕ) :
     srw cond /== }
   move=> hv /=; xsimp=> i ?; srw cond=> /== fE
   sdo 2 (xwp; xapp)
-  xwp; xval; xsimp
+  xwp; xval
+  -- xsimp --(buggy)
+  xsimp_start
+  xsimp_step
+  xsimp_step
+  xsimp_step
+  xsimp_step
+  apply (xsimp_r_hexists)
+  xsimp_step
   srw fE; scase: [i = N]=> [|?] //; omega
 
 lemma findIdx_spec_out (arr : loc) (f : Int -> ℝ) (target : ℝ) (N : ℕ) :
@@ -167,7 +175,7 @@ lemma findIdx_spec_out (arr : loc) (f : Int -> ℝ) (target : ℝ) (N : ℕ) :
   { v, ⌜ v = val_int N ⌝ ∗ arr(arr, x in N => f x) } := by
   move=> ? img
   xwp; xapp
-  xwp; xapp=> p
+  xwp; xref
   let cond (i : ℤ) := (i < N ∧ target != f i)
   xwhile_up (fun b i =>
     ⌜0 <= i ∧ i <= N ∧ target ∉ f '' ⟦0, i⟧⌝ ∗
@@ -196,7 +204,15 @@ lemma findIdx_spec_out (arr : loc) (f : Int -> ℝ) (target : ℝ) (N : ℕ) :
     srw cond /== }
   move=> hv /=; xsimp=> i ?; srw cond=> /== fE
   sdo 2 (xwp; xapp)
-  xwp; xval; xsimp
+  xwp; xval
+  --xsimp --buggy
+  xsimp_start
+  xsimp_step
+  xsimp_step
+  xsimp_step
+  xsimp_step
+  apply (xsimp_r_hexists)
+  xsimp_step
   scase: [i = N]=> [?|?] //;
   move: img; srw fE //== <;> try omega
   move=> /(_ i)=> // H

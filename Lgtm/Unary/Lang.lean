@@ -367,6 +367,7 @@ lemma evalunop_unique :
   elim=> >
   { sby move=> [] }
   { sby move=> [] }
+  { sby move=> [] }
   { sby move=> ? [] }
 
 lemma evalbinop_unique :
@@ -498,6 +499,7 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       Q val_unit (Finmap.insert p v' s) ->
       eval s (trm_app (trm_app val_set (val_loc p)) v) Q
   | eval_alloc_arg : forall s Q₁ Q,
+    ¬ trm_is_val t1 →
     eval s t1 Q₁ →
     (∀ v' s', Q₁ v' s' → eval s' (trm_alloc x v' t2) Q) →
     eval s (trm_alloc x t1 t2) Q

@@ -41,7 +41,8 @@ lemma triple_mysucc (n : Int) :
   { emp }
   [mysucc n]
   {v, ⌜ v = val_int (n + 1) ⌝} := by
-  xwp ; xref
+  xwp ; -- xseq_xlet_if_needed ; xstruct_if_needed ; (apply xref_lemma)
+  xref
   xwp ; xapp
   xwp ; xapp
   xwp ; xval
@@ -119,4 +120,5 @@ lemma triple_mulp (p q : loc) (m n : Int) :
   move=> ? /=; xsimp=> a /== * -- here we need to do [xsimp] before [xapp]
                                -- to introduce variable [a], which is needed
                                -- to instantiate the `ans`
-  sby xapp; xsimp --same xsimp bug as in [triple_mysucc]
+  sby xapp; sorry
+  --xsimp --same xsimp bug as in [triple_mysucc]

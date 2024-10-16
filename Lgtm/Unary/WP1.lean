@@ -773,12 +773,6 @@ by
 /- ================================================================= -/
 /-* ** Lemmas for Tactics to Manipulate [wpgen] Formulae -/
 
-/-
-
-xref = xseq_xlet; apply xref_lemma; xsimp
-
--/
-
 lemma xref_lemma x v t2 H Q :
   H ==> (h∀ p, (p ~~> v) -∗
     protect (wp (subst x p t2) (fun hv ↦ Q hv ∗ ∃ʰ u, p ~~> u))) →
@@ -943,7 +937,7 @@ macro "xif" : tactic => do
 
 macro "xref" : tactic => do
   `(tactic|
-    (xseq_xlet_if_needed ; xstruct_if_needed ; apply xref_lemma ; xsimp))
+    (xseq_xlet_if_needed ; xstruct_if_needed ; apply xref_lemma ; xsimp ; try (simp [subst])))
 
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
