@@ -57,7 +57,7 @@ instance : Coe val Prop := ⟨toProp⟩
   | `($_ $v) => `($v)
   | _ => throw ( )
 
-attribute [-simp] fun_insert
+attribute [-simp] fun_insert hhwandE
 
 
 lemma nonempty_spec (r : ℝ)  :
@@ -70,7 +70,7 @@ lemma nonempty_spec (r : ℝ)  :
   srw LGTM.triple
   yfocus 1
   ywp ; yapp
-  ywp ; yref --yref --ysimp broken?
+  ywp; yref p
 
 
   -- yfocus 2, (x_ind '' ⟦0, (N : ℤ)⟧)
