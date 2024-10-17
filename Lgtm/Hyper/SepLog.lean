@@ -564,6 +564,9 @@ lemma hwand_pointer_erase :
   srw hstar_hpure_r=> ⟨//|⟩
   sby move=> s ![>] /hsingl_inv -> /= -> ? ->
 
+instance : HStar hProp (heap → Prop) hProp where
+  hStar := hstar
+
 /- def heval_nonrel (s : Set α) (hh : hheap) (ht : htrm) (hQ : α -> val -> hProp) : Prop :=
   ∀ a ∈ s, eval (hh a) (ht a) (hQ a) -/
 lemma heval_ref (x : α → var) (hh : α → heap) (hv : α → val) (ht : α → trm) :
@@ -575,6 +578,13 @@ by
   move=> h
   exists (fun a v ↦ hexists fun p ↦ hpure (p ∉ hh a) ∗
     (hexists fun u ↦ p ~~> u -∗ sP ((hh a).insert p (hv a)) (subst (x a) p (ht a)) v))
+  /- maybe should be something like:
+     fun a v ↦ ∃ʰ p, ⌜p ∉ hh a⌝ ∗
+      fun h ↦ ⌜p ∉ h⌝ ∗ ∃ʰ u, (sP ...) v (h.insert p u)
+    obviously not correct notation but something similar might work.
+   -/
+  -- exists fun a v ↦ hexists fun p ↦ (hpure (p ∉ hh a)) ∗ fun (h : heap) ↦ p ∉ h ∧
+  --   ∃ u, (sP ((hh a).insert p (hv a)) (subst (x a) p (ht a))) v (h.insert p u)
   constructor=> /==
   { move=> /== > /[dup] ain ?
     apply (eval.eval_ref _ _ _ _ _ (fun v s ↦ v = hv a ∧ s = hh a ))=> //
@@ -598,6 +608,12 @@ by
     apply hwand_pointer_erase=> //
     sorry }
   move=> hv' ; srw ?bighstarDef_hexists
+  apply hhimpl_hhexists_l=> hp
+  srw -(empty_hunion hh) -bighstarDef_hhstar; rotate_left
+  { move=> ?; apply Finmap.disjoint_empty }
+  erw [bighstarDef_hpure] ; srw empty_hunion
+  apply hhimpl_hstar_hhpure_l=> /h {h} ![hQ' /hstrongest_postP sPimp /= himp]
+  specialize himp hv'
   sorry
 
 end HEvalTrm

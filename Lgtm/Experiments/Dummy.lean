@@ -70,7 +70,7 @@ lemma nonempty_spec (r : ℝ)  :
   srw LGTM.triple
   yfocus 1
   ywp ; yapp
-  ywp ; --yref --ysimp broken?
+  ywp ; yref --yref --ysimp broken?
 
 
   -- yfocus 2, (x_ind '' ⟦0, (N : ℤ)⟧)
