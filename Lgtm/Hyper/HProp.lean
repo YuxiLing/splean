@@ -1073,11 +1073,21 @@ lemma hhadd_hhsingle (v v' : α -> Int) (p : α -> loc) :
   (p i ~⟨i in s⟩~> v i) + (p i ~⟨i in s⟩~> v' i) = p i ~⟨i in s⟩~> val.val_int (v i + v' i) := by
   srw ?hhsingle bighstar_hhadd; congr!; srw hadd_single=> //
 
+open AddRealPCM in
+lemma AddRealPCM.hhadd_hhsingle (v v' : α -> ℝ) (p : α -> loc) :
+  (p i ~⟨i in s⟩~> v i) + (p i ~⟨i in s⟩~> v' i) = p i ~⟨i in s⟩~> val.val_real (v i + v' i) := by
+  srw ?hhsingle bighstar_hhadd; congr!; srw hadd_single=> //
 
 open AddPCM in
 lemma sum_hhsingle (v : α -> β -> Int) (fs : Finset β) (p : α -> loc) :
   (p i ~⟨i in s⟩~> 0) + ∑ j in fs, (p i ~⟨i in s⟩~> v i j) =
   p i ~⟨i in s⟩~> val.val_int (∑ j in fs, v i j) := by
+  srw ?hhsingle bighstar_sum bighstar_hhadd; congr!; srw sum_single
+
+open AddRealPCM in
+lemma AddRealPCM.sum_hhsingle (v : α -> β -> ℝ) (fs : Finset β) (p : α -> loc) :
+  (p i ~⟨i in s⟩~> val.val_real 0) + ∑ j in fs, (p i ~⟨i in s⟩~> v i j) =
+  p i ~⟨i in s⟩~> val.val_real (∑ j in fs, v i j) := by
   srw ?hhsingle bighstar_sum bighstar_hhadd; congr!; srw sum_single
 
 open OrPCM in

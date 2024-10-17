@@ -391,8 +391,19 @@ lemma yfor_lemma
   LGTM.triple (⟨s', fun j => trm_seq (trm_for vr z n (c j)) (c' j)⟩ :: shts)
     Pre
     Post := by
-    move=> ?? disj *
+    move=> imp ? disj ????????? H
     apply zseq_lemma
     { srw shts_set_eq_sum /== => *
       move: disj; srw List.forall_iff_forall_mem; sapply
       srw getElem!_pos //'; apply List.getElem_mem }
+    apply LGTM.triple_conseq
+    { apply hhimpl_refl }
+    { move=> hv /=; move: (H hv)
+      move=> /(hhimpl_frame_lr) /(_ imp) /hhimpl_trans; sapply
+      apply hhimpl_trans; apply hwp_frame; apply hwp_conseq=> hv /=
+      rw [(uPost ..).H_eq, hhstar_comm]=>//' }
+    shave un: ∀ hv, FindUniversal ((Qsum hv ∗ Inv n ∗ R' ∗↑ shts.set) ∗ Hu) Hu (Qsum hv ∗ Inv n ∗ R' ∗↑ shts.set)
+    { move=> hv; apply FindUniversal.mk (univ := uPre.univ)=> //'
+      { apply uPre.Hu_eq }
+      srw hhstar_comm }
+    apply yfor_lemma_aux (gen := gen) (Q := Q) (Inv := Inv) (Qgen := Qgen) (R := R) (R' := R')=> //';

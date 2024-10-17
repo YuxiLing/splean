@@ -14,7 +14,7 @@ lang_def val_or :=
   fun a b =>
     if a then true else b
 
-syntax "||" : bop
+syntax " || " : bop
 
 macro_rules
   | `([lang| $a:lang || $b:lang]) => `(trm.trm_app val_or [lang| $a] [lang| $b])
@@ -25,7 +25,7 @@ lang_def val_and :=
   fun a b =>
     if a then b else false
 
-syntax "&&" : bop
+syntax " && " : bop
 
 macro_rules
   | `([lang| $a:lang && $b:lang]) => `(trm.trm_app val_and [lang| $a] [lang| $b])
@@ -56,7 +56,7 @@ lang_def val_or_eq :=
     let v := v || b in
     p := v
 
-syntax "||=" : bop
+syntax " ||= " : bop
 
 macro_rules
   | `([lang| $a:lang ||= $b:lang]) => `(trm.trm_app val_or_eq [lang| $a] [lang| $b])
@@ -70,6 +70,28 @@ lemma or_eq_spec (a b : Bool) (p : loc) :
   { v, p ~~> (b || a) } := by
   xwp; xapp; xwp; xapp; xwp; xapp
   xsimp; srw Bool.or_comm
+
+lang_def val_add_eq :=
+  fun p b =>
+    let v := !p in
+    let v := v + b in
+    p := v
+
+syntax " += " : bop
+
+macro_rules
+  | `([lang| $a:lang += $b:lang]) => `(trm.trm_app val_add_eq [lang| $a] [lang| $b])
+
+@[app_unexpander val_add_eq] def unexpandAddEq : Lean.PrettyPrinter.Unexpander := fun _ => `([bop| +=])
+
+@[xapp]
+lemma add_eq_spec (a b : ℝ) (p : loc) :
+  { p ~~> a }
+  [ p += b ]
+  { v, p ~~> (b + a) } := by
+  xwp; xapp; xwp; xapp triple_addr; xwp; xapp
+  xsimp; srw add_comm
+
 
 namespace Lang
 lang_def incr :=

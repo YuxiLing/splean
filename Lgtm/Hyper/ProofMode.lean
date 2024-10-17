@@ -924,6 +924,52 @@ def hharrayFunUnexpander : Lean.PrettyPrinter.Unexpander
 
 end OrPCM
 
+namespace AddRealPCM
+
+instance GenInst (op : hval α -> ℤ -> ℝ) (x : α -> loc) :
+  IsGeneralisedSum
+    z n
+    AddRealPCM.add AddRealPCM.valid
+    (x i ~⟨i in s⟩~> val_real 0)
+    (fun i hv => x j ~⟨j in s⟩~> op hv i)
+    (ℝ)
+    (fun _ j =>  x i ~⟨i in s⟩~> j)
+    (fun i j hv => x k ~⟨k in s⟩~> val.val_real (op hv i + j))
+    (fun hv => x k ~⟨k in s⟩~> val.val_real (∑ i in ⟦z,n⟧, op hv i)) where
+    eqGen := by
+      move=> > ?
+      exists (∑ i in ⟦z, j⟧, op (hv i) i) , emp
+      srw sum_hhsingle; ysimp=> //
+    eqInd := by srw hhadd_hhsingle //
+    eqSum := by srw sum_hhsingle //
+
+@[simp]
+lemma validE : PartialCommMonoid.valid = AddRealPCM.valid := by trivial
+
+@[simp]
+lemma addE : (· + ·) = AddRealPCM.add := by trivial
+
+instance GenInstArr (op : hval α -> ℤ -> ℝ)
+  (n : ℕ)
+  (f : ℝ -> ℝ) (x : α -> loc) :
+  IsGeneralisedSum
+    0 n
+    AddRealPCM.add AddRealPCM.valid
+    (hharrayFun s (f ·) n x)
+    (fun i hv => x j + 1 + i.natAbs ~⟨j in s⟩~> op hv i)
+    (ℝ)
+    (fun k j =>  x i + 1 + k.natAbs ~⟨i in s⟩~> j)
+    (fun i j hv => x k + 1 + i.natAbs ~⟨k in s⟩~> val.val_real (op hv i + j))
+    (fun hv => hharrayFun s (fun i => val.val_real $ f i + op hv i) n x) where
+    eqGen := by
+      move=> hv j jin; move: (GenInstArr_eqGen s x hv (f ·) n (op · ·))=> H
+      specialize H ?_ ?_ j jin=> //; scase!: H=> [] //
+    eqInd := by srw hhadd_hhsingle //'
+    eqSum := by move=> hv; apply GenInstArr_eqSum hv (f ·) (op · ·)=> //
+
+end AddRealPCM
+
+
 lemma zlet_lemma_aux (shts : LGTM.SHTs αˡ) (ht₁ ht₂ : htrm αˡ) :
   Disjoint ⟪l, {s}⟫ shts.set ->
   LGTM.wp (⟨⟪l, {s}⟫, ht₁⟩ :: shts) (fun hv =>
