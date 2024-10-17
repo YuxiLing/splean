@@ -185,10 +185,10 @@ lemma hwp_ref (x : α → var) (hv : α → val) (ht : α → trm) (Q : hval →
   hwp s (fun a ↦ trm_ref (x a) (hv a) (ht a)) Q :=
 by
   move=> > /hhforall_inv Hwp ; apply heval_ref=> >
-  move: (Hwp p)=> {Hwp} /hhwand_inv Hwp hmem -- fun i ↦ Finmap.singleton (p i) (hv i)
-  specialize Hwp (fun i ↦ if i ∈ s then Finmap.singleton (p i) (hv i) else ∅)
-  have eqn:((fun i ↦ if i ∈ s then Finmap.singleton (p i) (hv i) else ∅) ∪ h =
-    fun i ↦ if i ∈ s then Finmap.insert (p i) (hv i) (h i) else h i) := by
+  move: (Hwp hp)=> {Hwp} /hhwand_inv Hwp hmem -- fun i ↦ Finmap.singleton (p i) (hv i)
+  specialize Hwp (fun i ↦ if i ∈ s then Finmap.singleton (hp i) (hv i) else ∅)
+  have eqn:((fun i ↦ if i ∈ s then Finmap.singleton (hp i) (hv i) else ∅) ∪ h =
+    fun i ↦ if i ∈ s then Finmap.insert (hp i) (hv i) (h i) else h i) := by
     { srw hunion_equiv
       apply funext=> > ; sby scase_if }
   srw -eqn

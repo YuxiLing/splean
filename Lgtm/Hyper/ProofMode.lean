@@ -399,16 +399,25 @@ by
   ysimp
   apply htriple_ramified_frame=> //
 
-lemma yref_lemma s (x : α → var) (v : α → val) (t : α → trm) H Q :
-  H ==> (h∀ p : α → loc, (p i ~⟨i in s⟩~> v i) -∗
+lemma yref_lemma_aux s (x : α → var) (v : α → val) (t : α → trm) H Q :
+  (∀ p : α → loc, H ==> ((p i ~⟨i in s⟩~> v i) -∗
     protect (hwp s (fun i ↦ subst (x i) (p i) (t i))
-    (Q ∗ ∃ʰ (u : α → val), p i ~⟨i in s⟩~> u i))) →
+    (Q ∗ ∃ʰ (u : α → val), p i ~⟨i in s⟩~> u i)))) →
   H ==> hwpgen_ref s x (fun i ↦ trm_val (v i)) t Q :=
 by
   move=> M h /M
   unfold hwpgen_ref=> /hhforall_inv {}M
   exists v=> /==
   sby srw hhstar_hhpure_l
+
+lemma yref_lemma (x : α → var) (v : α → val) (t : α → trm) H Q :
+  (∀ p : α → loc, H ∗ (p i ~⟨i in s⟩~> v i) ==>
+    (hwp s (fun i ↦ subst (x i) (p i) (t i))
+    (Q ∗ ∃ʰ (u : α → val), p i ~⟨i in s⟩~> u i))) →
+  H ==> hwpgen_ref s x (fun i ↦ trm_val (v i)) t Q :=
+by
+  move=> himp; apply yref_lemma_aux=> p
+  ysimp; ychange himp
 
 lemma ywp_lemma_fun (v1 v2 : hval α) (x : α -> var) (t : htrm α) H Q :
   (∀ i, v1 i = val_fun (x i) (t i)) →
@@ -476,9 +485,11 @@ macro "yif" : tactic => do
   `(tactic|
   (yseq_xlet_if_needed; ystruct_if_needed; apply yif_lemma))
 
-macro "yref" : tactic => do
+
+macro "yref" p:term : tactic => do
   `(tactic|
-  (yseq_xlet_if_needed; ystruct_if_needed; apply yref_lemma ; ysimp ; try simp [subst]))
+  (yseq_xlet_if_needed; ystruct_if_needed; apply yref_lemma; intro $p:term;
+    try simp [$(mkIdent `subst):ident]))
 
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
