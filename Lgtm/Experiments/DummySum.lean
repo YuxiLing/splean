@@ -1,4 +1,4 @@
-import Mathlib.Topology.Algebra.InfiniteSum.Basic
+import Mathlib.Topology.Algebra.InfiniteSum.Real
 
 import Lgtm.Hyper.ProofMode
 import Lgtm.Hyper.ArraysFun
@@ -14,8 +14,8 @@ notation "⋆" => (Set.univ)
 def  unexpandUniv : Lean.PrettyPrinter.Unexpander
   | `($_) => `(⋆)
 
-def val.toInt : val -> Int
-  | val_int v => v
+def val.toReal : val -> ℝ
+  | val_real v => v
   | _ => panic! "toInt"
 
 
@@ -29,11 +29,11 @@ def val.toInt : val -> Int
 -- noncomputable instance : Coe Prop val := ⟨propToVal⟩
 
 @[simp]
-lemma toInt_eq (i : Int) : val.toInt i = i := by rfl
+lemma toReal_eq (i : ℝ) : val.toReal i = i := by rfl
 
 -- instance : Coe val Prop := ⟨fun v => v.toBool⟩
 
-@[app_unexpander val.toInt] def unexpandToInt : Lean.PrettyPrinter.Unexpander
+@[app_unexpander val.toReal] def unexpandToInt : Lean.PrettyPrinter.Unexpander
   | `($_ $v) => `($v)
   | _ => throw ( )
 
@@ -62,7 +62,7 @@ lang_def Lang.get :=
 
 lang_def Lang.sum :=
   fun xind xval z n =>
-    let ans := ref 0 in
+    let ans := ref ⟨0 : ℝ⟩ in
     for i in [z:n] {
       let v := xval[i] in
       ans += v
@@ -88,7 +88,7 @@ lang_def Lang.sum2 :=
   fun xind xval xidx =>
     let M' := len xidx in
     let M := M' - 1 in
-    let ans := ref 0 in
+    let ans := ref ⟨0 : ℝ⟩ in
     for i in [0:M] {
       let ind := xidx[i] in
       let i' := i+1 in
@@ -100,7 +100,7 @@ lang_def Lang.sum2 :=
     free ans; r
 
 variable (xind xval : loc) (z n : ℤ) (N : ℕ)
-variable (x_ind : ℤ -> ℝ) (x_val : ℤ -> Int)
+variable (x_ind : ℤ -> ℝ) (x_val : ℤ -> ℝ)
 
 #hint_yapp triple_hharrayFun_get
 #hint_yapp triple_hharrayFun_length
@@ -136,7 +136,7 @@ lemma get_spec_in (l : ℕ) (k : ℤ) :
   arr⟨⟪l,{x_ind k}⟫⟩(xind, x in N => x_ind x) ∗
   arr⟨⟪l,{x_ind k}⟫⟩(xval, x in N => x_val x) ==>
     WP [l| i in {x_ind k} => Lang.get xind xval ⟨i.val⟩ z n] { v,
-     ⌜ v = fun _ => val_int $ x_val k ⌝ ∗
+     ⌜ v = fun _ => val_real $ x_val k ⌝ ∗
      arr⟨⟪l,{x_ind k}⟫⟩(xind, x in N => x_ind x) ∗
      arr⟨⟪l,{x_ind k}⟫⟩(xval, x in N => x_val x) } := by
   move=> ?
@@ -157,7 +157,7 @@ lemma sum_spec (r : ℝ)  :
   [1| x in {r} => Lang.sum xind xval z n]
   [2| i in Set.univ => Lang.get xind xval ⟨i.val⟩ z n]
   {v,
-    ⌜v ⟨1,r⟩ = ∑' i : ℝ, (v ⟨2,i⟩).toInt⌝ ∗
+    ⌜v ⟨1,r⟩ = ∑' i : ℝ, (v ⟨2,i⟩).toReal⌝ ∗
     arr⟨⋆⟩(xind, x in N => x_ind x) ∗
     arr⟨⋆⟩(xval, x in N => x_val x) } := by
   yfocus 2, x_ind '' ⟦z, n⟧
@@ -165,9 +165,9 @@ lemma sum_spec (r : ℝ)  :
   simp [fun_insert]
   yin 1: ystep=> p
   srw [1]Set.image_eq_iUnion
-  yfor+ with
-    (Q := fun i hv => p j ~⟨j in ⟪1, {r}⟫⟩~> (hv ⟨2,x_ind i⟩).toInt)
-    (H₀ := p i ~⟨i in ⟪1, {r}⟫⟩~> 0)
+  yfor+. with
+    (Q := fun i hv => p j ~⟨j in ⟪1, {r}⟫⟩~> val_real (hv ⟨2,x_ind i⟩).toReal)
+    (H₀ := p i ~⟨i in ⟪1, {r}⟫⟩~> val_real 0)
   { move=> >*
     yin 1: ystep; yapp
     yapp get_spec_in; ysimp }
@@ -214,15 +214,15 @@ lemma sum2_spec (z : ℤ) (r : ℝ)  :
   [1| x in {(z,r)} => Lang.sum2 xind xval xidx]
   [2| ij in ⋆ => Lang.get2 xind xval xidx ⟨ij.val.1⟩ ⟨ij.val.2⟩]
   {v,
-    ⌜v ⟨1,z,r⟩ = ∑' (i : ℤ) (j : ℝ), (v ⟨2,i,j⟩).toInt ⌝ ∗ ⊤ } := by
+    ⌜v ⟨1,z,r⟩ = ∑' (i : ℤ) (j : ℝ), (v ⟨2,i,j⟩).toReal ⌝ ∗ ⊤ } := by
   yfocus 2, ⟦0, M⟧ ×ˢ ⋆
   yapp get2_spec_out=> /==; simp [fun_insert]
   yin 1: (sdo 3 ystep)=> p;
   srw -((Set.Ico (0 : ℤ) M).biUnion_of_singleton)
   srw biUnion_prod_const
-  yfor+ with
-    (Q := fun i hv => p k ~⟨k in ⟪1, {(z,r)}⟫⟩~> val_int (∑' j : ℝ, ((hv ⟨2,i,j⟩).toInt)))
-    (H₀ := p i ~⟨i in ⟪1, {(z,r)}⟫⟩~> 0);
+  yfor+. with
+    (Q := fun i hv => p k ~⟨k in ⟪1, {(z,r)}⟫⟩~> val_real (∑' j : ℝ, ((hv ⟨2,i,j⟩).toReal)))
+    (H₀ := p i ~⟨i in ⟪1, {(z,r)}⟫⟩~> val_real 0);
   { move=> j > /== ?? eq; congr! 6; srw eq // }
   { move=> i b ??
     yin 1: (sdo 3 ystep)=> //'; simpWP
@@ -246,3 +246,4 @@ lemma sum2_spec (z : ℤ) (r : ℝ)  :
   srw (tsum_eq_sum (s := ⟦0, M⟧)) /==
   { apply Finset.sum_congr=> // }
   move=> i ?; simp (disch := omega) [if_neg]
+  right; rfl
