@@ -1,7 +1,7 @@
 import Lean.Elab.Tactic
 
 import Lgtm.Unary.HProp
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.XSimp
 
 open Lean Lean.Expr Lean.Meta Qq

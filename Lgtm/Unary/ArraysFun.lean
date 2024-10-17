@@ -1,6 +1,6 @@
 import Lgtm.Unary.XSimp
 import Lgtm.Unary.XChange
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.SepLog
 import Lgtm.Unary.WP1
 import Lgtm.Unary.Lang

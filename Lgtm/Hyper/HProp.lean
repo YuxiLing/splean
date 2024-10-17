@@ -4,7 +4,7 @@ import Mathlib.Data.Finmap
 
 import Mathlib.Algebra.BigOperators.Group.Finset
 
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.HProp
 import Lgtm.Unary.ArraysFun
 
@@ -122,15 +122,55 @@ def val.to_int : val -> Int
 | _ => 0
 instance : Coe val Int := ⟨val.to_int⟩
 
+
+
+open Lean Meta
+open Lean.PrettyPrinter
+open Lean.PrettyPrinter.Delaborator
+open Lean.PrettyPrinter.Delaborator.SubExpr
+
+def Lean.Expr.getLamBody : Expr -> Expr
+  | Expr.lam _ _ bd _ => bd
+  | _ => panic! "getLamBody"
+
+-- def hhsingleDelab (exp : Expr) : Delab := do
+--   let_expr hhsingle _ s p v := exp | failure
+--   let s' <- PrettyPrinter.delab s
+--   let p' <- PrettyPrinter.delab p
+--   let v' <- PrettyPrinter.delab v
+--   let exp := `($p' ~⟨_ in $s'⟩~> $v')
+--   match p.consumeMData with
+--   | Expr.lam nmₚ _ _ _ =>
+--     match v.consumeMData with
+--     | Expr.lam nmᵥ _ _ _ =>
+--       let nm <- fresh nmₚ
+--       let bdₚ := (p.renameBVar nmₚ nm.getId)
+--       let bdᵥ := (v.renameBVar nmᵥ nm.getId)
+--       let bpₚ  <- Lean.PrettyPrinter.delab bdₚ
+--       let bpᵥ <- Lean.PrettyPrinter.delab bdᵥ
+--       let `(fun $_:ident => $bpₚ) := bpₚ | exp
+--       let  `(fun $_:ident => $bpᵥ) := bpᵥ | exp
+--       let s <- Lean.PrettyPrinter.delab s
+--       `($bpₚ ~⟨$(nm) in $s⟩~> $bpᵥ)
+--     | _ =>  exp
+--   | _ =>  exp
+
 @[app_unexpander hhsingle] def unexpandHhSingle : Lean.PrettyPrinter.Unexpander
   | `($(_) $s $p $v) =>
     match p with
-    | `(fun $_ => $p) =>
+    | `(fun $j:ident => $p) =>
       match v with
-      | `(fun $i:ident => $v) => `($p ~⟨$i in $s⟩~> $v)
+      | `(fun $i:ident => $v) =>
+        if i == j then
+          `($p ~⟨$i in $s⟩~> $v)
+        else
+          match p with
+          | `($p' $j':ident) => if j'.getId == j.getId then `($p' $i ~⟨$i in $s⟩~> $v) else throw ( )
+          |  _ => throw ( )
       | _ => throw ( )
     | _ => throw ( )
   | _ => throw ( )
+
 
 @[app_unexpander val.to_int] def unexpandValToInt : Lean.PrettyPrinter.Unexpander
   | `($(_) $v) => return v

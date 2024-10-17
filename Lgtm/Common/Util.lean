@@ -4,6 +4,9 @@ import Batteries.Lean.Meta.UnusedNames
 import Qq
 import Ssreflect.Lang
 
+
+import Mathlib.Data.Set.Function
+
 open Lean Lean.Expr Lean.Meta Qq
 open Lean Elab Command Term Meta Tactic
 
@@ -43,9 +46,10 @@ def delabPpAll :=
 
 def delabNoNotations :=
   (withOptions (fun _ =>
-    ((KVMap.empty.insert
+    (((KVMap.empty.insert
       `pp.all true).insert
       `pp.universes false).insert
+      `pp.deepTerms true).insert
       `pp.fullNames true) $ PrettyPrinter.delab ·)
 
 def getGoalStxAll : Lean.Elab.Tactic.TacticM Syntax := do
@@ -121,7 +125,11 @@ elab_rules : tactic
 --   let x <- liftCommandElabM $ liftTermElabM $ Term.elabTerm x none
 --   toLeanList x
 
-abbrev VerseSectExtState := List Name
 
-initialize verseSect : EnvExtension VerseSectExtState ←
-  registerEnvExtension (pure [])
+/- Auxiliary Theory -/
+
+theorem Function.invFunOn_app_eq (f : α -> β) [Nonempty α]
+  (inj : Set.InjOn f s)
+  (h : i ∈ s) : (f.invFunOn s (f i)) = i := by
+  apply inj=> //
+  srw (Function.invFunOn_apply_eq (f := f)) //

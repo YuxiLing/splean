@@ -14,14 +14,14 @@ import Mathlib.Data.Int.Interval
 import Mathlib.Data.Set.Semiring
 import Mathlib.Data.Finset.Sups
 
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.SepLog
 import Lgtm.Unary.WP1
 
 import Lgtm.Hyper.YSimp
 import Lgtm.Hyper.YChange
 import Lgtm.Hyper.WP
-import Lgtm.Hyper.Subst
+import Lgtm.Hyper.Subst.Theory
 import Lgtm.Hyper.Arrays
 
 open Classical trm val prim
@@ -72,6 +72,9 @@ macro_rules
 
 -- namespace LGTM
 
+@[simp]
+lemma semiring.down (s : SetSemiring α) : SetSemiring.down s = s := by rfl
+
 namespace Disjoint
 
 section ForLoop
@@ -80,7 +83,7 @@ lemma LGTM.wp_for_aux
   (z i n : Int)
   (Inv : Int -> hval -> hhProp)
   (sᵢ : Int -> Set α)
-  (ht : htrm) :
+  (ht c : htrm) :
   z <= i ∧ i <= n ->
   (∀ j hv₁ hv₂, i <= j ∧ j <= n -> (∀ x, x ∉ s' -> hv₁ x = hv₂ x) -> Inv j hv₁ ==> Inv j hv₂) ->
   (∀ i j, i != j -> z <= i ∧ i < n -> z <= j ∧ j < n -> Disjoint (sᵢ i) (sᵢ j)) ->
@@ -89,11 +92,11 @@ lemma LGTM.wp_for_aux
   (∀ j hv, z <= j ∧ j < n ->
      Inv j hv ==>
       LGTM.wp
-           [⟨s', fun _ => subst vr j c⟩, ⟨sᵢ j, ht⟩]
+           [⟨s', fun i => subst vr j (c i)⟩, ⟨sᵢ j, ht⟩]
            (fun hv' => Inv (j + 1) (hv ∪_(∑ i in ⟦z, j⟧, sᵢ i) hv'))) ->
   Inv i hv₀ ==>
     LGTM.wp
-         [⟨s', fun _ => trm_for vr i n c⟩, ⟨s, ht⟩]
+         [⟨s', fun j => trm_for vr i n (c j)⟩, ⟨s, ht⟩]
          (fun hv => Inv n (hv₀ ∪_(∑ i in ⟦z, i⟧, sᵢ i) hv)) := by
   move=> iin Heq dij seq sij' ind
   shave H: i <= n; omega; move: i H hv₀ s seq iin Heq
@@ -111,15 +114,16 @@ lemma LGTM.wp_for_aux
   srw sum_Ico_succl
   ychange LGTM.wp_align_step_disj
   { simp at sij'; apply sij'=> /==; omega }
-  { move: sij'; srw sum_Ico_succl /==; omega }
-  { simp=> /== *; apply dij=> /== <;> omega }
+  { move: sij'; srw sum_Ico_succl /= /==; omega }
+  { simp=> /== *;
+    apply dij=> /== <;> omega }
   { omega }
   { simp=> ⟨|⟩
     { simp at sij'; apply sij'=> /==; omega }
     move: sij'; srw sum_Ico_succl /==; omega }
   { omega }
   ychange ind
-  { simpNums; omega }
+  { rw [foo''']; omega }
   apply hwp_conseq=> hv /==
   -- scase: [i = n]=> [?|->]
   ychange (ih (s := ∑ i ∈ ⟦i, n⟧, sᵢ i)) <;> try trivial
@@ -137,18 +141,18 @@ lemma LGTM.wp_conseq :
   apply hwp_conseq
 
 set_option maxHeartbeats 800000 in
-lemma LGTM.wp_for (Inv : Int -> hval -> hhProp) (sᵢ : Int -> Set α) (ht : htrm) :
+lemma LGTM.wp_for (Inv : Int -> hval -> hhProp) (sᵢ : Int -> Set α) (ht c : htrm) :
    (z <= n) ->
    (∀ j hv₁ hv₂, z <= j ∧ j <= n -> (∀ x, x ∉ s' -> hv₁ x = hv₂ x) -> Inv j hv₁ ==> Inv j hv₂) ->
    Disjoint s' s ->
    (∀ j hv, z <= j ∧ j < n ->
       Inv j hv ==>
-        LGTM.wp [⟨s', fun _ => subst vr j c⟩, ⟨sᵢ j, ht⟩] (fun hv' => Inv (j + 1) (hv' ∪_(sᵢ j) hv))) ->
+        LGTM.wp [⟨s', fun i => subst vr j (c i)⟩, ⟨sᵢ j, ht⟩] (fun hv' => Inv (j + 1) (hv' ∪_(sᵢ j) hv))) ->
   (∀ i j, i != j -> z <= i ∧ i < n -> z <= j ∧ j < n -> Disjoint (sᵢ i) (sᵢ j)) ->
   (s = ∑ i in ⟦z, n⟧, sᵢ i) ->
   (P ==> Inv z hv₀) ->
   (Inv n ===> Q) ->
-   P ==> LGTM.wp [⟨s', fun _ => trm_for vr z n c⟩, ⟨s, ht⟩] Q := by
+   P ==> LGTM.wp [⟨s', fun i => trm_for vr z n (c i)⟩, ⟨s, ht⟩] Q := by
      move=> ? inveq disj ind dij seq pimpl implq
      ychange pimpl
      ychange LGTM.wp_conseq; apply implq
@@ -203,6 +207,7 @@ lemma congr_hhimpl :
 open EmptyPCM in
 set_option maxHeartbeats 1600000 in
 lemma LGTM.wp_for_bighop (β : Type) [inst : Inhabited β]
+  {c : htrm}
   (z n : Int)
   (Q : Int -> hval -> hhProp)
   (R R' : α -> hProp)
@@ -220,12 +225,12 @@ lemma LGTM.wp_for_bighop (β : Type) [inst : Inhabited β]
   (∀ j v, z <= j ∧ j < n ->
     Qgen j v ∗ Inv j ∗ (R ∗↑ (sᵢ j)) ==>
       LGTM.wp
-           [⟨s', fun _ => subst vr j c⟩, ⟨sᵢ j, ht⟩]
+           [⟨s', fun i => subst vr j (c i)⟩, ⟨sᵢ j, ht⟩]
            (fun hv' =>
              Q j hv' + Qgen j v ∗ Inv (j+1) ∗ R' ∗↑ sᵢ j)) ->
   H₀ ∗ Inv z ∗ R ∗↑ s ==>
     LGTM.wp
-         [⟨s', fun _ => trm_for vr z n c⟩, ⟨s, ht⟩]
+         [⟨s', fun i => trm_for vr z n (c i)⟩, ⟨s, ht⟩]
          (fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv n ∗ R' ∗↑ s) := by
   move=> ? eqQ ? gen dj dij' ind *
   eapply wp_for
@@ -293,7 +298,7 @@ lemma LGTM.wp_while_aux_false (Inv : Int -> hval -> hhProp)  (sᵢ : Int -> Set 
     srw -(fun_insert_ff (s := sᵢ (j - 1)) (f := ht))
     srw -LGTM.wp_unfold_first
     ychange ind
-    { sby simpNums }
+    { sby srw foo''' }
     { simp=> *; apply disj=> /== <;> omega }
     simp; srw ?LGTM.wp_cons /=; apply hwp_conseq
     { move=> hv /=; srw LGTM.wp /== hwp0_dep; ysimp=> ?
@@ -352,7 +357,7 @@ lemma LGTM.wp_while_aux
     srw LGTM.wp_cons /=; ychange hwp_while=> //'
     -- { sorry }
     ychange cndE
-    { sby simpNums }
+    { sby srw foo''' }
     apply hwp_conseq=> hv /=
     ysimp; ychange hwp_if
     srw -(LGTM.wp_cons (sht := ⟨_, _⟩) (Q := fun x ↦ Inv _ _ (_ ∪__ x)))
@@ -367,7 +372,7 @@ lemma LGTM.wp_while_aux
       move: dij; srw sum_Ico_succl /==; omega }
     { omega }
     ychange indt
-    { simpNums; omega }
+    { sby srw foo'''; omega }
     apply hwp_conseq=> hv /==
     shave ?: Disjoint s' (∑ i ∈ ⟦j, n⟧, sᵢ i)
     { move: dij; srw sum_Ico_succl /==; omega }
@@ -1111,6 +1116,7 @@ lemma hhlocal_hsubst_κ :
 
 set_option maxHeartbeats 1600000 in
 lemma wp_for_bighop_aux (β : Type) [PartialCommMonoid val] [inst : Inhabited β]
+  {c : htrm}
   (Q : Int -> hval -> hhProp)
   (R R' : α -> hProp)
   (H₀ : hhProp)
@@ -1127,12 +1133,12 @@ lemma wp_for_bighop_aux (β : Type) [PartialCommMonoid val] [inst : Inhabited β
   (∀ j (v : β), z <= j ∧ j < n ->
     Qgen j v ∗ Inv j ∗ (R ∗↑ (sᵢ j)) ==>
       LGTM.wp
-           [⟨s', fun _ => subst vr j c⟩, ⟨sᵢ j, ht⟩]
+           [⟨s', fun i => subst vr j (c i)⟩, ⟨sᵢ j, ht⟩]
            (fun hv' =>
              Q j hv' + Qgen j v ∗ Inv (j+1) ∗ R' ∗↑ sᵢ j)) ->
   H₀ ∗ Inv z ∗  R ∗↑ s ==>
     LGTM.wp
-         [⟨s', fun _ => trm_for vr z n c⟩, ⟨s, ht⟩]
+         [⟨s', fun j => trm_for vr z n (c j)⟩, ⟨s, ht⟩]
          (fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv n ∗ R' ∗↑ s) := by
   move=> lH₀ lInv lQ lgen ? eqQ gen ind *
   srw -(hsubst_H) //' LGTM.wp_Q_eq; rotate_left 2
@@ -1206,7 +1212,7 @@ lemma wp_for_bighop_aux (β : Type) [PartialCommMonoid val] [inst : Inhabited β
     apply ind (v := v)=> //'
     srw wp2_ht_eq; apply hwp_conseq
     { move=> hv /=; ysimp }
-    { sdone }
+    { move=> ? /=?; srw ι' if_pos //' π' /== if_pos //' }
     apply lem7=> // }
   move=> ??; apply Eq.symm; apply lem7=>//
 
@@ -1417,6 +1423,7 @@ lemma inj_some : Set.InjOn some s' = true := by move=> /== ? * //
 set_option maxHeartbeats 1600000 in
 lemma wp_for_bighop [Inhabited α] [PartialCommMonoid val] (β : Type)  [inst:Inhabited β]
   (Q : Int -> hval -> hhProp)
+  {c : htrm}
   (R R' : α -> hProp)
   (H₀ : hhProp)
   (Inv : Int -> hhProp)
@@ -1432,12 +1439,12 @@ lemma wp_for_bighop [Inhabited α] [PartialCommMonoid val] (β : Type)  [inst:In
   (∀ j (v : β), z <= j ∧ j < n ->
     Qgen j v ∗ Inv j ∗ (R ∗↑ (sᵢ j)) ==>
       LGTM.wp
-           [⟨s', fun _ => subst vr j c⟩, ⟨sᵢ j, ht⟩]
+           [⟨s', fun i => subst vr j (c i)⟩, ⟨sᵢ j, ht⟩]
            (fun hv' =>
              Q j hv' + Qgen j v ∗ Inv (j+1) ∗ R' ∗↑ sᵢ j)) ->
   H₀ ∗ Inv z ∗  R ∗↑ s ==>
     LGTM.wp
-         [⟨s', fun _ => trm_for vr z n c⟩, ⟨s, ht⟩]
+         [⟨s', fun j => trm_for vr z n (c j)⟩, ⟨s, ht⟩]
          (fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv n ∗ R' ∗↑ s) := by
   move=> L ???? eqQ gen *
   eapply wp_hsubst_some=> //'
@@ -1455,7 +1462,7 @@ lemma wp_for_bighop [Inhabited α] [PartialCommMonoid val] (β : Type)  [inst:In
      { move=> * [] //' }
      move=> * [] //' }
   srw Function.comp /=
-  apply ForLoopAux.wp_for_bighop_aux _ _ _
+  apply ForLoopAux.wp_for_bighop_aux _ _ _ (c := (c ·.get!))
     (fun i => ssubst some (s' ∪ s) $ sᵢ i) (ssubst some (s' ∪ s) s')
     (df := none)
     (Qgen := fun i v => hsubst some (s' ∪ s) (Qgen i v))

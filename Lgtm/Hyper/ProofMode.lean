@@ -3,53 +3,52 @@ import Lean
 import Mathlib.Data.Finmap
 import Qq
 
-import Lgtm.Unary.Util
+import Lgtm.Common.LabType
+import Lgtm.Common.Util
+
 import Lgtm.Unary.WP1
 
 import Lgtm.Hyper.YSimp
 import Lgtm.Hyper.YChange
 import Lgtm.Hyper.WP
 import Lgtm.Hyper.WPUtil
-import Lgtm.Hyper.Subst
+import Lgtm.Hyper.Subst.Theory
+import Lgtm.Hyper.Subst.YLemmas
 import Lgtm.Hyper.ArraysFun
 import Lgtm.Hyper.HProp
 import Lgtm.Hyper.Loops.YLemmas
 
 open Classical trm val prim
-open Lean Elab Term
+open Lean hiding Meta.subst
+open Elab Term
 
-
-
--- abbrev LabType := ℕ
 local macro "LabType" : term => `(ℕ)
 
-structure Labeled (α : Type*) where
-  lab : LabType
-  val : α
 
-def labSet (l : ℕ) (s : Set α) : Set (Labeled α) := { ⟨l, x⟩ | x ∈ s }
+lemma hwp_labSet_single :
+  hwp ⟪l, {a}⟫ ht Q = hwp ⟪l, {a}⟫ (fun _ => ht ⟨l,a⟩) Q := by
+  srw hwp_ht_eq=> []//
 
-notation (priority := high) "⟪" l ", " s "⟫" => labSet l s
+lemma hwp_labSet_single_prod :
+  hwp ⟪l, {a} ×ˢ s⟫ ht Q = hwp ⟪l, {a} ×ˢ s⟫ (fun i => ht ⟨l,a, i.val.2⟩) Q := by
+  srw hwp_ht_eq=> []// ? [] //
 
-@[disjE]
-lemma disjoint_label_set :
-  Disjoint ⟪l,s⟫ ⟪l',s'⟫ ↔ l ≠ l' ∨ Disjoint s s' := by
-  sorry
+lemma triple_labSet_single_prod :
+  htriple ⟪l, {a} ×ˢ s⟫ ht H Q = htriple ⟪l, {a} ×ˢ s⟫ (fun i => ht ⟨l,a, i.val.2⟩) H Q := by
+  srw -hwp_equiv hwp_ht_eq // => []// ? [] //
 
-@[simp]
-lemma labSet_inter (l : ℕ) (s s' : Set α) :
-  ⟪l, s⟫ ∩ ⟪l, s'⟫ = ⟪l, s ∩ s'⟫ := by
-  sorry
+lemma triple_labSet_single :
+  htriple ⟪l, {a}⟫ ht H Q = htriple ⟪l, {a}⟫ (fun _ => ht ⟨l,a⟩) H Q := by
+  srw -hwp_equiv hwp_ht_eq // => []//
 
-@[simp]
-lemma labSet_diff (l : ℕ) (s s' : Set α) :
-   ⟪l, s⟫ \ ⟪l, s'⟫ = ⟪l, s \ s'⟫ := by
-  sorry
 
-@[simp]
-lemma labSet_mem :
-  x ∈ ⟪l, s⟫ ↔ x.lab = l ∧ x.val ∈ s := by
-  sorry
+macro "simpWP" : tactic => `(tactic|
+  simp only [hwp_labSet_single, hwp_labSet_single_prod, triple_labSet_single, triple_labSet_single_prod]
+)
+
+lemma hhsingle_singleton :
+  hhsingle ⟪l, {a}⟫ p = hhsingle ⟪l, {a}⟫ (p ⟨l, a⟩) := by
+  move=>!v /=; srw hhsingle bighstar_eq=> [] //
 
 /- --- Notations for Triples and WPs --- -/
 
@@ -125,6 +124,17 @@ macro_rules
   | `($(_) [ $[ [sht| $sht:sht] ],* ] $H fun $v:ident => $Q) =>
     `({ $H } $sht* { $v, $Q })
   | _ => throw ( )
+
+@[app_unexpander htriple] def unexpandHTriple : Lean.PrettyPrinter.Unexpander
+  | `($(_) ⟪$n:num, $s:term⟫ $t $H fun $v:ident => $Q) =>
+      match t with
+      | `(fun $i:ident => [lang|$t]) =>
+        match Q with
+        | `(NWP $_* { $_, $_ }) => `({ $H } [$n| $i in $s => $t] { $v, ⋯ })
+        | _ => `({ $H } [$n| $i in $s => $t] { $v, $Q })
+      | _ => throw ( )
+  | _ => throw ( )
+
 
 @[app_unexpander Labeled.mk] def unexpandLab : Lean.PrettyPrinter.Unexpander
   | `($(_) $l $v) => `(⟨$l, $v⟩)
@@ -300,7 +310,7 @@ open Lean Elab Tactic Meta Qq
 
 attribute [-simp] fun_insert
 macro "yfocus" n:num : tactic => do
-  `(tactic| (erw [yfocus_lemma $n:term]=> /=; ⟨skip, try simp [disjE]⟩))
+  `(tactic| ((try srw LGTM.triple); erw [yfocus_lemma $n:term]=> /=; ⟨skip, try simp [disjE]⟩))
 
 macro "yfocus" n:num ", " s:term : tactic => do
   `(tactic| (apply yfocus_set_lemma $n:term $s=> /=;
@@ -380,14 +390,31 @@ by
   move=> h
   ychange h
 
-lemma yif_lemma b H F1 F2 Q :
+lemma yif_lemma (s : Set α) b H F1 F2 Q :
   (b = true -> H ==> F1 Q) →
   (b = false -> H ==> F2 Q) →
-  H ==> hwpgen_if (fun (_ : α) => b) F1 F2 Q :=
+  H ==> hwpgen_if s (fun (_ : α) => b) F1 F2 Q :=
 by
   scase: b
   move=> /== h
   sby all_goals ychange h ; unfold hwpgen_if ; ysimp
+
+lemma yif_lemma_true (s : Set α) (b : htrm α) H F1 F2 Q :
+  (∀ a ∈ s, b a = true) ->
+  (H ==> F1 Q) ->
+  H ==> hwpgen_if s b F1 F2 Q :=
+by
+  move=> bE h; ychange h
+  srw hwpgen_if; ysimp [true]=> //
+
+lemma yif_lemma_false (s : Set α) (b : htrm α) H F1 F2 Q :
+  (∀ a ∈ s, b a = false) ->
+  (H ==> F2 Q) ->
+  H ==> hwpgen_if s b F1 F2 Q :=
+by
+  move=> bE h; ychange h
+  srw hwpgen_if; ysimp [false]=> //
+
 
 lemma yapp_lemma : forall t Q1 H1 H Q,
   htriple s t H1 Q1 ->
@@ -490,6 +517,14 @@ macro "yref" p:term : tactic => do
   `(tactic|
   (yseq_xlet_if_needed; ystruct_if_needed; apply yref_lemma; intro $p:term;
     try simp [$(mkIdent `subst):ident]))
+macro "yifT" : tactic => do
+  `(tactic|
+  (yseq_xlet_if_needed; ystruct_if_needed; apply yif_lemma_true))
+
+macro "yifF" : tactic => do
+  `(tactic|
+  (yseq_xlet_if_needed; ystruct_if_needed; apply yif_lemma_false))
+
 
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
@@ -589,7 +624,7 @@ macro "yapp_nosubst" e:term ? : tactic =>
   `(tactic|
     (yapp_pre
      eapply yapp_lemma; yapp_pick $(e)?
-     rotate_right; yapp_simp; hide_mvars=>//))
+     rotate_right; (run_tac (do (<- Lean.Elab.Tactic.getMainGoal).setTag `yapp_goal)); yapp_simp; hide_mvars=>//))
 
 macro "yapp" : tactic =>
   `(tactic|
@@ -698,7 +733,7 @@ macro "ywp" : tactic =>
       { rfl }
       { move=> ?; rfl; }
       sdone)=> //')
-     try simp only [Unary.isubst, AList.lookup, List.dlookup]
+     try dsimp [Unary.isubst, List.mkAlist, AList.lookup, List.eraseP,List.dlookup]
      apply hwp_of_hwpgen
      all_goals try simp
        [hwpgen,
@@ -708,6 +743,9 @@ macro "ywp" : tactic =>
 
 macro "yval" : tactic => do
   `(tactic| (ystruct_if_needed; yseq_xlet_if_needed; (try ywp); apply yval_lemma))
+
+macro "ystep" : tactic => do
+  `(tactic| (ywp; yapp))
 
 /- ================================================================= -/
 /- ====================== Resolving [hhlocal] =====================  -/
@@ -729,11 +767,33 @@ lemma hhlocal_hharrayFun : hhlocal s' (hharrayFun s f n x) = (s ⊆ s') :=
 lemma hhlocal_emp : hhlocal s emp = true :=
   by simp=> ?//
 
+@[hhlocalE]
+lemma hhlocal_pure : hhlocal s ⌜P⌝ = true :=
+  by simp=> ? ![] ? -> //
+
 @[simp]
 lemma cdot_set_mem (n : ℕ) (s : Set α) : (x ∈ (n • s)) = (x ∈ s ∧ n > 0) := sorry
 
 /- ================================================================= -/
 /- ====================== Tactics for Loops ======================== -/
+
+lemma labSet_iUnion (s : Set β) (sᵢ : β -> Set α) :
+  ⟪l, ⋃ i ∈ s, sᵢ i⟫ = ⋃ i ∈ s, ⟪l, sᵢ i⟫ := by sorry
+
+instance RestrictToIndexNilUL (sᵢ : ℤ -> _) :
+  RestrictToIndex z n [⟨⟪l, ⋃ i ∈ (Set.Ico z n), sᵢ i⟫, ht⟩] (fun i => [⟨⟪l, sᵢ i⟫, ht⟩]) := by
+   srw labSet_iUnion; apply RestrictToIndexNilU
+
+instance RestrictToIndexConsUL (sᵢ : ℤ -> _) [r:RestrictToIndex z n shts shtsᵢ] :
+   RestrictToIndex z n (⟨⟪l, ⋃ i ∈ Set.Ico z n, sᵢ i⟫, ht⟩ :: shts) (fun i => (⟨⟪l,sᵢ i⟫, ht⟩ :: shtsᵢ i)) := by
+  srw labSet_iUnion; apply RestrictToIndexConsU
+
+instance RestrictToIndexNilU' (sᵢ : ℤ -> _) :
+  RestrictToIndex z n [⟨⋃ i ∈ (Set.Ico z n), sᵢ i, ht⟩] (fun i => [⟨sᵢ i, ht⟩]) := by
+  srw iUnion_eq_sum
+  sdone
+
+
 
 /- Fisrt we provide instances for a typeclass which dirives
    [yfor_lemma] and [ywhile_lemma]   -/
@@ -767,16 +827,16 @@ lemma GenInstArr_eqGen (s : Set α) (x : α -> loc) (hv : Int -> hval α) (f : I
 
 namespace AddPCM
 
-instance GenInst (op : hval α -> Int -> Int) (x : loc) :
+instance GenInst (op : hval α -> Int -> Int) (x : α -> loc) :
   IsGeneralisedSum
     z n
     AddPCM.add AddPCM.valid
-    (x ~⟨_ in s⟩~> 0)
-    (fun i hv => x ~⟨_ in s⟩~> op hv i)
+    (x i ~⟨i in s⟩~> 0)
+    (fun i hv => x j ~⟨j in s⟩~> op hv i)
     (Int)
-    (fun _ j =>  x ~⟨_ in s⟩~> j)
-    (fun i j hv => x ~⟨_ in s⟩~> val.val_int (op hv i + j))
-    (fun hv => x ~⟨_ in s⟩~> val.val_int (∑ i in ⟦z,n⟧, op hv i)) where
+    (fun _ j =>  x i ~⟨i in s⟩~> j)
+    (fun i j hv => x k ~⟨k in s⟩~> val.val_int (op hv i + j))
+    (fun hv => x k ~⟨k in s⟩~> val.val_int (∑ i in ⟦z,n⟧, op hv i)) where
     eqGen := by
       move=> > ?
       exists (∑ i in ⟦z, j⟧, op (hv i) i) , emp
@@ -812,16 +872,16 @@ end AddPCM
 
 namespace OrPCM
 
-instance GenInst (op : hval α -> Int -> Bool) (x : loc) :
+instance GenInst (op : hval α -> Int -> Bool) (x : α -> loc) :
   IsGeneralisedSum
     z n
     OrPCM.add OrPCM.valid
-    (x ~⟨_ in s⟩~> false)
-    (fun i hv => x ~⟨_ in s⟩~> op hv i)
+    (x i ~⟨i in s⟩~> false)
+    (fun i hv => x j ~⟨j in s⟩~> op hv i)
     (Bool)
-    (fun _ j =>  x ~⟨_ in s⟩~> j)
-    (fun i j hv => x ~⟨_ in s⟩~> val.val_bool (op hv i || j))
-    (fun hv => x ~⟨_ in s⟩~> val.val_bool (∃ i ∈ ⟦z,n⟧, op hv i)) where
+    (fun _ j =>  x i ~⟨i in s⟩~> j)
+    (fun i j hv => x k ~⟨k in s⟩~> val.val_bool (op hv i || j))
+    (fun hv => x k ~⟨k in s⟩~> val.val_bool (∃ i ∈ ⟦z,n⟧, op hv i)) where
     eqGen := by
       move=> > ?
       exists (∃ i ∈ ⟦z, j⟧, op (hv i) i) , emp
@@ -864,6 +924,58 @@ def hharrayFunUnexpander : Lean.PrettyPrinter.Unexpander
 
 end OrPCM
 
+lemma zlet_lemma_aux (shts : LGTM.SHTs αˡ) (ht₁ ht₂ : htrm αˡ) :
+  Disjoint ⟪l, {s}⟫ shts.set ->
+  LGTM.wp (⟨⟪l, {s}⟫, ht₁⟩ :: shts) (fun hv =>
+    hwp ⟪l,{s}⟫ (fun i => subst x (hv ⟨l, s⟩) (ht₂ i)) (fun hv' =>
+      Q (hv' ∪_⟪l,{s}⟫ hv) )) ==>
+  LGTM.wp (⟨⟪l, {s}⟫, fun i => trm_let x (ht₁ i) (ht₂ i)⟩ :: shts) Q := by
+  move=> ?
+  srw [2]LGTM.wp_cons //=
+  ychange hwp_let=> /=
+  srw LGTM.wp_cons //=; apply hwp_conseq=> hv /=
+  simp [fun_insert]
+  srw LGTM.wp_Q_eq; rotate_right
+  { move=> ?; srw LGTM.hwp_Q_eq=> hv
+    srw fun_insert_ss' }
+  apply hhimpl_trans; apply LGTM.wp_cons_last (sht := ⟨⟪l, {s}⟫, _⟩)=> //
+  srw LGTM.wp_cons=> //=; srw hwp_labSet_single [2]hwp_labSet_single //
+
+lemma zlet_lemma (H : hhProp αˡ) (shts : LGTM.SHTs αˡ) (ht₁ ht₂ : htrm αˡ) :
+  Disjoint ⟪l, {s}⟫ shts.set ->
+  H ==> LGTM.wp (⟨⟪l, {s}⟫, ht₁⟩ :: shts) (fun hv =>
+    hwp ⟪l, {s}⟫ (fun i => subst x (hv ⟨l, s⟩) (ht₂ i)) (fun hv' =>
+      Q (hv' ∪_⟪l, {s}⟫ hv) )) ->
+  H ==>
+    LGTM.wp (⟨⟪l, {s}⟫, fun i => trm_let x (ht₁ i) (ht₂ i)⟩ :: shts) Q := by
+  move=> ??; ychange zlet_lemma_aux=> //
+
+macro "zlet_if_needed" : tactic =>
+  `(tactic| (try apply zlet_lemma;
+                  ⟨solve | simp [disjE],
+                    simp only [$(mkIdent `subst):ident, fun_insert]⟩))
+
+macro "zseq_if_needed" : tactic =>
+  `(tactic| (try apply zseq_lemma;
+                  ⟨try solve | simp [disjE]=> //',
+                    try simp only [$(mkIdent `subst):ident, fun_insert]⟩))
+
+lemma zapp_lemma (H : hhProp α) :
+  LGTM.triple shts H' Q' ->
+    H ==> H' ∗ (Q' -∗ protect Q) ->
+  H ==> LGTM.wp shts Q := by
+  sorry
+
+macro "zapp" e:term : tactic =>
+  `(tactic| (
+    zlet_if_needed;
+    apply zapp_lemma;
+    eapply $e; rotate_right
+    ysimp
+    hide_mvars=> //'
+  ))
+
+
 declare_syntax_cat loop_op
 declare_syntax_cat loop_arg
 declare_syntax_cat loop_args
@@ -890,20 +1002,21 @@ macro_rules
         (n := _)
         (add := $(mkIdent `add))
         (valid := $(mkIdent `valid)) $[ ( $x:ident := $v:term ) ]*)
-    let tac <- `(tactic| (eapply $yforLemm; ⟨
-      try solve | hsimp | ysimp; ysimp,
-      try simp, -- nonempty
-      try simp; try omega, -- s' ⊥ sᵢ
-      try simp; try omega, -- Pairwise disj
+    let tac <- `(tactic| (
+      eapply $yforLemm; ⟨
+      try solve | hsimp | ysimp,
+      try simp , -- nonempty
+      try simp [disjE]; try omega, -- s' ⊥ sᵢ
+      try simp [disjE]; try omega, -- Pairwise disj
       omega, -- z <= n
       simp [hhlocalE], -- hhlocal
       simp [hhlocalE], -- ∀ hhlocal
       simp [hhlocalE], -- ∀ hhlocal
       simp [hhlocalE], -- ∀ hhlocal
-      try solve | (simp=> > ?? ->->), -- Qeq
-      (simp [LGTM.SHTs.set]; try hsimp), -- step
+      try solve | (simp=> > ??; (repeat move=>->); auto), -- Qeq
+      try simp [LGTM.SHTs.set, $(mkIdent `subst):term]; try hsimp, -- step
       try hsimp, -- pre
-      (move=> >; try hsimp)⟩ -- post
+      (move=> >; try hsimp; try simp [fun_insert])⟩ -- post
       ))
       match loop_op with
       | `(loop_op| ||) => `(tactic| open OrPCM      in $tac:tactic)
@@ -931,11 +1044,17 @@ instance (priority := high) :
   H_eq := by hsimp
   Hu_eq := by rfl
 
+instance (priority := high) :
+  FindUniversal (α := α) ⊤ ⊤ emp where
+  univ := htop
+  H_eq := by hsimp
+  Hu_eq := by move=> !h /== ⟨|⟩ // _ ? //
+
 
 local notation (priority := high) Q " ∗↑ " s:70 => bighstar s Q
 example (F : False) :
   LGTM.triple
-    [⟨{11}, fun _ => trm_for vr (val.val_int 1) (val.val_int 10) c⟩ ,
+    [⟨{11}, fun _ => (trm_for vr (val.val_int 1) (val.val_int 10) c).trm_seq c⟩ ,
      ⟨∑ i in ⟦1, 10⟧, {i}, ht⟩ ,
      ⟨∑ i in ⟦1, 10⟧, {-i}, ht⟩]
     ((x ⟨_ in {1}⟩|-> 0) ∗ R ∗↑ s)
@@ -949,7 +1068,7 @@ example (F : False) :
 
 example (F : False) (n : ℕ) (f g : ℤ -> ℤ) :
   LGTM.triple
-    [⟨{-2}, fun _ => trm_for vr (val.val_int 0) (val.val_int n) c⟩ ,
+    [⟨{-2}, fun _ => (trm_for vr (val.val_int 0) (val.val_int n) c).trm_seq c⟩ ,
      ⟨∑ i in ⟦(0:ℤ) , n⟧, {i}, ht⟩ ,
      ⟨∑ i in ⟦(0:ℤ) , n⟧, {-1}, ht⟩]
     ((hharrayFun {-2} (f ·) n (fun _ => x)) ∗ R ∗↑ s)
@@ -964,11 +1083,25 @@ example (F : False) (n : ℕ) (f g : ℤ -> ℤ) :
 
 example (F : False) (n : ℕ) (f g h : ℤ -> ℤ) :
   LGTM.triple
-    [⟨{-2}, fun _ => trm_for vr (val.val_int 0) (val.val_int n) c⟩ ,
+    [⟨{-2}, fun _ => (trm_for vr (val.val_int 0) (val.val_int n) c).trm_seq c⟩ ,
      ⟨∑ i in ⟦(0:ℤ) , n⟧, {i}, ht⟩ ,
      ⟨∑ i in ⟦(0:ℤ) , n⟧, {-1}, ht⟩]
     ((hharrayFun {-2} (f ·) n (fun _ => x)) ∗ hharrayFun Set.univ (h ·) n (fun _ => p))
     (fun hv => (hharrayFun {-2} (g ·) n (fun _ => x)) ∗ hharrayFun Set.univ (h ·) n (fun _ => p)) := by
+  yfor+ with
+    (Inv := fun _ => emp)
+    (Q := (fun i hv => (x + 1 + i.natAbs) ⟨_ in {-2}⟩|-> hv i))
+    (H₀ := hharrayFun {-2} (f ·) n (fun _ => x))=> //
+
+notation (priority := high+1) "⊤" => hhtop
+
+example (F : False) (n : ℕ) (f g h : ℤ -> ℤ) :
+  LGTM.triple
+    [⟨{-2}, fun _ => (trm_for vr (val.val_int 0) (val.val_int n) c).trm_seq c⟩ ,
+     ⟨∑ i in ⟦(0:ℤ) , n⟧, {i}, ht⟩ ,
+     ⟨∑ i in ⟦(0:ℤ) , n⟧, {-1}, ht⟩]
+    ((hharrayFun {-2} (f ·) n (fun _ => x)) ∗ hharrayFun Set.univ (h ·) n (fun _ => p))
+    (fun hv => (hharrayFun {-2} (g ·) n (fun _ => x)) ∗ ⊤) := by
   yfor+ with
     (Inv := fun _ => emp)
     (Q := (fun i hv => (x + 1 + i.natAbs) ⟨_ in {-2}⟩|-> hv i))
@@ -1011,10 +1144,148 @@ example (F : False) (H : hhProp Int)
     hwp {1} g Q := by
   yapp h=> //
 
--- #check
---   { (H ∗ H) }
---     [1 | i in {1,3} => let x := ⟨i.val⟩ in x + 1]
---     [2 | i in {1,3} => let x := ⟨i.val⟩ in x + 1]
---   { v, ⌜v ⟨1,1⟩ = 2 ∧ v ⟨1,1⟩ = 2 ∧ v ⟨1,1⟩ = 2⌝ }
+
+instance : Coe (Labeled (ℤ × ℤ)) (ℤ × ℤ) where
+  coe l := l.val
+
+instance [s₁ : SubstTypeUniversal H₁ H₁'] [s₂ : SubstTypeUniversal H₂ H₂'] :
+  SubstTypeUniversal (H₁ ∗ H₂) (H₁' ∗ H₂') where
+  univ := s₁.univ ∗ s₂.univ
+  Hα_eq := by srw s₁.Hα_eq s₂.Hα_eq bighstar_hhstar
+  Hβ_eq := by srw s₁.Hβ_eq s₂.Hβ_eq bighstar_hhstar
+
+instance :
+  SubstTypeUniversal
+    (hharrayFun (@Set.univ α) f n (fun _ => p))
+    (hharrayFun (@Set.univ β) f n (fun _ => p))  where
+  univ := harrayFun f n p
+  Hα_eq := by rfl
+  Hβ_eq := by rfl
+
+instance : SubstTypeUniversal (α := α) (β := β) emp emp where
+  univ := hempty
+  Hα_eq := by hsimp
+  Hβ_eq := by hsimp
+
+instance : SubstTypeUniversal (α := α) (β := β) ⊤ ⊤ where
+  univ := htop
+  Hα_eq := by move=> !h /== ⟨|⟩ // _ ? //
+  Hβ_eq := by move=> !h /== ⟨|⟩ // _ ? //
+
+attribute [-simp] Set.singleton_prod
+
+@[simp]
+lemma labLift_eq (f : α -> β) :
+  Function.labLift f ⟨l, x⟩ = ⟨l, f x⟩ := by rfl
+
+@[simp]
+lemma labLift_set (f : α -> β) (s : Set α) :
+  Function.labLift f '' ⟪l, s⟫ = ⟪l, f '' s⟫ := by
+  move=> ! [l x] /== ⟨[][l y] | ![] /== <- x ? <-⟩
+  { simp => // }
+  exists ⟨l, x⟩
+
+@[simp]
+lemma Prod.snd_img :
+  (Prod.snd '' {s} ×ˢ s') = s' := by sby ext
+
+lemma LGTM.wp_sht_eq (shts : SHTs α) :
+  (shts.Forall₂ (fun sht sht'=> ∀ x ∈ sht.s, sht.s = sht'.s ∧ sht.ht x = sht'.ht x) shts') ->
+  LGTM.wp shts Q = LGTM.wp shts' Q := by
+  sorry
+
+lemma feq [Nonempty α] (σ : α -> β) :
+  x ∈ σ.labLift '' s ->
+  σ (σ.labLift.invFunOn s x).val = x.val := by
+  scase: x=> /= l v ?
+  shave: σ.labLift (σ.labLift.invFunOn s ⟨l, v⟩) = ⟨l, v⟩
+  { rw [Function.invFunOn_eq (f := σ.labLift)]=> // }
+  simp  [Function.labLift]
+
+macro "unify_hterm" σ:term : tactic =>  `(tactic| (
+  rewrite [List.forall₂_cons]; rotate_left
+  refine ⟨?_, ?_⟩; rotate_right
+  dsimp; constructor
+  { move=> ?? ⟨|⟩; exact Eq.refl _
+    try rw [feq (σ := $σ)]=> //
+    exact Eq.refl _ }
+))
+
+
+class IsLabSetUnion (s : Set αˡ) (l : outParam (List LabType)) (ss : outParam (List (Set α))) where
+  eq : s = ⋃ i ∈ (l.zipWith (fun l s => ⟪l, s⟫) ss), i
+
+instance : IsLabSetUnion (∅ : Set αˡ) [] [] where
+  eq := by simp
+
+instance : IsLabSetUnion ⟪l,s⟫ [l] [s] where
+  eq := by simp
+
+instance (s : Set αˡ) [inst: IsLabSetUnion s l ss] (l' : LabType) (s' : Set α) :
+  IsLabSetUnion (⟪l', s'⟫ ∪ s) (l' :: l) (s' :: ss) where
+  eq := by simp [<-inst.eq]
+
+lemma InjOn_labSet :
+  s.InjOn f -> ⟪l, s⟫.InjOn f.labLift := by
+  move=> inj [] /== > <- ? [] > /== <- ? _ /inj //
+
+lemma mem_zipWith (ls : List LabType) (x : Set αˡ) (ss : List $ Set α) :
+  x ∈ (ls.zipWith (fun l s => ⟪l, s⟫) ss) -> ∃ᵉ (s ∈ ss) (l ∈ ls), x = ⟪l, s⟫ := by
+  elim: ls ss=> // l ls /[swap] [] // s ss /(_ ss) /== /[swap] [-> //| xin /(_ xin)]
+  move=> ![s ? l ? ->]; right; exists s=> ⟨//|⟩; right=> //
+
+lemma IsLabSetUnion_inj (s : Set αˡ) (f : α -> β) [inst: IsLabSetUnion s ls ss] :
+  ls.Nodup ->
+  ss.Forall (Set.InjOn f) ->
+  s.InjOn f.labLift := by
+  srw inst.eq; elim: ls ss {inst}=> //== l ls ihls [] //== s ss ????
+  erw [Set.injOn_union]=> /==
+  { move=> ⟨|⟩; apply InjOn_labSet=> //
+    move=> ⟨|⟩; apply ihls=> //
+    scase=> ? a /= -> ? [m b] /= sl /mem_zipWith ![s ? m ?] -> /== // }
+  move=> s /mem_zipWith ![s ? l ?] -> /==; simp [disjE]=> ⟨⟩ ? //
+
+macro "ysubst" "with" "(" "σ" ":=" σ:term ")" : tactic =>
+  let inj : Ident := mkIdent `inj
+  `(tactic| (
+    apply ysubst_lemma _ _ $σ; ⟨
+      skip -- Hu ==> Qu
+      ,simp -- shts.set.Nonempty
+      ,simp [disjE] -- shts.Pairwise
+      ,simp [hhlocalE] -- hhlocal H
+      ,simp [hhlocalE] -- hhlocal Q
+      ,(simp; apply IsLabSetUnion_inj=> //' /==) -- Set.InjOn
+      , -- subst triple
+      (simp [Function.comp]=> /=
+       move=> $inj:ident
+       simp (disch := solve | exact $inj | sby simp) [substE]
+       srw LGTM.wp_sht_eq; rotate_left
+       { repeat (unify_hterm $σ; hide_mvars)
+         auto }
+       clear $inj
+       hsimp)
+    ⟩))
+
+example :
+  hharrayFun (α := (ℤ×ℤ)ˡ) Set.univ f n (fun _ => p) ∗
+  p ~⟪1, {(0 : ℤ)} ×ˢ {(1 : ℤ) ,3}⟫~> 0 ==>
+    NWP [1 | i in {0} ×ˢ {(1 : ℤ) ,3} => let x := ⟨i.val.2⟩ in x + 1]
+        [2 | i in {0} ×ˢ {1,3} => let x := ⟨i.val.2⟩ in x + 1]
+    { v, ⌜v ⟨1,0,1⟩ = 2 ∧ v ⟨2,0,1⟩ = 2 ∧ v ⟨1,0,1⟩ = 4⌝ ∗ ⊤ } := by
+  ysubst with (σ := Prod.snd); stop
+  apply ysubst_lemma _ _ Prod.snd
+  { ysimp }
+  { simp }
+  { simp [disjE] }
+  { simp [hhlocalE] }
+  { simp [hhlocalE] }
+  { simp; apply IsLabSetUnion_inj=> //' /== }
+  { simp [Function.comp]=> /=
+    move=> inj
+    simp (disch := solve | exact inj | sby simp) [substE]
+    srw LGTM.wp_sht_eq; rotate_left
+    { repeat (unify_hterm Prod.snd; hide_mvars)
+      auto }
+    clear inj }
 
 end

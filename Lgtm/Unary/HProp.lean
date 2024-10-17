@@ -5,7 +5,7 @@ import Mathlib.Algebra.BigOperators.Group.Finset
 
 import Lgtm.Common.Heap
 
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.Lang
 
 

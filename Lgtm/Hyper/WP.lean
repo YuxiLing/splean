@@ -2,7 +2,7 @@ import Lean
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.WP
 
 import Lean
@@ -294,10 +294,10 @@ def hwpgen_seq (F₁ F₂ : hformula) : hformula :=
 def hwpgen_let (F₁ : hformula) (F₂of : hval -> hformula) : hformula :=
   fun Q ↦ F₁ (fun v ↦ F₂of v Q)
 
-def hwpgen_if (t : htrm) (F₁ F₂ : hformula) : hformula :=
-  fun Q ↦ ∃ʰ b : Bool, ⌜t = fun _ => trm_val b⌝ ∗ (if b then F₁ Q else F₂ Q)
+def hwpgen_if (s : Set α) (t : htrm) (F₁ F₂ : hformula) : hformula :=
+  fun Q ↦ ∃ʰ b : Bool, ⌜∀ a ∈ s, t a = trm_val b⌝ ∗ (if b then F₁ Q else F₂ Q)
 
-def hwpgen_if_trm (F₀ F₁ F₂ : hformula) : hformula := hwpgen_let F₀ (fun v => hmkstruct $ hwpgen_if (trm_val ∘ v) F₁ F₂)
+def hwpgen_if_trm (s : Set α) (F₀ F₁ F₂ : hformula) : hformula := hwpgen_let F₀ (fun v => hmkstruct $ hwpgen_if s (trm_val ∘ v) F₁ F₂)
 
 def hwpgen_app (s : Set α) (t : htrm) : hformula := fun Q => ∃ʰ H, H ∗ ⌜htriple s t H Q⌝
 
@@ -311,9 +311,9 @@ def hwpgen_for (v₁ v₂ : htrm) (F1 : hval -> hformula) : hformula :=
           else hwpgen_val fun _ => val_unit
         ⌜hstructuralPred S /\ ∀ i, F i ===> S i⌝ -∗ S n₁ Q )
 
-def wpgen_while (F1 F2 : hformula) : hformula := hmkstruct fun Q =>
+def wpgen_while (s : Set α) (F1 F2 : hformula) : hformula := hmkstruct fun Q =>
   h∀ R : hformula,
-    let F := hwpgen_if_trm F1 (hwpgen_seq F2 R) (hwpgen_val fun _ => val_unit)
+    let F := hwpgen_if_trm s F1 (hwpgen_seq F2 R) (hwpgen_val fun _ => val_unit)
     ⌜hstructural R ∧ F ===> R⌝ -∗ R Q
 
 def hwpgen_ref (s : Set α) (x : α → var) (ht₁ ht₂ : htrm) : hformula :=
@@ -374,10 +374,13 @@ lemma hWpSoundTriple {inst: HWpSound s t F} Q : htriple s (fun a => t a) (F Q) Q
 lemma hWpSoundWp {inst: HWpSound s t F} Q : (F Q) ==> hwp s (fun a => t a) Q = true := by
   simp; apply inst.impl
 
-instance {t₁ t₂ : htrm} :
-  HWpSound s (fun a => trm_if (t₀ a) (t₁ a) (t₂ a)) (hwpgen_if t₀ (hwp s t₁) (hwp s t₂)) := ⟨by
+instance  {t₁ t₂ : htrm} :
+  HWpSound s (fun a => trm_if (t₀ a) (t₁ a) (t₂ a)) (hwpgen_if s t₀ (hwp s t₁) (hwp s t₂)) := ⟨by
   -- sby
-    move=> ?; srw hwpgen_if; ysimp=> b; scase_if=> ? /== <;> apply htriple_if=> //==⟩
+    move=> ?; srw hwpgen_if; ysimp=> b; --scase_if=> ? /== t₀E
+    move=> tE; srw [3](hwp_ht_eq (ht₂ := fun a => trm_if b (t₁ a) (t₂ a)))
+    { scase_if=> ? /== <;> apply htriple_if=> // }
+    move=> * /=; srw tE //⟩
 
 lemma hwp_sound_conseq (F : hformula) :
   F Q ==> hwp s t Q ->
@@ -478,6 +481,21 @@ lemma wp_cons (sht : SHT) (shts : SHTs α) :
     { sby apply congr=> // !?; apply hwp_ht_eq=> ??; srw fun_insert if_neg }
     sdone
 
+lemma wp_cons_last (sht : SHT) (shts : SHTs α) :
+  Disjoint sht.s shts.set ->
+    wp shts (fun hv => hwp sht.s sht.ht (Q $ · ∪_sht.s hv))
+    ==> wp (sht :: shts) Q := by
+    move=> /[dup]? /Set.disjoint_left dij;
+    srw ?wp /== Set.union_comm hwp_union // hwp_ht_eq
+    { apply hwp_conseq=> hv /=
+      srw hwp_ht_eq
+      { apply hwp_conseq'=> hv' /=; ysimp[hv]
+        shave: (hv' ∪_sht.s hv) = hv ∪_shts.set hv' ∪_sht.s hv
+        { move=> ! x /==; scase_if <;> scase_if=> // }
+        move=> h; srw [1]h // }
+      move=> // }
+    move=> ? /==; scase_if=> //
+
 @[simp]
 lemma disjoint_shts_set :
   (∀ sht ∈ shts, Disjoint s sht.s) ->
@@ -572,6 +590,12 @@ lemma wp_align_step_disj (ht₁ ht₂ ht' : htrm) :
 abbrev triple (shts : SHTs α) (H : hhProp) (Q : hval -> hhProp) : Prop :=
   H ==> wp shts Q
 
+lemma triple_conseq :
+  Pre ==> Pre' ->
+  Post' ===> Post ->
+  triple shts Pre' Post' ->
+  triple shts Pre Post := by sorry
+
 lemma wp_frame (Q : hval -> hhProp) (H : hhProp) :
   wp sht Q ∗ H ==> wp sht (Q ∗ H) := by
   apply hwp_frame
@@ -596,6 +620,12 @@ syntax "//'" : ssrTriv
 
 macro_rules
   | `(ssrTriv| //') => `(tactic| auto)
+
+theorem Function.invFunOn_app_eq (f : α -> β) [Nonempty α]
+  (inj : Set.InjOn f s)
+  (h : i ∈ s) : (f.invFunOn s (f i)) = i := by
+  apply inj=> //
+  srw (Function.invFunOn_apply_eq (f := f)) //
 
 end LGTM
 

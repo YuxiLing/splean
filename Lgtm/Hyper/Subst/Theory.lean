@@ -5,7 +5,7 @@ import Mathlib.Data.Finmap
 import Mathlib.Algebra.BigOperators.Group.Finset
 import Mathlib.Algebra.BigOperators.Intervals
 
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.HProp
 import Lgtm.Unary.XSimp
 import Lgtm.Unary.SepLog

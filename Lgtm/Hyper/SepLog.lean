@@ -1,7 +1,7 @@
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.HProp
 import Lgtm.Unary.XSimp
 import Lgtm.Unary.SepLog

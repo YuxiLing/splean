@@ -2,7 +2,7 @@ import Lean.Elab.Tactic
 import Qq
 
 import Lgtm.Unary.HProp
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 
 
 -- open hprop_scope
@@ -55,7 +55,8 @@ lemma foo : (@OfNat.ofNat ℕ n _) = (n : ℤ) := rfl
 lemma foo' : (@OfNat.ofNat ℤ n _) = (n : ℤ) := rfl
 @[heapSimp]
 lemma foo'' : (@OfNat.ofNat val n _) = val.val_int (n : ℤ) := by sorry
-  -- by dsimp only [OfNat.ofNat]
+-- @[heapSimp]
+lemma foo''' (n : ℕ) : (@OfNat.ofNat ℕ n _) = n := rfl
 
 
 macro "hsimp" : tactic => `(tactic| (simp only [heapSimp]; try dsimp))
@@ -690,7 +691,9 @@ def xsimp_apply_intro_names (lem : Name) (xs : Syntax) : TacticM Unit :=
   | _ => throwError "xsimp_l_exists: @ unreachable 3"
 
 macro "simpNums" : tactic =>
-  `(tactic| (try simp only [foo, foo', foo''] at *; try dsimp at *))
+  `(tactic| (try simp only [foo, foo', foo''] at *
+             try simp only [foo'''] at *
+             try dsimp at *))
 
 partial def xsimp_step_l (xsimp : XSimpR) (cancelWand := true) : TacticM Unit := do
   trace[xsimp] "LHS step"

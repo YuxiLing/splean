@@ -10,7 +10,7 @@ import Mathlib.Data.Int.Interval
 
 import Lgtm.Common.Heap
 
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.HProp
 import Lgtm.Unary.XSimp
 import Lgtm.Unary.SepLog
@@ -144,8 +144,7 @@ lemma hharray_int_hhadd_sum (l : ℤ) (v : Int -> Int) :
   { srw Finset.disjoint_left=> /==; omega }
   srw Finset.disjoint_left=> /==; omega
 
-#check (_ \ _) ∪ _
-
+set_option maxHeartbeats 1600000 in
 open EmptyPCM in
 lemma harray_int_chip_off (i : ℤ) :
   0 <= i -> i < L.length ->

@@ -8,7 +8,7 @@ import Mathlib.Algebra.BigOperators.Intervals
 -- lemmas about intervals
 import Mathlib.Data.Int.Interval
 
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.HProp
 import Lgtm.Unary.XSimp
 import Lgtm.Unary.SepLog
@@ -71,6 +71,7 @@ lemma hharrayFun_hhadd_sum [PartialCommMonoid val] (n : ℕ) (l : ℤ) (v : Int 
     srw Finset.disjoint_left=> /==; omega }
   srw Finset.disjoint_left=> /==; omega
 
+set_option maxHeartbeats 1600000 in
 open EmptyPCM in
 lemma harrayFun_chip_off (i : ℤ) (n : ℕ) :
   0 <= i -> i < n ->

@@ -3,7 +3,7 @@ import Qq
 
 -- import SSReflect.Lang
 
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.XSimp
 
 import Lgtm.Hyper.HProp
@@ -93,12 +93,12 @@ YSimp
 def YSimpRIni : TacticM YSimpR := withMainContext do
   (<- getMainGoal).setTag `ysimp_goal
   let goal <- getGoalStxNN
-  let `(@YSimp $_ $hl $hr)          := goal  | throwError "not a YSimp goal"
-  let `(@Prod.mk $_ $_ $hla $hlwtu) := hl    | throwError "not a YSimp goal"
-  let `(@Prod.mk $_ $_ $hlw $hltu)  := hlwtu | throwError "not a YSimp goal"
-  let `(@Prod.mk $_ $_ $hlt $hlu)   := hltu  | throwError "not a YSimp goal"
-  let `(@Prod.mk $_ $_ $hra $hrgt) := hr    | throwError "not a YSimp goal"
-  let `(@Prod.mk $_ $_ $hrg $hrt)  := hrgt | throwError "not a YSimp goal"
+  let `(@YSimp $_ $hl $hr)          := goal  | throwError "not a YSimp goal1"
+  let `(@Prod.mk $_ $_ $hla $hlwtu) := hl    | throwError "not a YSimp goal2"
+  let `(@Prod.mk $_ $_ $hlw $hltu)  := hlwtu | throwError "not a YSimp goal3"
+  let `(@Prod.mk $_ $_ $hlt $hlu)   := hltu  | throwError "not a YSimp goal4"
+  let `(@Prod.mk $_ $_ $hra $hrgt)  := hr    | throwError "not a YSimp goal5"
+  let `(@Prod.mk $_ $_ $hrg $hrt)   := hrgt  | throwError "not a YSimp goal6"
   return { hla := hla, hlw := hlw, hlt := hlt, hlu := hlu, hra := hra, hrg := hrg, hrt := hrt }
 
 
@@ -427,7 +427,7 @@ lemma ysimp_l_hpure :
   sby apply hhimpl_hstar_hhpure_l
 
 @[simp]
-lemma foo''' : (H ==> H) = true := by
+lemma foo'''' : (H ==> H) = true := by
   sby simp
 
 lemma ysimp_l_acc_wand :
@@ -607,12 +607,11 @@ lemma hhimpl_lr_qwand_unify (Hla : hhProp) (Q : β -> hhProp):
   sby srw hqwand_equiv
 
 lemma hhimpl_lr_htop :
-  YSimp (emp, emp, emp, hlu) (emp, Hrg, emp) ->
+  YSimp (emp, emp, emp, emp) (emp, Hrg, emp) ->
   YSimp (Hla, emp, emp, hlu) (emp, ((⊤ : hhProp) ∗ Hrg), emp) := by
   ysimp_lr_start=>?
-  srw -(@hhstar_hhempty_l _ Hla)
-  apply hhimpl_hhstar_trans_l=>// ; hhstar_simp
-  apply hhimpl_hhstar_trans_r=> //; hhstar_simp
+  srw -(@hhstar_hhempty_l _ (Hla ∗ hlu)) hhstar_comm
+  apply hhimpl_hhstar_trans_r=>// ; hhstar_simp
   apply hhimpl_hhtop_r
 
 lemma ysimpl_lr_hforall (β : Type) (J : β -> hhProp) :
@@ -637,7 +636,7 @@ lemma bighsingle_eq {hv₁ hv₂ : α -> val} {p : α -> loc} :
 lemma ysimpl_lr_cancel_same_hsingle (p : α -> loc) (v₁ v₂ : α -> val) :
   YSimp (Hla, Hlw, Hlt) (Hra, Hrg, Hrt) →
   (∀ i ∈ s, v₁ i = v₂ i) →
-  YSimp ([∗ i in s | p i ~~> v₁ i] ∗ Hla, Hlw, Hlt) (Hra, Hrg, [∗ i in s | p i ~~> v₂ i] ∗ Hrt) := by
+  YSimp (hhsingle s p v₁ ∗ Hla, Hlw, Hlt) (Hra, Hrg, hhsingle s p v₂ ∗ Hrt) := by
   move=> ? hveq; srw (bighsingle_eq hveq)
   ysimp_lr_start
   hhstar_simp
@@ -724,6 +723,17 @@ lemma hval_loc_congr (n1 n2 : α -> loc) (s : Set α) :
   (∀ i ∈ s, n1 i = n2 i) →
   (∀ i ∈ s, val.val_loc (n1 i) = val.val_loc (n2 i)) := by
   sdone
+
+lemma hval_bool_congr (n1 n2 : α -> Bool) (s : Set α) :
+  (∀ i ∈ s, n1 i = n2 i) →
+  (∀ i ∈ s, val.val_bool (n1 i) = val.val_bool (n2 i)) := by
+  sdone
+
+lemma hval_real_congr (n1 n2 : α -> ℝ) (s : Set α) :
+  (∀ i ∈ s, n1 i = n2 i) →
+  (∀ i ∈ s, val.val_real (n1 i) = val.val_real (n2 i)) := by
+  sdone
+
 end
 
 set_option linter.unusedTactic false
@@ -735,6 +745,8 @@ elab "ysimp_hsingle_discharge" : tactic =>
     -- try congruence lemma
     (try apply hval_int_congr
      try apply hval_loc_congr
+     try apply hval_bool_congr
+     try apply hval_real_congr
      try move=> ??; rfl
      try sdone) |}
 
@@ -774,7 +786,8 @@ def ysimp_apply_intro_names (lem : Name) (xs : Syntax) : TacticM Unit :=
   | _ => throwError "ysimp_l_exists: @ unreachable 3"
 
 macro "simpNums" : tactic =>
-  `(tactic| (try simp only [foo, foo', foo'', OfNat.ofNat] at *; try dsimp at *))
+  `(tactic| (try simp only [foo, foo', foo''] at *; try dsimp at *
+             try srw ?foo'''))
 
 partial def ysimp_step_l (ysimp : YSimpR) (cancelWand := true) : TacticM Unit := do
   trace[ysimp] "LHS step"
@@ -1299,6 +1312,7 @@ example (Q : Int -> Bool -> _) :
   H1 ∗ Q 4 true ==> ∃ʰ x b, Q x b ∗ H1 := by
   move=> ?
   ysimp
+
 -- example :
 --   emp ==> (∃ʰ x, x ~~> 1) ∗ (∃ʰ x, x ~~> 2) := by
 --   ysimp_start

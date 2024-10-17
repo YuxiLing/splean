@@ -4,8 +4,8 @@ import Lean
 import Mathlib.Data.Finmap
 
 import Lgtm.Common.State
+import Lgtm.Common.Util
 
-import Lgtm.Unary.Util
 import Lgtm.Unary.HProp
 import Lgtm.Unary.XSimp
 import Lgtm.Unary.XChange

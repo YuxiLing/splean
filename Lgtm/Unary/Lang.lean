@@ -2,7 +2,7 @@
 import Mathlib.Data.Finmap
 import Mathlib.Data.Real.Basic
 
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Common.Heap
 
 
@@ -817,7 +817,7 @@ declare_syntax_cat uop
 syntax ident : lang
 syntax num : lang
 syntax:20 lang "; " (ppDedent(ppLine lang)) : lang
-syntax:25 lang lang:30 : lang
+syntax:25 lang ppSpace lang:30 : lang
 syntax "if " lang "then " lang "end " : lang
 syntax ppIndent("if " lang " then") ppSpace lang ppDedent(ppSpace) ppRealFill("else " lang) : lang
 syntax "let" ident " := " lang " in" ppDedent(ppLine lang) : lang
@@ -835,8 +835,7 @@ syntax uop lang:30 : lang
 syntax lang:30 bop lang:30 : lang
 syntax "(" lang ")" : lang
 syntax "⟨" term "⟩" : lang
--- syntax "alloc" lang : lang
-syntax "⟪" term "⟫" : lang
+syntax "⟨" term ":" term "⟩" : lang
 
 syntax " := " : bop
 syntax " + " : bop
@@ -916,8 +915,7 @@ macro_rules
   | `([lang| $t1 mod $t2])              => `(trm_val val_mod [lang| $t1] [lang| $t2])
   | `([lang| $t1 ++ $t2])               => `(trm_val val_ptr_add [lang| $t1] [lang| $t2])
   | `([lang| ($t)]) => `([lang| $t])
-  | `([lang| ⟨$t⟩]) => `(val_int $t)
-  | `([lang| ⟪$t⟫]) => `(val_real $t)
+  | `([lang| ⟨$t : $tp⟩]) => `(trm_val (($t : $tp)))
   | `([lang| for $x in [$n1 : $n2] { $t } ]) =>
     `(trm_for $(%x) [lang| $n1] [lang| $n2] [lang| $t])
   | `([lang| while $c:lang { $t:lang } ]) =>
@@ -932,6 +930,14 @@ elab_rules : term
     catch _ => do
       let x <- `(trm_var $(%x))
       elabTerm x none
+
+elab_rules : term
+  | `([lang| ⟨$t⟩]) => do
+    let te <- elabTerm t none
+    let tp <- Meta.inferType te
+    let tp <- delabPpAll tp
+    elabTerm (<- `(trm_val ($t : $tp))) none
+
 
 def val_abs : val := [lang|
   fun i =>
@@ -1010,17 +1016,23 @@ macro_rules
 @[app_unexpander val_int] def unexpandInt : Lean.PrettyPrinter.Unexpander
   | `($(_) $n:num) => `($n:num)
   | `($(_) $n:ident) => `($n:ident)
-  | `($(_) $n:term) => `(⟨$n:term⟩)
+  | `($(_) $n:term) => `(lang|⟨$n:term⟩)
   | _ => throw ( )
 
 @[app_unexpander val_real] def unexpandReal : Lean.PrettyPrinter.Unexpander
   | `($(_) $n:num) => `($n:num)
   | `($(_) $n:ident) => `($n:ident)
-  | `($(_) $n:term) => `(lang|⟪$n:term⟫)
+  | `($(_) $n:term) => `(lang|⟨$n:term⟩)
   | _ => throw ( )
 
 @[app_unexpander val_loc] def unexpandLoc : Lean.PrettyPrinter.Unexpander
   | `($(_) $n:ident) => `($n:ident)
+  | `($(_) $n:term) => `(lang|⟨$n:term⟩)
+  | _ => throw ( )
+
+@[app_unexpander val_bool] def unexpandBool : Lean.PrettyPrinter.Unexpander
+  | `($(_) $n:ident) => `($n:ident)
+  | `($(_) $n:term) => `(lang|⟨$n:term⟩)
   | _ => throw ( )
 
 @[app_unexpander val_prim] def unexpandPrim : Lean.PrettyPrinter.Unexpander
@@ -1057,12 +1069,14 @@ macro_rules
     match x with
     | `($n:num) => `([lang| $n:num])
     | `($n:ident) => `([lang| $n:ident])
-    | `(⟨$n:term⟩) => `([lang| ⟨$n⟩])
+    | `(lang|⟨$n:term⟩) => `([lang| ⟨$n⟩])
     | `([lang| $_]) => return x
     | `([uop| $_]) => return x
     | `([bop| $_]) => return x
     | t => `([lang| ⟨$t⟩])
   | _ => throw ( )
+instance : Coe ℝ val := ⟨val_real⟩
+#check fun (i : ℤ -> ℤ) => [lang| ⟨i 0 : ℤ⟩]
 
 @[app_unexpander trm_app] def unexpandApp : Lean.PrettyPrinter.Unexpander := fun x => do
   -- dbg_trace x
@@ -1254,7 +1268,7 @@ macro_rules
     then
       let y := ⟨1 + 1⟩in
       let y := 1 + 1 in
-      let y := ⟪0 + 1⟫ in
+      let y := ⟨0 + 1⟩ in
       let z := !p in
       y + z
     else
@@ -1281,11 +1295,11 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
       for i in [z : y] {
         ref z := i in
         ref x := i in
-        i := i +1;
+        i := ⟨true⟩;
         i := i +1;
         !z
-      }; !z
-      ]
+      }; !z]
+
 
 #print val_array_make
 
@@ -1294,7 +1308,7 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
   fix f y z =>
     if F y z
     then
-      let y := ⟨1 + 1⟩in
+      let y := ⟨1 + 1 : ℝ⟩in
       let y := 1 + 1 in
       let z := !p in
       y + z
@@ -1308,6 +1322,8 @@ instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
       ]
 #check [lang| 1 ++ 2]
 #check [lang| let x := 6 in alloc(x) as y in ()]
+
+#check fun (x : ℤ -> ℝ) => [lang| ⟨x 0 : ℝ⟩]
 
 #check fun (p : loc)  => [lang|
   fix f y z =>

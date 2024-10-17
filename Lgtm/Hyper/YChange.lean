@@ -1,6 +1,6 @@
 import Lean.Elab.Tactic
 
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.XChange
 
 import Lgtm.Hyper.HProp

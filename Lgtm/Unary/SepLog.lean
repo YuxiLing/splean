@@ -5,7 +5,7 @@ import Mathlib.Data.Multiset.Nodup
 
 import Lgtm.Common.State
 
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.HProp
 import Lgtm.Unary.XSimp
 

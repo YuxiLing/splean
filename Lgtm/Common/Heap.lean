@@ -181,8 +181,7 @@ lemma Heap.add_union_validInter (h₁ h₂ : Heap.heap val) {_ : h₁ ⊥ʰ h₂
 
 end EmptyPCM
 
-
-notation "⟦" z ", " n "⟧" => Finset.Ico z n
+notation "⟦" z ", " n "⟧" => Finset.Ico (α := ℤ) z n
 
 lemma sum_Ico_succl {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
   i < j ->

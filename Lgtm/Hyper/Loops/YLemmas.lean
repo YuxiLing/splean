@@ -14,14 +14,14 @@ import Mathlib.Data.Int.Interval
 import Mathlib.Data.Set.Semiring
 import Mathlib.Data.Finset.Sups
 
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.SepLog
 import Lgtm.Unary.WP1
 
 import Lgtm.Hyper.YSimp
 import Lgtm.Hyper.YChange
 import Lgtm.Hyper.WP
-import Lgtm.Hyper.Subst
+import Lgtm.Hyper.Subst.Theory
 import Lgtm.Hyper.Arrays
 
 import Lgtm.Hyper.Loops.Theory
@@ -62,12 +62,30 @@ class RestrictToIndex (z n) (shts:LGTM.SHTs α) (shtsᵢ : outParam (Int -> LGTM
   ht_eq : ∀ i, z <= i ∧ i < n -> List.Forall₂ (fun s sᵢ => s.ht = sᵢ.ht) shts (shtsᵢ i)
 
 
-instance RestrictToIndexNil (sᵢ : ℤ -> _) : RestrictToIndex z n [⟨∑ i in ⟦z,n⟧, sᵢ i, ht⟩] (fun i => [⟨sᵢ i, ht⟩]) := by
+instance RestrictToIndexNil (sᵢ : ℤ -> _) :
+  RestrictToIndex z n [⟨∑ i in ⟦z,n⟧, sᵢ i, ht⟩] (fun i => [⟨sᵢ i, ht⟩]) := by
+  sdone
+
+lemma iUnion_eq_sum (f : Int -> Set α) :
+  (⋃ i ∈ Set.Ico z n, f i) = (∑ i in Finset.Ico z n, f i)  := by sorry
+
+instance RestrictToIndexNilU (sᵢ : ℤ -> _) :
+  RestrictToIndex z n [⟨⋃ i ∈ (Set.Ico z n), sᵢ i, ht⟩] (fun i => [⟨sᵢ i, ht⟩]) := by
+  srw iUnion_eq_sum
   sdone
 
 instance RestrictToIndexCons (sᵢ : ℤ -> _) [r:RestrictToIndex z n shts shtsᵢ] :
    RestrictToIndex z n (⟨∑ i in ⟦z,n⟧, sᵢ i, ht⟩ :: shts) (fun i => (⟨sᵢ i, ht⟩ :: shtsᵢ i)) := by
   scase: r=> ??; constructor=> //== [] //
+
+instance RestrictToIndexConsU (sᵢ : ℤ -> _) [r:RestrictToIndex z n shts shtsᵢ] :
+   RestrictToIndex z n (⟨⋃ i ∈ Set.Ico z n, sᵢ i, ht⟩ :: shts) (fun i => (⟨sᵢ i, ht⟩ :: shtsᵢ i)) := by
+  srw iUnion_eq_sum; exact inferInstance
+
+-- instance RestrictToIndexConsUSet (sᵢ : ℤ -> _) [r:RestrictToIndex z n shts shtsᵢ] :
+--    RestrictToIndex z n (⟨⋃ i ∈ Set.Ico z n, sᵢ i, ht⟩ :: shts) (fun i => (⟨sᵢ i, ht⟩ :: shtsᵢ i)) := by
+--   apply RestrictToIndexConsU
+
 
 class IsGeneralisedSum (z n) (add) (valid) [PartialCommMonoidWRT val add valid]
   (H₀ : hhProp) (Q : Int -> hval -> hhProp)
@@ -81,8 +99,8 @@ class IsGeneralisedSum (z n) (add) (valid) [PartialCommMonoidWRT val add valid]
 
 
 lemma shts_set_eq_sum (shts : LGTM.SHTs α) :
-  shts.set = ∑ i in ⟦0, shts.length⟧, shts[i]!.s := by
-  elim: shts=> //== sht shts ->; srw Finset.range_add_one' //
+  shts.set = ∑ i in Finset.Ico 0 shts.length, shts[i]!.s := by
+  elim: shts=> //== sht shts ->;srw Finset.range_add_one' //
 
 lemma RestrictToIndex.eq_length (restr: RestrictToIndex z n shts shtsᵢ) :
   ∀ i ∈ ⟦z,n⟧, shts.length = (shtsᵢ i).length := by
@@ -147,15 +165,10 @@ lemma RestrictToIndex.htrm_eq (restr: @RestrictToIndex α z n shts shtsᵢ)
       exists h=> //; srw getElem!_pos // }
     srw rstr.sets_eq // mem_union; exists i=> //
 
-lemma LGTM.triple_conseq :
-  Pre ==> Pre' ->
-  Post' ===> Post ->
-  LGTM.triple shts Pre' Post' ->
-  LGTM.triple shts Pre Post := by sorry
-
 local notation (priority := high) Q " ∗↑ " s:70 => bighstar s Q
 
-lemma yfor_lemma_aux
+lemma yfor_lemma_aux'
+  {c : htrm}
   [PartialCommMonoidWRT val add valid]
   [Inhabited α]
   [Inhabited β]
@@ -173,12 +186,12 @@ lemma yfor_lemma_aux
   (∀ j hv₁ hv₂, z <= j ∧ j < n -> (shtsᵢ j).Forall (Set.EqOn hv₁ hv₂ ·.s) -> Q j hv₁ = Q j hv₂) ->
   (∀ i (v : β), z <= i ∧ i < n ->
     LGTM.triple
-      (⟨s', fun _ => subst vr i c⟩ :: shtsᵢ i)
+      (⟨s', fun j => subst vr i (c j)⟩ :: shtsᵢ i)
       (Qgen i v ∗ Inv i ∗ R ∗↑ (shtsᵢ i).set /- split with type classes? -/)
       (Qind i v · ∗ Inv (i+1) ∗ R' ∗↑ (shtsᵢ i).set) /- split with type classes? -/) ->
   Pre ==> H₀ ∗ Inv z ∗  R ∗↑ shts.set ->
   (fun hv => Qsum hv ∗ Inv n ∗ R' ∗↑ shts.set ) ===> Post ->
-  LGTM.triple (⟨s', fun _ => trm_for vr z n c⟩ :: shts)
+  LGTM.triple (⟨s', fun j => trm_for vr z n (c j)⟩ :: shts)
     Pre
     Post := by
   move=> dj dj' ? ???? eqQ ind preH postH
@@ -241,7 +254,8 @@ lemma hhlocal_hhlimpl :
   H₁ ==> H₀ → hhlocal s' H₀ → hhlocal s' H₁ := by
   sby move=> himpl hl ? /himpl /hl
 
-lemma yfor_lemma
+lemma yfor_lemma_aux
+  {c : htrm}
   [PartialCommMonoidWRT val add valid]
   [Inhabited α]
   [Inhabited β]
@@ -252,7 +266,7 @@ lemma yfor_lemma
   (R' : α -> hProp := fun _ => hempty)
   (R : α -> hProp := fun _ => hempty)
   (Inv : Int -> hhProp := fun _ => emp) :
-  Hu = Hu' ->
+  Hu ==> Hu' ->
   s'.Nonempty ->
   shts.Forall (Disjoint s' ·.s) ->
   shts.Pairwise (Disjoint ·.s ·.s) ->
@@ -264,28 +278,31 @@ lemma yfor_lemma
   (∀ j hv₁ hv₂, z <= j ∧ j < n -> (shtsᵢ j).Forall (Set.EqOn hv₁ hv₂ ·.s) -> Q j hv₁ = Q j hv₂) ->
   (∀ i (v : β), z <= i ∧ i < n ->
     LGTM.triple
-      (⟨s', fun _ => subst vr i c⟩ :: shtsᵢ i)
+      (⟨s', fun j => subst vr i (c j)⟩ :: shtsᵢ i)
       ((Qgen i v ∗ Inv i ∗ R ∗↑ (shtsᵢ i).set) ∗ Hu)
       ((Qind i v · ∗ Inv (i+1) ∗ R' ∗↑ (shtsᵢ i).set)  ∗ Hu)) ->
   Pre' ==> H₀ ∗ Inv z ∗  R ∗↑ shts.set ->
   (fun hv => Qsum hv ∗ Inv n ∗ R' ∗↑ shts.set ) ===> Post' ->
-  LGTM.triple (⟨s', fun _ => trm_for vr z n c⟩ :: shts)
+  LGTM.triple (⟨s', fun j => trm_for vr z n (c j)⟩ :: shts)
     Pre
     Post := by
-  move=> ?? dj ??????? tr PreH PostH; subst_vars
+  move=> HuImpl ? dj ??????? tr PreH PostH
   shave: Disjoint s' (∑ i ∈ ⟦z, n⟧, (shtsᵢ i).set)
   { srw -rstr.set_eq; clear *-dj; clear rstr gen; elim: shts=> // }
   move=> /== ?
   shave->: Post = Post' ∗ Hu'
   { move=> !hv
     rw [(uPost hv).H_eq]; ysimp; ysimp }
+  apply LGTM.triple_conseq
+  { apply hhimpl_refl }
+  { move=> hv /=; apply hhimpl_frame_r; apply HuImpl }
   srw ?uPre.H_eq hhstar_comm uPre.Hu_eq
   apply LGTM.triple_conseq
   { apply hhimpl_frame_l; apply PreH }
   { move=> ? /=; apply hhimpl_frame_l; apply PostH }
   srw /=
   erw [LGTM.triple_extend_univ]=> //' /==
-  { apply yfor_lemma_aux (gen := gen)
+  { apply yfor_lemma_aux' (gen := gen)
      (R := fun a => R a ∗ ∗↓ Pre)
      (R' := fun a => R' a ∗ ∗↓ Pre)
      (Inv := fun i => Inv i ∗ [∗ in s'| ∗↓ Pre])=> //'
@@ -314,3 +331,68 @@ lemma yfor_lemma
     srw gen.eqSum /==// }
   apply hhlocal_subset; rotate_left; auto
   auto
+
+lemma zseq_lemma_aux (shts : LGTM.SHTs α) (ht₁ ht₂ : htrm) :
+  Disjoint s shts.set ->
+  LGTM.wp (⟨s, ht₁⟩ :: shts) (fun hv =>
+    hwp s ht₂ (fun hv' => Q (hv' ∪_s hv) )) ==>
+  LGTM.wp (⟨s, fun i => trm_seq (ht₁ i) (ht₂ i)⟩ :: shts) Q := by
+  move=> ?
+  srw [2]LGTM.wp_cons //=
+  ychange hwp_seq=> /=
+  srw LGTM.wp_cons //=; apply hwp_conseq=> hv /=
+  -- simp [fun_insert]
+  srw LGTM.wp_Q_eq; rotate_right
+  { move=> ?; srw LGTM.hwp_Q_eq=> hv
+    srw fun_insert_ss' }
+  apply hhimpl_trans; apply LGTM.wp_cons_last (sht := ⟨s, _⟩)=> //
+  srw LGTM.wp_cons=> //=
+
+lemma zseq_lemma (H : hhProp) (shts : LGTM.SHTs α) (ht₁ ht₂ : htrm) :
+  Disjoint s shts.set ->
+  H ==> LGTM.wp (⟨s, ht₁⟩ :: shts) (fun hv =>
+    hwp s ht₂ (fun hv' =>
+      Q (hv' ∪_s hv) )) ->
+  H ==>
+    LGTM.wp (⟨s, fun i => trm_seq (ht₁ i) (ht₂ i)⟩ :: shts) Q := by
+  move=> ??; ychange zseq_lemma_aux=> //
+
+lemma yfor_lemma
+  {c c' : htrm}
+  {Post' : hval -> hhProp}
+  [PartialCommMonoidWRT val add valid]
+  [Inhabited α]
+  [Inhabited β]
+  [uPre : FindUniversal Pre Hu Pre']
+  [uPost : forall hv, FindUniversal (Post hv) Hu' (Post' hv)]
+  [rstr : RestrictToIndex z n shts shtsᵢ]
+  [gen: IsGeneralisedSum z n add valid H₀ Q β Qgen Qind Qsum]
+  (R' : α -> hProp := fun _ => hempty)
+  (R : α -> hProp := fun _ => hempty)
+  (Inv : Int -> hhProp := fun _ => emp) :
+  Hu ==> Hu' ->
+  s'.Nonempty ->
+  shts.Forall (Disjoint s' ·.s) ->
+  shts.Pairwise (Disjoint ·.s ·.s) ->
+  z <= n ->
+  hhlocal s' H₀ ->
+  (∀ i hv, hhlocal s' (Q i hv)) ->
+  (∀ i, hhlocal s' (Inv i)) ->
+  (∀ i b, hhlocal s' (Qgen i b)) ->
+  (∀ j hv₁ hv₂, z <= j ∧ j < n -> (shtsᵢ j).Forall (Set.EqOn hv₁ hv₂ ·.s) -> Q j hv₁ = Q j hv₂) ->
+  (∀ i (v : β), z <= i ∧ i < n ->
+    LGTM.triple
+      (⟨s', fun j => subst vr i (c j)⟩ :: shtsᵢ i)
+      ((Qgen i v ∗ Inv i ∗ R ∗↑ (shtsᵢ i).set) ∗ Hu)
+      (fun hv => (Qind i v hv ∗ Inv (i+1) ∗ R' ∗↑ (shtsᵢ i).set)  ∗ Hu)) ->
+  Pre' ==> H₀ ∗ Inv z ∗  R ∗↑ shts.set ->
+  (∀ hv,
+    Qsum hv ∗ Inv n ∗ R' ∗↑ shts.set ==> hwp s' c' (Post' $ · ∪_s' hv)) ->
+  LGTM.triple (⟨s', fun j => trm_seq (trm_for vr z n (c j)) (c' j)⟩ :: shts)
+    Pre
+    Post := by
+    move=> ?? disj *
+    apply zseq_lemma
+    { srw shts_set_eq_sum /== => *
+      move: disj; srw List.forall_iff_forall_mem; sapply
+      srw getElem!_pos //'; apply List.getElem_mem }
