@@ -19,19 +19,9 @@ def val.toReal : val -> ℝ
   | _ => panic! "toInt"
 
 
--- @[simp]
--- noncomputable def propToVal : Prop -> val := fun p => val_bool (decide p)
-
--- lemma val_bool_eq_propToVal :
---   val_bool b = propToVal p ↔ b = p := by
---   simp
-
--- noncomputable instance : Coe Prop val := ⟨propToVal⟩
-
 @[simp]
 lemma toReal_eq (i : ℝ) : val.toReal i = i := by rfl
 
--- instance : Coe val Prop := ⟨fun v => v.toBool⟩
 
 @[app_unexpander val.toReal] def unexpandToInt : Lean.PrettyPrinter.Unexpander
   | `($_ $v) => `($v)
@@ -41,12 +31,6 @@ attribute [-simp] fun_insert Bool.forall_bool
 attribute [simp] Set.univ_inter
 #hint_yapp htriple_ref
 
-instance [Inhabited α] : Inhabited (Labeled α) := ⟨⟨0, default⟩⟩
-
-@[heapSimp]
-lemma bighstar_hhempty' (s : Set α) :
-   [∗ in s | hempty] = emp :=
-  by sby unfold hhempty bighstar bighstarDef hEmpty=> /= !?; simp[hempty]=> ⟨?!|->⟩
 
 theorem biUnion_prod_const (s': Set ι) {s : ι → Set α} {t : Set β} :
   (⋃ i ∈ s', s i) ×ˢ t = ⋃ i ∈ s', s i ×ˢ t := by
@@ -246,4 +230,3 @@ lemma sum2_spec (z : ℤ) (r : ℝ)  :
   srw (tsum_eq_sum (s := ⟦0, M⟧)) /==
   { apply Finset.sum_congr=> // }
   move=> i ?; simp (disch := omega) [if_neg]
-  right; rfl

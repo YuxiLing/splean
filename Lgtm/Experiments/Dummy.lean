@@ -39,13 +39,6 @@ attribute [-simp] fun_insert Bool.forall_bool
 attribute [simp] Set.univ_inter
 #hint_yapp htriple_ref
 
-instance [Inhabited α] : Inhabited (Labeled α) := ⟨⟨0, default⟩⟩
-
-@[heapSimp]
-lemma bighstar_hhempty' (s : Set α) :
-   [∗ in s | hempty] = emp :=
-  by sby unfold hhempty bighstar bighstarDef hEmpty=> /= !?; simp[hempty]=> ⟨?!|->⟩
-
 theorem biUnion_prod_const (s': Set ι) {s : ι → Set α} {t : Set β} :
   (⋃ i ∈ s', s i) ×ˢ t = ⋃ i ∈ s', s i ×ˢ t := by
   ext
