@@ -793,6 +793,15 @@ instance RestrictToIndexNilU' (sᵢ : ℤ -> _) :
   srw iUnion_eq_sum
   sdone
 
+instance RestrictToIndexConsUL' (sᵢ : ℤ -> _) [r:RestrictToIndex z n shts shtsᵢ] :
+   RestrictToIndex z n (⟨⟪l, ⋃ i ∈ Finset.Ico z n, sᵢ i⟫, ht⟩ :: shts) (fun i => (⟨⟪l,sᵢ i⟫, ht⟩ :: shtsᵢ i)) := by
+  srw iUnion_eq_sum' -iUnion_eq_sum labSet_iUnion; apply RestrictToIndexConsU
+
+instance RestrictToIndexNilU'' (sᵢ : ℤ -> _) :
+  RestrictToIndex z n [⟨⟪l, ⋃ i ∈ (Finset.Ico z n), sᵢ i⟫, ht⟩] (fun i => [⟨⟪l, sᵢ i⟫, ht⟩]) := by
+  srw iUnion_eq_sum' -iUnion_eq_sum; apply RestrictToIndexNilUL
+
+
 
 
 /- Fisrt we provide instances for a typeclass which dirives
@@ -942,6 +951,26 @@ instance GenInst (op : hval α -> ℤ -> ℝ) (x : α -> loc) :
       srw sum_hhsingle; ysimp=> //
     eqInd := by srw hhadd_hhsingle //
     eqSum := by srw sum_hhsingle //
+
+instance GenInstWithPure (op : hval α -> ℤ -> ℝ) (x : α -> loc) (P : hval α -> ℤ -> Prop) :
+  IsGeneralisedSum
+    z n
+    AddRealPCM.add AddRealPCM.valid
+    (x i ~⟨i in s⟩~> val_real 0)
+    (fun i hv => x j ~⟨j in s⟩~> op hv i ∗ ⌜P hv i⌝)
+    (ℝ)
+    (fun _ j =>  x i ~⟨i in s⟩~> j)
+    (fun i j hv => x k ~⟨k in s⟩~> val.val_real (op hv i + j) ∗ ⌜P hv (i)⌝)
+    (fun hv => x k ~⟨k in s⟩~> val.val_real (∑ i in ⟦z,n⟧, op hv i) ∗ ⌜∀ j ∈ ⟦z,n⟧, P hv j⌝ ) where
+    eqGen := by
+      move=> > ?
+      exists (∑ i in ⟦z, j⟧, op (hv i) i) , ⌜∀ k ∈ ⟦z,j⟧, P (hv k) k⌝
+      srw sum_hhstar_hhpure hhstar_pure_hhadd -add_assoc -hhstar_pure_hhadd
+      srw sum_hhsingle
+    eqInd := by
+      srw hhstar_pure_hhadd add_assoc add_comm add_assoc hhadd_hhsingle //
+    eqSum := by srw sum_hhstar_hhpure [2]hhstar_pure_hhadd -add_assoc sum_hhsingle //
+
 
 @[simp]
 lemma validE : PartialCommMonoid.valid = AddRealPCM.valid := by trivial

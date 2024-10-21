@@ -15,6 +15,7 @@ import Mathlib.Data.Set.Semiring
 import Mathlib.Data.Finset.Sups
 
 import Lgtm.Common.Util
+import Lgtm.Common.LabType
 import Lgtm.Unary.SepLog
 import Lgtm.Unary.WP1
 
@@ -68,6 +69,9 @@ instance RestrictToIndexNil (sᵢ : ℤ -> _) :
 
 lemma iUnion_eq_sum (f : Int -> Set α) :
   (⋃ i ∈ Set.Ico z n, f i) = (∑ i in Finset.Ico z n, f i)  := by sorry
+
+lemma iUnion_eq_sum' (f : Int -> Set α) :
+  (⋃ i ∈ Finset.Ico z n, f i) = (∑ i in Finset.Ico z n, f i)  := by sorry
 
 instance RestrictToIndexNilU (sᵢ : ℤ -> _) :
   RestrictToIndex z n [⟨⋃ i ∈ (Set.Ico z n), sᵢ i, ht⟩] (fun i => [⟨sᵢ i, ht⟩]) := by

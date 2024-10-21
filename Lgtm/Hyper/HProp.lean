@@ -1037,6 +1037,23 @@ lemma bighstarDef_univ_split :
     srw bighstar_hhstar_disj //
     exact Set.disjoint_compl_right_iff_subset.mpr fun ⦃a⦄ a ↦ a
 
+attribute [simp] hunion_empty
+
+lemma hhstar_pure_hhadd [PartialCommMonoid val] (P : Prop) (H : hhProp) :
+  H ∗ ⌜P⌝ = H + ⌜P⌝  := by
+  move=> !h !⟨|⟩ ![] h ? ? ![]/= ? -> /== -> _<;> exists h, ∅=> ⟨//|⟨//|⟨//|⟩⟩⟩
+  { move=> ? ? // }
+  move=> ? ? // /== ? ? //
+
+lemma sum_hhstar_hhpure [PartialCommMonoid val] (P : β -> Prop) (s : Finset β) (H : β -> hhProp) :
+  ∑ i in s, (H i ∗ ⌜P i⌝) = (∑ i in s, H i) ∗ ⌜∀ i ∈ s, P i⌝  := by
+  simp [hhstar_pure_hhadd]
+  srw Finset.sum_add_distrib; congr
+  induction s using Finset.induction=> /==
+  { move=> !h !⟨|⟩ // ![] // }
+  rename_i b s _ ih; srw Finset.sum_insert // ih -hhstar_pure_hhadd
+  move=> !h; srw hhstar_hhpure_l=> !⟨|⟩ ![] //
+
 
 /- -------------------- Properties of [hhsingle] -------------------- -/
 

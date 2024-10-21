@@ -58,6 +58,11 @@ lemma hstar_post_empty (Q : α -> hhProp) :
   Q ∗ (emp : hhProp) = Q := by
   move=> !?; srw hqstarE hhstar_hhempty_r
 
+@[heapSimp]
+lemma bighstar_hhempty' (s : Set α) :
+   [∗ in s | hempty] = emp :=
+  by sby unfold hhempty bighstar bighstarDef hEmpty=> /= !?; simp[hempty]=> ⟨?!|->⟩
+
 
 attribute [heapSimp] hhstar_hhempty_l hhstar_hhempty_r
                      hhstar_assoc hstar_post_empty hhwand_hempty_l bighstar_hhempty

@@ -1,4 +1,5 @@
 import Mathlib.Data.Int.Interval
+import Mathlib.Tactic
 
 import Lgtm.Unary.WP1
 import Lgtm.Unary.Lang
@@ -133,7 +134,7 @@ abbrev to_real (v : val) : ℝ :=
 abbrev to_int (v : val) : ℤ :=
   match v with
   | val_int n => n
-  | _ => 0
+  | _ => -1
 
 instance : Coe ℝ val := ⟨val_real⟩
 instance : Coe val ℝ := ⟨to_real⟩
@@ -143,6 +144,7 @@ instance : Coe val ℤ := ⟨to_int⟩
 -- #hint_xapp triple_ref
 #hint_xapp triple_get
 #hint_xapp triple_lt
+#hint_xapp triple_sub
 #hint_xapp triple_neq
 -- #hint_xapp triple_free
 #hint_xapp incr_spec
@@ -242,8 +244,104 @@ lemma findIdx_spec_out (arr : loc) (f : Int -> ℝ) (target : ℝ)
   move=> /(_ i)=> // H
   specialize H ?_ ?_=> //; omega
 
+lang_def searchIdx :=
+  fun arr target Z N =>
+    let arr0 := arr[Z] in
+    let cnd := target < arr0 in
+    if cnd then
+      len arr
+    else
+      let Z' := Z + 1 in
+      let ind := ref Z' in
+      while (
+        let ind    := !ind in
+        let indLN  := ind < N in
+        if indLN then
+          let arrind := arr[ind] in
+          arrind <= target
+        else false) {
+          incr ind
+      };
+      let res := !ind in
+      free ind ;
+      let res := res - 1 in
+      res
 
+set_option maxHeartbeats 1600000
+lemma searchIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
+  (z n : ℤ) (_ : z < n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
+  MonotoneOn f ⟦z, n⟧ ->
+  f z <= target ∧ target < f (n-1) ->
+  { arr(arr, x in N => f x) }
+  [ searchIdx arr target z n ]
+  { v, ⌜
+    to_int v ∈ ⟦z, n-1⟧ ∧ f v <= target ∧ target < f (v + 1) ⌝ ∗ arr(arr, x in N => f x) } := by
+  move=> mon tgt
+  xwp; xapp <;> try omega
+  xwp; xapp triple_ltr
+  xwp; xif=> //== <;> try omega
+  { srw lt_iff_not_ge // }
+  move=> _; xwp; xapp
+  xwp; xapp=> p
+  let cond (i : ℤ) := (z< i ∧ i < n ∧ f i <= target)
+  xwhile_up (fun b i =>
+    ⌜z < i ∧ i <= n ∧ ∀ x ∈ ⟦z, i⟧, f x <= target⌝ ∗
+    p ~~> i ∗
+    ⌜cond i = b⌝ ∗
+    arr(arr, x in N => f x)) N
+  { xsimp [(decide (cond (z + 1)))]=> //== ⟨|⟩; omega
+    move=> z' *; shave<-//: z = z'; omega }
+  { move=> b i
+    xwp; xapp=> ih; srw cond /== => condE
+    xwp; xapp
+    xwp; xif=> //== iL
+    { xwp; xapp; rotate_left
+      { omega }
+      xwp; xapp triple_ler; xsimp=> //== }
+    xwp; xval; xsimp=> //
+    scase: b condE=> //==; omega }
+  { move=> i;
+    xapp=> /== ?? fE ?; srw cond /== => ? fInvE
+    xsimp [(decide (cond (i + 1))), i+1]=> //
+    { move=> ⟨|⟨|⟩⟩ <;> try omega
+      move=> j *; scase: [j = i]=> [?|//]
+      apply fE <;> omega }
+    omega }
+  move=> hv /=; xsimp=> i ![?? ih]; srw cond=> /== fE
+  sdo 3 (xwp; xapp)
+  xwp; xval; xsimp
+  simp [to_int]=> ⟨|⟨|⟩⟩;
+  { scase: [i = n]=> ? <;> subst_vars
+    { omega }
+    specialize ih (i-1) ?_
+    { simp; omega }
+    scase: tgt=> _; move=> /not_lt_of_le // }
+  { apply ih=> /==; omega }
+  apply fE; omega
+  srw lt_iff_not_ge=> ?; shave ?: i = n; omega
+  subst_vars; specialize ih (i-1) ?_
+  { simp; omega }
+  scase: tgt=> _; move=> /not_lt_of_le //
 
+lemma searchIdx_spec' (arr : loc) (f : ℤ -> ℝ) (target : ℝ)
+  (z n : ℤ) (_ : z < n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
+  MonotoneOn f ⟦z, n⟧ ->
+  i ∈ ⟦z,n-1⟧ ->
+  f i <= target ∧ target < f (i + 1) ->
+  { arr(arr, x in N => f x) }
+  [ searchIdx arr target z n ]
+  { v, ⌜ v = i ⌝ ∗ arr(arr, x in N => f x) } := by
+  move=> mon /== ?? tg gt *; xapp searchIdx_spec=> /==;
+  scase: x <;> simp [to_int] <;> try omega
+  { move=> // j ????
+    shave: f i < f (j + 1) ∧ f j < f (i + 1)
+    { move=> ⟨|⟩ <;> linarith }
+    -- #check
+    scase=> /mon.reflect_lt /== ? /mon.reflect_lt /== ?
+    shave->: i = j; omega; xsimp }
+  shave ?: f z <= f i; apply mon=> /== <;> try omega
+  shave ?: f (i + 1) <= f (n -1); apply mon=> /== <;> try omega
+  constructor <;> linarith
 
 
 end Lang

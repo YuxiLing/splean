@@ -10,6 +10,8 @@ structure Labeled (α : Type*) where
   lab : LabType
   val : α
 
+instance [Inhabited α] : Inhabited (Labeled α) := ⟨⟨0, default⟩⟩
+
 def labSet (l : ℕ) (s : Set α) : Set (Labeled α) := { ⟨l, x⟩ | x ∈ s }
 
 notation (priority := high) "⟪" l ", " s "⟫" => labSet l s
