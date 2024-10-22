@@ -746,12 +746,12 @@ declare_syntax_cat hints
 syntax "[" (ppSpace colGt hint),* "]" : hints
 
 def eApplyAndName (lem : Name) (mvarName : Name) : TacticM Unit := withMainContext do
-    let g <- getMainGoal
-    let [g, ex] <- g.applyConst lem | throwError "eApplyAndName: should be two goals"
+    let gs <- getUnsolvedGoals
+    let [g, ex] <- gs[0]!.applyConst lem | throwError "eApplyAndName: should be two goals"
     let nm <- fresh mvarName
     ex.setTag nm.getId
     ex.setUserName nm.getId
-    setGoals [g]
+    setGoals $ g :: gs.tail
 
 
 def xsimp_r_hexists_apply_hints (x : Ident) : TacticM Unit := do

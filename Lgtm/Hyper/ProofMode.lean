@@ -446,6 +446,53 @@ by
   move=> himp; apply yref_lemma_aux=> p
   ysimp; ychange himp
 
+lemma yref_lemma_singleton (x : αˡ → var) (v : αˡ → val) (t : αˡ → trm) H Q :
+  (∀ p : loc, H ∗ (p ~⟨i in ⟪l, {a}⟫⟩~> v i) ==>
+    (hwp ⟪l, {a}⟫ (fun _ ↦ subst (x ⟨l, a⟩) p (t ⟨l, a⟩))
+    (Q ∗ ∃ʰ (u : αˡ → val), p ~⟨i in ⟪l, {a}⟫⟩~> u i))) →
+  H ==> hwpgen_ref ⟪l, {a}⟫ x (fun i ↦ trm_val (v i)) t Q :=
+by
+  move=> imp; apply yref_lemma=> p;
+  srw hhsingle bighstar_eq; apply hhimpl_trans
+  { apply imp (p ⟨l,a⟩) }
+  srw [2]hwp_labSet_single; apply hwp_conseq
+  ypull=> u; ysimp[u]; scase: u=> ?? /==
+  { move=>->-> // }
+  srw hhsingle bighstar_eq //
+  scase=> ?? /== ->->
+
+
+
+lemma yref_lemma_nested (x : α → var) (v : α → val) (t : α → trm) H (Q : _ -> _ -> _) :
+  shts.Forall (Disjoint ·.s s ) ->
+  (∀ p : α → loc, H ∗ (p i ~⟨i in s⟩~> v i) ==>
+    (hwp s (fun i ↦ subst (x i) (p i) (t i))
+    (fun hv => (LGTM.wp shts fun hv' => Q hv hv' ∗ ∃ʰ (u : α → val), p i ~⟨i in s⟩~> u i)))) →
+  H ==> hwpgen_ref s x (fun i ↦ trm_val (v i)) t (fun hv => LGTM.wp shts (Q hv)) :=
+by
+  move=> dj ?; apply yref_lemma=> ?
+  apply hhimpl_trans=> //; apply hwp_conseq=> hv /=
+  apply hwp_frame_in=> //
+  srw shts_set_eqSum /==; move: dj
+  srw List.forall_iff_forall_mem //
+
+lemma yref_lemma_nested_singleton (x : αˡ → var) (v : αˡ → val) (t : αˡ → trm) H (Q : _ -> _ -> _) :
+  shts.Forall (Disjoint ·.s ⟪l, {s}⟫) ->
+  (∀ p : loc, H ∗ (p ~⟨i in ⟪l, {s}⟫⟩~> v i) ==>
+    (hwp ⟪l, {s}⟫ (fun _ ↦ subst (x ⟨l,s⟩) p (t ⟨l,s⟩))
+    (fun hv => (LGTM.wp shts fun hv' => Q hv hv' ∗ ∃ʰ (u : αˡ → val), p ~⟨i in ⟪l, {s}⟫⟩~> u i)))) →
+  H ==> hwpgen_ref ⟪l, {s}⟫ x (fun i ↦ trm_val (v i)) t (fun hv => LGTM.wp shts (Q hv)) :=
+by
+  move=> ? imp; apply yref_lemma_nested=> // p;
+  srw hhsingle bighstar_eq; apply hhimpl_trans
+  { apply imp (p ⟨l,s⟩) }
+  srw [2]hwp_labSet_single; apply hwp_conseq
+  { move=> hv /=; apply hwp_conseq=> hv' /=
+    ypull=> u; ysimp[u]
+    srw hhsingle bighstar_eq //
+    scase=> ?? /== ->-> }
+  scase=> ?? /== ->->
+
 lemma ywp_lemma_fun (v1 v2 : hval α) (x : α -> var) (t : htrm α) H Q :
   (∀ i, v1 i = val_fun (x i) (t i)) →
   H ==> hwp s (fun i => subst (x i) (v2 i) (t i)) Q →
@@ -515,8 +562,15 @@ macro "yif" : tactic => do
 
 macro "yref" p:term : tactic => do
   `(tactic|
-  (yseq_xlet_if_needed; ystruct_if_needed; apply yref_lemma; intro $p:term;
-    try simp [$(mkIdent `subst):ident]))
+  (yseq_xlet_if_needed; ystruct_if_needed;
+   (first |
+     apply yref_lemma_nested_singleton |
+     apply yref_lemma_singleton |
+     apply yref_lemma_nested |
+     apply yref_lemma);
+   { simp [disjE] }
+   intro $p:term;
+   try simp [$(mkIdent `subst):ident]))
 macro "yifT" : tactic => do
   `(tactic|
   (yseq_xlet_if_needed; ystruct_if_needed; apply yif_lemma_true))

@@ -1405,3 +1405,7 @@ lemma sP_post :
   xsimp=> ev; srw hwand_hpure_l=> //
   scase: ev=> // ? ev; sapply
   apply sP_strongest; sby apply ev
+
+lemma sP_postExact :
+  eval h t Q -> evalExact h t (sP h t) := by
+  sorry

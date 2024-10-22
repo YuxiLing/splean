@@ -164,8 +164,8 @@ lemma findIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
   { v, ⌜ v = f.invFunOn ⟦z, n⟧ target ⌝ ∗ arr(arr, x in N => f x) } := by
   move=> inj fin
   -- xwp; xapp triple_arrayFun_length
-  xwp; xref
-  let cond (i : ℤ) := (i < N ∧ f.invFunOn ⟦0, (N : ℤ)⟧ target != i)
+  xwp; xref;
+  let cond := fun i : ℤ => (i < n ∧ f.invFunOn ⟦z, n⟧ target != i)
   xwhile_up (fun b i =>
     ⌜z <= i ∧ i <= n ∧ target ∉ f '' ⟦z, i⟧⌝ ∗
     p ~~> i ∗
@@ -181,12 +181,12 @@ lemma findIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
       xwp; xapp; xsimp=> //==
       scase: b condE=> /==
       { move=> /(_ iL) <-; apply Function.invFunOn_eq=> // }
-      move=> _ _ /[swap] <-;
+      move=> _ /[swap] <-;
       srw Function.invFunOn_app_eq // }
     xwp; xval; xsimp=> //
     scase: b condE=> //==; omega }
   { move=> i;
-    xapp=> /== ?? fE ?; srw cond /== => ? fInvE
+    xapp=> /== ?? fE ?; srw cond /== => fInvE
     xsimp [(decide (cond (i + 1))), i+1]=> //
     { move=> ⟨|⟨|⟩⟩ <;> try omega
       move=> j *; scase: [j = i]=> [?|->]
@@ -196,7 +196,7 @@ lemma findIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
     srw cond /== }
   move=> hv /=; xsimp=> i ?; srw cond=> /== fE
   sdo 2 (xwp; xapp)
-  xwp; xval; xsimp
+  xwp; xval; xsimp[val_int i]
   srw fE //; scase: [i = n]=> [|?] //; omega
 
 lemma findIdx_spec_out (arr : loc) (f : Int -> ℝ) (target : ℝ)
@@ -208,7 +208,7 @@ lemma findIdx_spec_out (arr : loc) (f : Int -> ℝ) (target : ℝ)
   { v, ⌜ v = val_int n ⌝ ∗ arr(arr, x in N => f x) } := by
   move=> ? img
   xwp; xref
-  let cond (i : ℤ) := (i < N ∧ target != f i)
+  let cond (i : ℤ) := (i < n ∧ target != f i)
   xwhile_up (fun b i =>
     ⌜z <= i ∧ i <= n ∧ target ∉ f '' ⟦z, i⟧⌝ ∗
     p ~~> i ∗
@@ -224,11 +224,11 @@ lemma findIdx_spec_out (arr : loc) (f : Int -> ℝ) (target : ℝ)
       xwp; xapp; xsimp=> //==
       scase: b condE=> /==
       { move=> -> // }
-      move=> _ _ /[swap] <- // }
+      move=> _ /[swap] <- // }
     xwp; xval; xsimp=> //
     scase: b condE=> //==; omega }
   { move=> i;
-    xapp=> /== ?? fE ?; srw cond /== => ? fInvE
+    xapp=> /== ?? fE ?; srw cond /== => fInvE
     xsimp [(decide (cond (i + 1))), i+1]=> //
     { move=> ⟨|⟨|⟩⟩ <;> try omega
       move=> j *; scase: [j = i]=> [?|->]
@@ -238,7 +238,7 @@ lemma findIdx_spec_out (arr : loc) (f : Int -> ℝ) (target : ℝ)
     srw cond /== }
   move=> hv /=; xsimp=> i ?; srw cond=> /== fE
   sdo 2 (xwp; xapp)
-  xwp; xval; xsimp
+  xwp; xval; xsimp[val_int i]
   scase: [i = n]=> [?|?] //;
   move: img; srw fE //== <;> try omega
   move=> /(_ i)=> // H
@@ -252,7 +252,7 @@ lang_def searchIdx :=
       len arr
     else
       let Z' := Z + 1 in
-      let ind := ref Z' in
+      ref ind := Z' in
       while (
         let ind    := !ind in
         let indLN  := ind < N in
@@ -263,9 +263,7 @@ lang_def searchIdx :=
           incr ind
       };
       let res := !ind in
-      free ind ;
-      let res := res - 1 in
-      res
+      res - 1
 
 set_option maxHeartbeats 1600000
 lemma searchIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
@@ -282,7 +280,7 @@ lemma searchIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
   xwp; xif=> //== <;> try omega
   { srw lt_iff_not_ge // }
   move=> _; xwp; xapp
-  xwp; xapp=> p
+  xwp; xref
   let cond (i : ℤ) := (z< i ∧ i < n ∧ f i <= target)
   xwhile_up (fun b i =>
     ⌜z < i ∧ i <= n ∧ ∀ x ∈ ⟦z, i⟧, f x <= target⌝ ∗
@@ -309,8 +307,7 @@ lemma searchIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
     omega }
   move=> hv /=; xsimp=> i ![?? ih]; srw cond=> /== fE
   sdo 3 (xwp; xapp)
-  xwp; xval; xsimp
-  simp [to_int]=> ⟨|⟨|⟩⟩;
+  xsimp[val_int i]; simp [to_int]=> ⟨|⟨|⟩⟩;
   { scase: [i = n]=> ? <;> subst_vars
     { omega }
     specialize ih (i-1) ?_

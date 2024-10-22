@@ -53,6 +53,42 @@ lemma hwp_frame (ht : htrm) (Q : hval -> hhProp) (H : hhProp) :
   apply heval_conseq; apply heval_frame=> //
   ysimp=> //
 
+lemma hSP_sat :
+  heval s hh ht hQ -> ∃ hh' hv, hSP s hh ht hh' hv := by sorry
+
+-- set_option maxHeartbeats 1000000 in
+lemma hwp_frame_in (ht : htrm) (Q : hval -> hhProp) (H : hhProp) :
+  Disjoint s s' ->
+  hwp s ht (Q ∗ ∃ʰ u, hhsingle s' p u) ==> hwp s ht Q ∗ ∃ʰ u, hhsingle s' p u := by
+  move=> dj h; unfold hwp=> /=
+  scase: [∀ a ∈ s', p a ∈ h a]
+  { simp=> a ? pin /[dup] /hSP_sat ![hv hh'] hSPH /[dup] ![? hev _] /hSP_impl /(_ (hSPH)) /=
+    scase! => hv' hh₁ hh₂ ? ![v] /= /(_ a); srw if_pos //== => heq
+    move=> /(congrArg (a₁ := hh') (· a)) /=; srw heq
+    move: hSPH=> /hSP_WellAlloc /(_ hev) /(_ a) /[swap] /(congrArg (a₁ := hh' a) (·.keys))
+    move=> -> keq; move: pin; srw -Finmap.mem_keys keq Finmap.mem_keys /==  }
+  move=> pin
+  let h₁ := fun a => if a ∈ s' then  (h a).erase (p a) else (h a)
+  let h₂ :hheap α := (fun a => if a ∈ s' then Finmap.singleton (p a) ((h a).lookup (p a)).get! else ∅)
+  shave->: h = h₁ ∪ h₂
+  { funext a=> /=; simp [h₁,h₂]; scase_if=> ain //
+    srw Finmap.erase_union_singleton
+    move: (Finmap.lookup_isSome.mpr (pin _ ain))
+    cases eq : (Finmap.lookup (p a) (h a))=> // }
+  move=> /heval_frame_in' hev; exists h₁, h₂=> ⟨|⟨|⟨//|⟩⟩⟩ /=
+  { apply hev (s' := s')
+    { move=> ?; simp [h₂]=> // }
+    { sdone }
+    { move=> h ![u /= /[swap] a /(_ a)]; simp [h₂]
+      scase_if => ? // }
+    clear hev
+    move=> a; simp [h₁, h₂]; scase_if=> // ?? /== // ??// }
+  { clear hev
+    exists (fun a => ((h a).lookup (p a)).get!)=> /= a; simp [h₂]
+    scase_if=> // }
+  clear hev
+  move=> a; simp [h₁, h₂]; scase_if=> // ?? /== // ??//
+
 
 /- Corollaries -/
 

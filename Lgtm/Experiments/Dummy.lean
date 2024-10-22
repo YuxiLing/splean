@@ -37,7 +37,6 @@ instance : Coe val Prop := ⟨fun v => v.toBool⟩
 
 attribute [-simp] fun_insert Bool.forall_bool
 attribute [simp] Set.univ_inter
-#hint_yapp htriple_ref
 
 theorem biUnion_prod_const (s': Set ι) {s : ι → Set α} {t : Set β} :
   (⋃ i ∈ s', s i) ×ˢ t = ⋃ i ∈ s', s i ×ˢ t := by
@@ -58,8 +57,7 @@ lang_def Lang.nonempty :=
       let v := xval[i] in
       ans ||= v
     };
-    let r := !ans in
-    free ans; r
+    !ans
 
 lang_def Lang.get2 :=
   fun xind xval xidx i j =>
@@ -79,7 +77,7 @@ lang_def Lang.nonempty2 :=
   fun xind xval xidx =>
     let M' := len xidx in
     let M := M' - 1 in
-    let ans := ref false in
+    ref ans := false in
     for i in [0:M] {
       let ind := xidx[i] in
       let i' := i+1 in
@@ -87,8 +85,7 @@ lang_def Lang.nonempty2 :=
       let ans' := Lang.nonempty xind xval ind ind' in
       ans ||= ans'
     };
-    let r := !ans in
-    free ans; r
+    !ans
 
 variable (xind xval : loc) (z n : ℤ) (N : ℕ)
 variable (x_ind : ℤ -> ℝ) (x_val : ℤ -> Bool)
@@ -97,7 +94,7 @@ variable (x_ind : ℤ -> ℝ) (x_val : ℤ -> Bool)
 #hint_yapp triple_hharrayFun_length
 #hint_yapp htriple_eq
 #hint_yapp htriple_get
-#hint_yapp htriple_free
+-- #hint_yapp htriple_free
 #hint_yapp htriple_sub
 #hint_yapp htriple_le
 #hint_yapp htriple_lt
@@ -128,7 +125,7 @@ def toProp : val -> Prop
   | val_bool v => v
   | _ => False
 
-instance : Coe val Prop := ⟨toProp⟩
+instance : Coe val Prop := ⟨(·.toBool = true)⟩
 
 -- @[app_unexpander toProp] def unexpandToProp : Lean.PrettyPrinter.Unexpander
 --   | `($_ $v) => `($v)
@@ -167,17 +164,16 @@ lemma nonempty_spec (r : ℝ)  :
   yfocus 2, x_ind '' ⟦z, n⟧
   yapp get_spec_out=> /==;
   simp [fun_insert]
-  yin 1: ywp; yref=> p
+  yin 1: ywp; yref p
   srw [1]Set.image_eq_iUnion
   yfor|| with
-    (Q := fun i hv => p j ~⟨j in ⟪1, {r}⟫⟩~> (hv ⟨2,x_ind i⟩).toBool)
-    (H₀ := p i ~⟨i in ⟪1, {r}⟫⟩~> false)
+    (Q := fun i hv => p ~⟨j in ⟪1, {r}⟫⟩~> (hv ⟨2,x_ind i⟩).toBool)
+    (H₀ := p ~⟨_ in ⟪1, {r}⟫⟩~> false)
   { move=> >*
     yin 1: ystep; yapp
     yapp get_spec_in; ysimp }
   { sdone }
-  ystep; ystep; ywp; yval
-  ysimp=> /== ⟨|⟩ /==
+  yapp; ysimp=> /== ⟨|⟩ /==
   { move=> i *; exists (x_ind i); srw if_pos //==; exists i }
   move=> i; scase_if=> /== i ?? <- ?; exists i
 
@@ -220,21 +216,21 @@ lemma nonempty2_spec (z : ℤ) (r : ℝ)  :
     ⌜ v ⟨1,z,r⟩ = ∃ (i : ℤ) (j : ℝ), v ⟨2,i,j⟩ ⌝ ∗ ⊤ } := by
   yfocus 2, ⟦0, M⟧ ×ˢ ⋆
   yapp get2_spec_out=> /==; simp [fun_insert]
-  yin 1: (sdo 3 ystep)=> p;
+  yin 1: (sdo 2 ystep); ywp; yref p;
   srw -((Set.Ico (0 : ℤ) M).biUnion_of_singleton)
   srw biUnion_prod_const
   yfor|| with
-    (Q := fun i hv => p k ~⟨k in ⟪1, {(z,r)}⟫⟩~> decide (∃ j : ℝ, hv ⟨2,i,j⟩))
-    (H₀ := p i ~⟨i in ⟪1, {(z,r)}⟫⟩~> false);
+    (Q := fun i hv => p ~⟪1, {(z,r)}⟫~> decide (∃ j : ℝ, hv ⟨2,i,j⟩))
+    (H₀ := p ~⟪1, {(z,r)}⟫~> false);
   { move=> j > /== ?? eq; congr! 7; srw eq // }
   { move=> i b ??
-    yin 1: (sdo 3 ystep)=> //'; simpWP
+    yin 1: (sdo 3 ystep)=> //'
     yin 2:
       sdo 5 ystep
       ywp; yifT=> /== //'
-      sdo 3 ystep=> /== //'
+      sdo 3 ystep=> /== //' /=
       simpWP=> /=
-    srw hhsingle_singleton /=
+    -- srw hhsingle_singleton /=
     ysubst with (σ := Prod.snd)
     { ysimp }
     { scase; simp }
@@ -245,7 +241,7 @@ lemma nonempty2_spec (z : ℤ) (r : ℝ)  :
     { srw -x_idx_M; apply x_idx_monotonne=> /== //' }
     move=> ->; yapp; ysimp }
   { auto }
-  (sdo 2 ystep); ywp; yval; ysimp
+  yapp; ysimp
   simp=> ⟨|⟩ ![] i
   { move=> ? r eq; exists i, r=> //' }
   move=> r; scase_if=> /== ?? eq;

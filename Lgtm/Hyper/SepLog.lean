@@ -37,6 +37,9 @@ section heval
 def heval_nonrel (s : Set α) (hh : hheap) (ht : htrm) (hQ : α -> val -> hProp) : Prop :=
   ∀ a ∈ s, eval (hh a) (ht a) (hQ a)
 
+def hevalExact_nonrel (s : Set α) (hh : hheap) (ht : htrm) (hQ : α -> val -> hProp) : Prop :=
+  ∀ a ∈ s, evalExact (hh a) (ht a) (hQ a)
+
 @[simp]
 noncomputable def fun_insert {α β} (f g : α -> β) (s : Set α ) :=
   fun a => if a ∈ s then f a else g a
@@ -67,6 +70,9 @@ def heval (s : Set α) (hh : hheap) (ht : htrm) (hQ : hval -> hhProp) : Prop :=
     heval_nonrel s hh ht hQ' ∧
     ∀ hv, bighstarDef s (fun a => hQ' a (hv a)) hh ==> ∃ʰ hv', hQ (hv ∪_s hv')
     /-                    hQ'                      ==>         hQ -/
+
+def hSP (s : Set α) (hh : hheap)  (ht : htrm) : hval -> hhProp :=
+  fun hv hh' => ∀ a, if a ∈ s then sP (hh a) (ht a) (hv a) (hh' a) else hh' a = hh a
 
 /- -------------- Hyper-Evaluation Properties -------------- -/
 
@@ -326,6 +332,53 @@ lemma heval_frame_in :
   { move=> _; move: (Hh a); srw if_neg // => ->
     srw hdj // (ql _ _ hQ) // }
   srw hl // (hhl _ hH') //
+
+
+lemma hSP_impl (hQ : hval -> hhProp) :
+  heval s hh ht hQ ->
+  hSP s hh ht ===> fun hv' => ∃ʰ hv, hQ (hv' ∪_s hv) := by
+  move=> ![] Q hev himp hv /=; apply hhimpl_trans_r=> //
+  move=> h hH a; scase_if=> ?<;> move: (hH a)
+  { srw if_pos; apply sP_strongest; apply hev=>// }
+  srw if_neg//
+
+lemma hSP_WellAlloc hv :
+  (heval_nonrel s hh ht hQ) ->
+  hSP s hh ht hv hh' ->
+    ∀ a, (hh a).keys = (hh' a).keys := by
+  move=> hev /[swap] a /(_ a); scase_if=> //
+  move=> ain; move: (hev _ ain)=> /sP_postExact /evalExact_WellAlloc/[apply] //
+
+
+lemma heval_frame_in' (H' : hhProp) :
+  hlocal s' hh' ->
+  Disjoint s s' ->
+  (∀ h, H' h -> ∀ a, (h a).keys = (hh' a).keys) ->
+  hdisjoint hh hh' ->
+  heval s (hh ∪ hh') ht (hQ ∗ H') ->
+  heval s hh ht hQ := by
+  move=> hl /[dup] /Set.disjoint_left ? dj keys' hdj
+  move=> /[dup] ![hQ /heval_nonrel_frame_in ? ?] /hSP_impl himpl
+  exists hsP hh ht=> ⟨|⟩
+  { apply hstrongest_post_provable=> // }
+  move=> hv h Hh
+  specialize himpl hv (h ∪ hh') ?_
+  { move=> a; scase_if=> ?<;> move: (Hh a)
+    { srw /= ?if_pos // hl // }
+    srw /= ?if_neg // }
+  move: Hh=> /hSP_WellAlloc keq
+  scase!: himpl=> hv' hh₁ hh₂ ? /keys' keysE heq hdj₂
+  shave<-: hh₁ = h
+  { funext a; move: (heq); srw funext_iff=> /(_ a) /= {}heq
+    shave: ∀ l, (h a ∪ hh' a).lookup l = (hh₁ a ∪ hh₂ a).lookup l; sdone
+    move=> {}heq; apply Finmap.ext_lookup=> l; move: (heq l)
+    scase: [l ∈ (hh' a).keys]=> [?|? _]
+    { srw ?Finmap.lookup_union_left_of_not_in //
+      srw -Finmap.mem_keys // }
+    srw ?((Finmap.lookup_eq_none ..).mpr) //
+    { srw -Finmap.mem_keys -keq // }
+    move=> /hdj₂ /==; srw -Finmap.mem_keys keysE // }
+  exists hv'
 
 end heval
 
@@ -853,14 +906,14 @@ lemma htriple_prod_val_eq_emp (ht : htrm) (fv : hval) :
 
 lemma htriple_get (p : α -> loc) :
   htriple s (fun a => trm_app val_get (val_loc (p a)))
-    [∗ i in s| p i ~~> v i]
-    (fun hv => ⌜hv = v⌝ ∗ [∗ i in s| p i ~~> v i]) := by
+    (hhsingle s p v)
+    (fun hv => ⌜hv = v⌝ ∗ (hhsingle s p v)) := by
     apply htriple_prod_val_eq=> *; apply triple_get
 
 lemma htriple_set (hv hu : hval) (p : α -> loc) :
   htriple s (fun a => trm_app (trm_app val_set (p a)) (hu a))
-    [∗ i in s| p i ~~> hv i]
-    (fun hv => ⌜hv = fun _ => val_unit⌝ ∗ [∗ i in s| p i ~~> hu i]) := by
+    (hhsingle s p hv)
+    (fun hv => ⌜hv = fun _ => val_unit⌝ ∗ (hhsingle s p hu) ) := by
     apply htriple_prod_val_eq
     move=> ??; apply triple_set
 

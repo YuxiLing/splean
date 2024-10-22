@@ -2,7 +2,7 @@ import Mathlib.Data.Finmap
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Multiset.Nodup
 
-import Lgtm.Unary.Util
+import Lgtm.Common.Util
 import Lgtm.Unary.Lang
 
 
