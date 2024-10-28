@@ -60,5 +60,32 @@ lemma searchIdx_hspec (l : ℕ) (f : ℤ -> ℝ) (s : Set ℝ)
   apply htriple_prod_val_eq=> [] /== ? j ??
   xapp searchIdx_spec'
 
+lemma searchSRLE_hspec (l : ℕ) (lf rf : ℤ -> ℝ) (s : Set ℝ)
+  (z n : ℤ) (_ : z < n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
+  (∀ i ∈ ⟦z, n⟧, lf i <= rf i) ->
+  (∀ i ∈ ⟦z, n-1⟧, rf i <= lf (i + 1)) ->
+  i ∈ ⟦z, n⟧ ->
+  (s ⊆ Set.Ico (lf i) (rf i))->
+  arr⟨⟪l,s⟫⟩(left, x in N => lf x) ∗ arr⟨⟪l,s⟫⟩(right, x in N => rf x) ==>
+    hwp ⟪l, s⟫ (fun i ↦ [lang| searchSRLE left right ⟨i.val⟩ z n])
+    fun v ↦ ⌜v = fun _ ↦ val_int i⌝ ∗ arr⟨⟪l,s⟫⟩(left, x in N => lf x) ∗ arr⟨⟪l,s⟫⟩(right, x in N => rf x) := by
+  move=> ????
+  srw ?hharrayFun bighstar_hhstar
+  apply htriple_prod_val_eq=> [] /== ? j ??
+  xapp searchSparseRLE_spec'
+
+lemma searchSRLE_hspec_out (l : ℕ) (lf rf : ℤ -> ℝ) (s : Set ℝ)
+  (z n : ℤ) (_ : z < n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
+  (∀ i ∈ ⟦z, n⟧, lf i <= rf i) ->
+  (∀ i ∈ ⟦z, n-1⟧, rf i <= lf (i + 1)) ->
+  Disjoint s (⋃ i ∈ ⟦z, n⟧, Set.Ico (lf i) (rf i)) ->
+  arr⟨⟪l,s⟫⟩(left, x in N => lf x) ∗ arr⟨⟪l,s⟫⟩(right, x in N => rf x) ==>
+    hwp ⟪l, s⟫ (fun i ↦ [lang| searchSRLE left right ⟨i.val⟩ z n])
+    fun v ↦ ⌜v = fun _ ↦ val_int n⌝ ∗ arr⟨⟪l,s⟫⟩(left, x in N => lf x) ∗ arr⟨⟪l,s⟫⟩(right, x in N => rf x) := by
+  move=> ?? /Set.disjoint_left ?
+  srw ?hharrayFun bighstar_hhstar
+  apply htriple_prod_val_eq=> [] /== ? j ??
+  xapp searchSparseRLE_spec_out
+
 
 end Lang

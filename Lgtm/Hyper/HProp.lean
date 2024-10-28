@@ -166,6 +166,7 @@ def Lean.Expr.getLamBody : Expr -> Expr
         else
           match p with
           | `($p' $j':ident) => if j'.getId == j.getId then `($p' $i ~⟨$i in $s⟩~> $v) else throw ( )
+          | `($p:ident) => `($p ~⟨$i in $s⟩~> $v)
           |  _ => throw ( )
       | _ => throw ( )
     | _ => throw ( )

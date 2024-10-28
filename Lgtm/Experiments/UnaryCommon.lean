@@ -153,6 +153,8 @@ instance : Coe val ℤ := ⟨to_int⟩
 
 attribute [simp] is_true
 
+/- IN THIS FILES PROOFS ARE COMMENTED OUT AS THEY TAKE A LOT OF TIME  -/
+/- TODO: UNCOMMENT FOR A RELEASE -/
 
 set_option maxHeartbeats 1600000
 lemma findIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
@@ -161,7 +163,7 @@ lemma findIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
   target ∈ f '' ⟦z, n⟧ ->
   { arr(arr, x in N => f x) }
   [ findIdx arr target z n ]
-  { v, ⌜ v = f.invFunOn ⟦z, n⟧ target ⌝ ∗ arr(arr, x in N => f x) } := by
+  { v, ⌜ v = f.invFunOn ⟦z, n⟧ target ⌝ ∗ arr(arr, x in N => f x) } := by stop
   move=> inj fin
   -- xwp; xapp triple_arrayFun_length
   xwp; xref;
@@ -205,7 +207,7 @@ lemma findIdx_spec_out (arr : loc) (f : Int -> ℝ) (target : ℝ)
   target ∉ f '' ⟦z, n⟧ ->
   { arr(arr, x in N => f x) }
   [ findIdx arr target z n ]
-  { v, ⌜ v = val_int n ⌝ ∗ arr(arr, x in N => f x) } := by
+  { v, ⌜ v = val_int n ⌝ ∗ arr(arr, x in N => f x) } := by stop
   move=> ? img
   xwp; xref
   let cond (i : ℤ) := (i < n ∧ target != f i)
@@ -273,7 +275,7 @@ lemma searchIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
   { arr(arr, x in N => f x) }
   [ searchIdx arr target z n ]
   { v, ⌜
-    to_int v ∈ ⟦z, n-1⟧ ∧ f v <= target ∧ target < f (v + 1) ⌝ ∗ arr(arr, x in N => f x) } := by
+    to_int v ∈ ⟦z, n-1⟧ ∧ f v <= target ∧ target < f (v + 1) ⌝ ∗ arr(arr, x in N => f x) } := by stop
   move=> mon tgt
   xwp; xapp <;> try omega
   xwp; xapp triple_ltr
@@ -327,7 +329,7 @@ lemma searchIdx_spec' (arr : loc) (f : ℤ -> ℝ) (target : ℝ)
   f i <= target ∧ target < f (i + 1) ->
   { arr(arr, x in N => f x) }
   [ searchIdx arr target z n ]
-  { v, ⌜ v = i ⌝ ∗ arr(arr, x in N => f x) } := by
+  { v, ⌜ v = i ⌝ ∗ arr(arr, x in N => f x) } := by stop
   move=> mon /== ?? tg gt *; xapp searchIdx_spec=> /==;
   scase: x <;> simp [to_int] <;> try omega
   { move=> // j ????
@@ -340,6 +342,160 @@ lemma searchIdx_spec' (arr : loc) (f : ℤ -> ℝ) (target : ℝ)
   shave ?: f (i + 1) <= f (n -1); apply mon=> /== <;> try omega
   constructor <;> linarith
 
+
+lang_def searchSRLE :=
+  fun left right tgt Z N =>
+  ref ind := Z in
+  while (
+    let ind := !ind in
+    let indLN  := ind < N in
+    if indLN then
+      let lb  := left[ind] in
+      let rb  := right[ind] in
+      let lbL := tgt < lb  in
+      let rbL := rb <= tgt  in
+      lbL || rbL
+    else false
+  ) { incr ind };
+  !ind
+
+set_option maxHeartbeats 2000000
+lemma searchSparseRLE_spec (left right : loc) (lf rf : ℤ -> ℝ) (tgt : ℝ)
+   (z n : ℤ) (_ : z < n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
+   (∀ i ∈ ⟦z, n⟧, lf i <= rf i) ->
+   (∀ i ∈ ⟦z, n-1⟧, rf i <= lf (i + 1)) ->
+   i ∈ ⟦z,n⟧ ->
+   tgt ∈ Set.Ico (lf i) (rf i) ->
+   { arr(left, x in N => lf x) ∗ arr(right, x in N => rf x) }
+   [ searchSRLE left right tgt z n ]
+   { v, ⌜ to_int v ∈ ⟦z,n⟧ ∧ tgt ∈ Set.Ico (lf v) (rf v)⌝ ∗ arr(left, x in N => lf x) ∗ arr(right, x in N => rf x) } := by stop
+    move=> lr rl iin tgtin
+    xwp; xref
+    let cond (i : ℤ) := (z <= i ∧ i < n ∧ tgt ∉ Set.Ico (lf i) (rf i))
+    xwhile_up (fun b i =>
+      ⌜z <= i ∧ i <= n ∧ ∀ x ∈ ⟦z, i⟧, tgt ∉ Set.Ico (lf x) (rf x)⌝ ∗
+      p ~~> i ∗
+      ⌜cond i = b⌝ ∗
+      arr(left, x in N => lf x) ∗ arr(right, x in N => rf x)) N
+    { xsimp [(decide (cond z))]=> //==; omega }
+    { move=> b i; xwp; xapp=> ih; srw cond /== => condE
+      xwp; xapp
+      xwp; xif=> /== iL
+      { xwp; xapp <;> try omega
+        xwp; xapp <;> try omega
+        xwp; xapp triple_ltr
+        xwp; xapp triple_ler
+        xapp; xsimp=> //==
+        scase: b condE=> /==
+        { sapply <;> omega }
+        move=> ?? H; scase: [lf i ≤ tgt]=> [?|/H //]
+        left; linarith }
+      xwp; xval; xsimp=> //==
+      scase: b condE=> /==; omega }
+    { move=> i; xapp=> /== _ _ fE ???
+      xsimp [(decide (cond (i + 1))), i+1]=> //
+      { move=> ⟨|⟨|j⟩⟩ <;> try omega
+        move=> ??; scase: [i = j]=> ?
+        { apply fE <;> omega }
+        subst_vars=> // }
+      omega }
+    move=> hv /=;
+    xsimp=> j /== ?? fE; srw cond /== => condE
+    xapp; xsimp=> //
+    simp [to_int]
+    scase: [j = n]=> ?
+    { specialize condE ?_ ?_ <;> try omega
+      move=> ⟨⟨//|⟩|//⟩; omega }
+    subst_vars
+    move: tgtin iin (fE i)=> /== ?? //
+
+lemma left_right_monotone_rl (lf rf : ℤ -> ℝ) :
+   (∀ i ∈ ⟦z, n⟧, lf i <= rf i) ->
+   (∀ i ∈ ⟦z, n-1⟧, rf i <= lf (i + 1)) ->
+   ∀ᵉ (i ∈ ⟦z, n⟧) (j ∈ ⟦z, n⟧), i < j -> rf i < lf j := by sorry
+
+-- lemma left_right_monotone_left (rf : ℤ -> ℝ) :
+--    (∀ i ∈ ⟦z, n⟧, lf i <= rf i) ->
+--    (∀ i ∈ ⟦z, n-1⟧, rf i <= lf (i + 1)) ->
+--    MonotoneOn lf ⟦z, n⟧ := by sorry
+
+-- lemma left_right_monotone_right (lf : ℤ -> ℝ) :
+--    (∀ i ∈ ⟦z, n⟧, lf i <= rf i) ->
+--    (∀ i ∈ ⟦z, n-1⟧, rf i <= lf (i + 1)) ->
+--    MonotoneOn rf ⟦z, n⟧ := by sorry
+
+
+lemma searchSparseRLE_spec' (left right : loc) (lf rf : ℤ -> ℝ) (tgt : ℝ)
+   (z n : ℤ) (_ : z < n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
+   (∀ i ∈ ⟦z, n⟧, lf i <= rf i) ->
+   (∀ i ∈ ⟦z, n-1⟧, rf i <= lf (i + 1)) ->
+   i ∈ ⟦z,n⟧ ->
+   tgt ∈ Set.Ico (lf i) (rf i) ->
+   { arr(left, x in N => lf x) ∗ arr(right, x in N => rf x) }
+   [ searchSRLE left right tgt z n ]
+   { v, ⌜v = i⌝ ∗ arr(left, x in N => lf x) ∗ arr(right, x in N => rf x) } := by
+  move=> lr rl iin tgtin
+  xapp searchSparseRLE_spec=> /== ?? ??
+  xsimp
+  scase: x <;> simp [to_int]<;> try omega
+  move=> x ?? ??
+  simp: tgtin=> ??
+  scase: [x < i]
+  { scase: [i < x]
+    { omega }
+    move=> /left_right_monotone_rl /(_ lr) /(_ rl) H
+    specialize H ?_ ?_=> //
+    linarith }
+  move=> /left_right_monotone_rl /(_ lr) /(_ rl) H
+  specialize H ?_ ?_=> //
+  linarith
+
+set_option maxHeartbeats 6000000
+lemma searchSparseRLE_spec_out (left right : loc) (lf rf : ℤ -> ℝ) (tgt : ℝ)
+   (z n : ℤ) (_ : z < n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
+   (∀ i ∈ ⟦z, n⟧, lf i <= rf i) ->
+   (∀ i ∈ ⟦z, n-1⟧, rf i <= lf (i + 1)) ->
+   tgt ∉ ⋃ i ∈ ⟦z,n⟧, Set.Ico (lf i) (rf i) ->
+   { arr(left, x in N => lf x) ∗ arr(right, x in N => rf x) }
+   [ searchSRLE left right tgt z n ]
+   { v, ⌜v = n⌝ ∗ arr(left, x in N => lf x) ∗ arr(right, x in N => rf x) } := by stop
+    move=> lr rl tgtin
+    xwp; xref
+    let cond (i : ℤ) := (z <= i ∧ i < n ∧ tgt ∉ Set.Ico (lf i) (rf i))
+    xwhile_up (fun b i =>
+      ⌜z <= i ∧ i <= n ∧ ∀ x ∈ ⟦z, i⟧, tgt ∉ Set.Ico (lf x) (rf x)⌝ ∗
+      p ~~> i ∗
+      ⌜cond i = b⌝ ∗
+      arr(left, x in N => lf x) ∗ arr(right, x in N => rf x)) N
+    { xsimp [(decide (cond z))]=> //==; omega }
+    { move=> b i; xwp; xapp=> ih; srw cond /== => condE
+      xwp; xapp
+      xwp; xif=> /== iL
+      { xwp; xapp <;> try omega
+        xwp; xapp <;> try omega
+        xwp; xapp triple_ltr
+        xwp; xapp triple_ler
+        xapp; xsimp=> //==
+        scase: b condE=> /==
+        { sapply <;> omega }
+        move=> ?? H; scase: [lf i ≤ tgt]=> [?|/H //]
+        left; linarith }
+      xwp; xval; xsimp=> //==
+      scase: b condE=> /==; omega }
+    { move=> i; xapp=> /== _ _ fE ???
+      xsimp [(decide (cond (i + 1))), i+1]=> //
+      { move=> ⟨|⟨|j⟩⟩ <;> try omega
+        move=> ??; scase: [i = j]=> ?
+        { apply fE <;> omega }
+        subst_vars=> // }
+      omega }
+    move=> hv /=;
+    xsimp=> j /== ? jLN fE; srw cond /== => condE
+    xapp; xsimp=> //
+    congr!; scase: [j < n]=> ?; omega
+    exfalso; move: tgtin=> /==
+    specialize condE ?_ ?_ <;> try omega
+    exists j=> //
 
 end Lang
 

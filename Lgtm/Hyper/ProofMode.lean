@@ -17,6 +17,7 @@ import Lgtm.Hyper.Subst.YLemmas
 import Lgtm.Hyper.ArraysFun
 import Lgtm.Hyper.HProp
 import Lgtm.Hyper.Loops.YLemmas
+import Lgtm.Hyper.Merge
 
 open Classical trm val prim
 open Lean hiding Meta.subst
@@ -1416,5 +1417,34 @@ example :
     { repeat (unify_hterm Prod.snd; hide_mvars)
       auto }
     clear inj }
+
+attribute [disjE] Set.subset_diff
+
+macro "ymerge" l:num "with" "(" "μ" ":=" μ:term ")" : tactic =>
+  `(tactic| (
+    eapply ymerge_lemma $μ (shts := _) (l := $l) (ind := $l - 1) (H := _) (Q' := _) (ex := (by dsimp only [FindUniversal.univ]; refine inferInstance)); ⟨
+      rfl -- sht[is]
+      ,simp -- t.Nonempty
+      ,try dsimp; try auto -- ht
+      ,skip -- sub
+      ,simp [disjE] -- Pairwise disj
+      ,simp --shts.set.Nonempty
+      ,ysimp -- hhimpl univ
+      ,simp [hhlocalE,disjE] -- hhlocal H
+      ,simp [hhlocalE,disjE] -- hhlocal Q
+      ,try dsimp -- triple
+      ,skip
+      ,skip
+      ,try dsimp=> //' -- indL
+    ⟩))
+
+example : hharrayFun (α := (ℤ×ℤ)ˡ) Set.univ f n (fun _ => p) ∗
+  p ~⟪1, {(0 : ℤ)} ×ˢ {(1 : ℤ) ,3}⟫~> 0 ==>
+    NWP [1 | i in {0} ×ˢ {(1 : ℤ) ,3} => let x := ⟨i.val.2⟩ in x + 1]
+        [2 | i in Set.Ico 1 5 ×ˢ {1,3} => let x := ⟨i.val.2⟩ in x + 1]
+    { v, ⌜v ⟨1,0,1⟩ = 2 ∧ v ⟨2,0,1⟩ = 2 ∧ v ⟨1,0,1⟩ = 4⌝ ∗ ⊤ } := by
+  ymerge 2 with (μ := fun x => ⟨1, x.2⟩)
+  { sorry }
+  sorry
 
 end
