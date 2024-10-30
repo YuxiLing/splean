@@ -663,10 +663,10 @@ set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
 
 elab "yapp_pick" e:term ? : tactic => do
-  let thm <- (match e with
-    | .none => pickHTripleLemma
-    | .some thm => return thm.raw.getId : TacticM Name)
-  {| eapply $(mkIdent thm) |}
+  let thm <- do (match e with
+    | .some thm => return thm
+    | .none     => return mkIdent (<- pickHTripleLemma))
+  {| eapply $thm:term |}
 
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
@@ -796,6 +796,33 @@ macro "ywp" : tactic =>
         isubst, trm_apps, AList.lookup, List.dlookup]
      all_goals try simp [_root_.subst, trm_apps, Unary.isubst]))
 
+macro "yunfold" : tactic =>
+  `(tactic|
+    (intros
+     try simp_rw [Unary.trm_apps1]
+     try simp_rw [Unary.trm_apps2]
+     try simp_rw [trm_apps3]
+     try (first | (
+      apply ywp_lemma_fixs;
+      { move=> ?; rfl }
+      { intros; rfl }
+      { sdone }
+      { sdone }
+      sdone)=> //'
+                | (
+      apply ywp_lemma_funs;
+      { move=> ?; rfl }
+      { rfl }
+      { move=> ?; rfl; }
+      sdone)=> //')
+     try dsimp [Unary.isubst, List.mkAlist, AList.lookup, List.eraseP,List.dlookup]
+    --  apply hwp_of_hwpgen
+     all_goals try simp
+       [hwpgen,
+        subst,
+        isubst, trm_apps, AList.lookup, List.dlookup]
+     all_goals try simp [_root_.subst, trm_apps, Unary.isubst]))
+
 macro "yval" : tactic => do
   `(tactic| (ystruct_if_needed; yseq_xlet_if_needed; (try ywp); apply yval_lemma))
 
@@ -907,6 +934,26 @@ instance GenInst (op : hval α -> Int -> Int) (x : α -> loc) :
       srw sum_hhsingle; ysimp=> //
     eqInd := by srw hhadd_hhsingle //
     eqSum := by srw sum_hhsingle //
+
+instance GenInstWithPure (op : hval α -> ℤ -> ℤ) (x : α -> loc) (P : hval α -> ℤ -> Prop) :
+  IsGeneralisedSum
+    z n
+    AddPCM.add AddPCM.valid
+    (x i ~⟨i in s⟩~> val_int 0)
+    (fun i hv => x j ~⟨j in s⟩~> op hv i ∗ ⌜P hv i⌝)
+    ℤ
+    (fun _ j =>  x i ~⟨i in s⟩~> j)
+    (fun i j hv => x k ~⟨k in s⟩~> val_int (op hv i + j) ∗ ⌜P hv (i)⌝)
+    (fun hv => x k ~⟨k in s⟩~> val_int (∑ i in ⟦z,n⟧, op hv i) ∗ ⌜∀ j ∈ ⟦z,n⟧, P hv j⌝ ) where
+    eqGen := by
+      move=> > ?
+      exists (∑ i in ⟦z, j⟧, op (hv i) i) , ⌜∀ k ∈ ⟦z,j⟧, P (hv k) k⌝
+      srw sum_hhstar_hhpure hhstar_pure_hhadd -add_assoc -hhstar_pure_hhadd
+      erw [sum_hhsingle]
+    eqInd := by
+      srw hhstar_pure_hhadd add_assoc add_comm add_assoc hhadd_hhsingle //
+    eqSum := by srw sum_hhstar_hhpure [2]hhstar_pure_hhadd -add_assoc=> ?
+                erw [sum_hhsingle]=> //
 
 @[simp]
 lemma validE : PartialCommMonoid.valid = AddPCM.valid := by trivial
