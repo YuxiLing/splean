@@ -679,7 +679,7 @@ macro "yapp_nosubst" e:term ? : tactic =>
   `(tactic|
     (yapp_pre
      eapply yapp_lemma; yapp_pick $(e)?
-     rotate_right; (run_tac (do (<- Lean.Elab.Tactic.getMainGoal).setTag `yapp_goal)); yapp_simp; hide_mvars=>//))
+     rotate_right; (run_tac (do (<- Lean.Elab.Tactic.getMainGoal).setTag `yapp_goal)); yapp_simp; hide_mvars=>//'))
 
 macro "yapp" : tactic =>
   `(tactic|
@@ -853,6 +853,11 @@ lemma hhlocal_emp : hhlocal s emp = true :=
 lemma hhlocal_pure : hhlocal s ⌜P⌝ = true :=
   by simp=> ? ![] ? -> //
 
+@[hhlocalE]
+lemma hhlocal_if (b : Prop) : hhlocal s (if b then P else Q) =
+  if b then hhlocal s P else hhlocal s Q :=
+  by scase_if
+
 @[simp]
 lemma cdot_set_mem (n : ℕ) (s : Set α) : (x ∈ (n • s)) = (x ∈ s ∧ n > 0) := sorry
 
@@ -978,6 +983,44 @@ instance GenInstArr (op : hval α -> Int -> Int)
       specialize H ?_ ?_ j jin=> //; scase!: H=> [] //
     eqInd := by srw hhadd_hhsingle //'
     eqSum := by move=> hv; apply GenInstArr_eqSum hv (f ·) (op · ·)=> //
+
+instance GenInstSum (op : hval α -> ℤ -> ℤ)
+  (m : ℕ) (z n : ℤ) (x : α -> loc) (f : ℤ -> ℤ) (ini : ℤ -> ℤ) :
+   IsGeneralisedSum
+    z n
+    AddPCM.add AddPCM.valid
+    (hharrayFun s (ini ·) m x ∗ ⌜f ''⟦z, n⟧ ⊆ Set.Ico 0 m⌝)
+    (fun i hv => x j + 1 + (f i).natAbs ~⟨j in s⟩~> op hv i)
+    ℤ
+    (fun k j => x i + 1 + (f k).natAbs ~⟨i in s⟩~> j)
+    (fun i j hv => x k + 1 + (f i).natAbs ~⟨k in s⟩~> val.val_int (op hv i + j))
+    (fun hv => ⌜f ''⟦z, n⟧ ⊆ Set.Ico 0 m⌝ ∗ hharrayFun s (ini ·) m x + (∑ i ∈ ⟦z, n⟧, (x j + 1 + (f i).natAbs ~⟨j in s⟩~> op hv i))) where
+    eqGen := by sorry
+    eqInd := by srw hhadd_hhsingle //'
+    eqSum := by move=> hv; srw hhstar_pure_hhadd [3]add_comm add_assoc [2]add_comm -hhstar_pure_hhadd hhstar_comm
+
+instance GenInstArrSum (op : ℤ -> hval α -> ℤ -> ℤ) (P : ℤ -> hval α -> ℤ -> Prop)
+  (m : ℕ) (z n : ℤ) :
+   IsGeneralisedSum
+    z n
+    AddPCM.add AddPCM.valid
+    (hharrayFun s (fun _ => val_int 0) m x)
+    (fun i hv => (∑ k ∈ ⟦0, m⟧, (x j + 1 + k.natAbs ~⟨j in s⟩~> op k hv i))
+                 ∗ ⌜∀ k ∈ ⟦0, m⟧, P k hv i⌝ )
+    (ℤ -> ℤ)
+    (fun k f => hharrayFun s (f ·) m x)
+    (fun i f hv => hharrayFun s (fun j => f j + op j hv i) m x ∗ ⌜∀ k ∈ ⟦0, m⟧, P k hv i⌝)
+    (fun hv =>
+      hharrayFun s (fun j => val_int (∑ i ∈ ⟦z, n⟧, op j hv i)) m x ∗
+      ⌜∀ i ∈ ⟦z, n⟧, ∀ k ∈ ⟦0, m⟧, P k hv i⌝) where
+    eqGen := by sorry
+    eqInd := by sorry
+    eqSum := by sorry
+
+lemma arr_eq_sum (m : ℕ) (op : β -> ℤ)  (f : β -> ℤ) (fs : Finset β) (ini : ℤ -> ℤ):
+  f '' fs ⊆ Set.Ico 0 m →
+  hharrayFun s (ini ·) m x + (∑ i ∈ fs, (x j + 1 + (f i).natAbs ~⟨j in s⟩~> op i)) =
+  hharrayFun s (fun id => val_int (ini id + ∑ i in { x ∈ fs | f x = id }, op i)) m x := by sorry
 
 end AddPCM
 
@@ -1146,6 +1189,7 @@ lemma zapp_lemma (H : hhProp α) :
 macro "zapp" e:term : tactic =>
   `(tactic| (
     zlet_if_needed;
+    zseq_if_needed;
     apply zapp_lemma;
     eapply $e; rotate_right
     ysimp
@@ -1169,7 +1213,7 @@ syntax loop_arg loop_args : loop_args
 
 syntax "yfor" : loop_type
 syntax "ywhile" : loop_type
-syntax loop_type loop_op ? "with" (loop_arg colGe)* : tactic
+syntax loop_type loop_op ? (term "," term) ? "with" (loop_arg colGe)* : tactic
 
 macro_rules
   | `(tactic| yfor$loop_op with $[($x := $v)]*) => do
@@ -1194,6 +1238,41 @@ macro_rules
       try simp [LGTM.SHTs.set, $(mkIdent `subst):term]; try hsimp, -- step
       try hsimp, -- pre
       (move=> >; try hsimp; try simp [fun_insert])⟩ -- post
+      ))
+      match loop_op with
+      | `(loop_op| ||) => `(tactic| open OrPCM      in $tac:tactic)
+      | `(loop_op| +)  => `(tactic| open AddPCM     in $tac:tactic)
+      | `(loop_op| +.) => `(tactic| open AddRealPCM in $tac:tactic)
+      | `(loop_op| $i:ident) => `(tactic| open $i:ident in $tac:tactic)
+      | _ => Macro.throwErrorAt loop_op "unsupported loop operation"
+
+macro_rules
+  | `(tactic| ywhile$loop_op $z:term, $n:term with $[($x := $v)]*) => do
+    let ywhileLemma <- `(
+      ywhile_lemma
+        (z := $z)
+        (n := $n)
+        (add := $(mkIdent `add))
+        (valid := $(mkIdent `valid)) $[ ( $x:ident := $v:term ) ]*)
+    let tac <- `(tactic| (
+      eapply $ywhileLemma; ⟨
+        try solve | hsimp | ysimp,
+        try simp , -- nonempty
+        try simp [disjE]; try omega, -- s' ⊥ sᵢ
+        try simp [disjE]; try omega, -- Pairwise disj
+        omega, -- z <= n
+        simp [hhlocalE], -- hhlocal
+        simp [hhlocalE], -- ∀ hhlocal
+        simp [hhlocalE], -- ∀ hhlocal
+        simp [hhlocalE], -- ∀ hhlocal
+        try solve | (simp=> > ??; (repeat move=>->); auto), -- Qeq
+
+        try simp [LGTM.SHTs.set, $(mkIdent `subst):term]; try hsimp, -- step true
+        try simp [LGTM.SHTs.set, $(mkIdent `subst):term]; try hsimp, -- step false
+        skip, -- Cnd
+        skip, -- Inv false
+        try hsimp, -- pre
+        (move=> >; try hsimp; try simp [fun_insert])⟩ -- post
       ))
       match loop_op with
       | `(loop_op| ||) => `(tactic| open OrPCM      in $tac:tactic)

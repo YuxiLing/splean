@@ -216,7 +216,7 @@ lemma yfor_lemma_aux'
   srw ForLoopAux.wp2_ht_eq; { sapply }=> //'
   sby apply rstr.htrm_eq
 
-lemma ywhile_lemma
+lemma ywhile_lemma_aux
   [PartialCommMonoidWRT val add valid]
   [Inhabited α]
   [Inhabited β]
@@ -335,6 +335,52 @@ lemma yfor_lemma_aux
     srw gen.eqSum /==// }
   apply hhlocal_subset; rotate_left; auto
   auto
+
+lemma ywhile_lemma
+  [PartialCommMonoidWRT val add valid]
+  [Inhabited α]
+  [Inhabited β]
+  [uPre : FindUniversal Pre Hu Pre']
+  [uPost : forall hv, FindUniversal (Post hv) Hu' (Post' hv)]
+  [rstr : RestrictToIndex z n shts shtsᵢ]
+  [gen: IsGeneralisedSum z n add valid H₀ Q β Qgen Qind Qsum]
+  (R' : α -> hProp := fun _ => hempty)
+  (R : α -> hProp := fun _ => hempty)
+  (Inv : Bool -> Int -> hhProp := fun _ _ => emp) :
+  Hu ==> Hu' ->
+  s'.Nonempty ->
+  shts.Forall (Disjoint s' ·.s) ->
+  shts.Pairwise (Disjoint ·.s ·.s) ->
+  z <= n ->
+  hhlocal s' H₀ ->
+  (∀ i hv, hhlocal s' (Q i hv)) ->
+  (∀ i b, hhlocal s' (Inv b i)) ->
+  (∀ i b, hhlocal s' (Qgen i b)) ->
+  (∀ j hv₁ hv₂, z <= j ∧ j < n -> (shtsᵢ j).Forall (Set.EqOn hv₁ hv₂ ·.s) -> Q j hv₁ = Q j hv₂) ->
+  -- (∀ (i j : ℤ), (i != j) = true → z ≤ i ∧ i < n → z ≤ j ∧ j < n → Disjoint (shtsᵢ i).set (shtsᵢ j).set) ->
+
+  (∀ j (v : β), z <= j ∧ j < n ->
+    LGTM.triple
+        (⟨s', fun _ => c⟩:: shtsᵢ j)
+        ((Qgen j v ∗ (Inv true j) ∗ (R ∗↑ (shtsᵢ j).set)) ∗ Hu)
+        fun hv' =>
+        (Qind j v hv' ∗ (∃ʰ b, (Inv b (j + 1))) ∗ R' ∗↑ (shtsᵢ j).set) ∗ Hu) ->
+  (∀ j (v : β), z <= j ∧ j < n ->
+    LGTM.triple
+        (shtsᵢ j)
+        ((Qgen j v ∗ (Inv false j) ∗ (R ∗↑ (shtsᵢ j).set)) ∗ Hu)
+        fun hv' => (Qind j v hv' ∗ (Inv false (j + 1)) ∗ (R' ∗↑ (shtsᵢ j).set))∗ Hu) ->
+  (∀ j b, z <= j ∧ j <= n ->
+    htriple s' (fun _ => cnd) (Inv b j ∗ Hu) (fun bv => (⌜(bv = fun _ => val.val_bool b)⌝ ∗ Inv b j) ∗ Hu)) ->
+  (∀ b, Inv b n ==> ⌜b = false⌝ ∗ Inv b n) ->
+
+  Pre' ==> H₀ ∗ Inv b₀ z  ∗  R ∗↑ shts.set ->
+  (fun hv => Qsum hv ∗ Inv false n ∗ R' ∗↑ shts.set ) ===> Post' ->
+
+    LGTM.triple
+      (⟨s', fun _ => trm_while cnd c⟩ :: shts)
+      Pre
+      Post := by sorry
 
 lemma zseq_lemma_aux (shts : LGTM.SHTs α) (ht₁ ht₂ : htrm) :
   Disjoint s shts.set ->

@@ -119,6 +119,18 @@ lemma subst_hhsingle_const [Nonempty α] :
   (hhsingle s' (fun _ => p) (fun _ => x)).subst σ s = hhsingle (σ '' s') (fun _ => p) (fun _ => x) := by
   move=> ?; srw subst_hhsingle //
 
+@[substE]
+lemma subst_hharray_const [Nonempty α] :
+  s' ⊆ s ->
+  (hharrayFun s' f n (fun _ => p)).subst σ s = hharrayFun (σ '' s') f n (fun _ => p) := by
+  sorry
+
+omit inj in
+@[substE]
+lemma subst_if (b : Prop) {dc : Decidable b} (H₁ H₂ : hhProp α) :
+  (if b then H₁ else H₂).subst σ s = if b then H₁.subst σ s else H₂.subst σ s := by
+  sby scase_if
+
 lemma ssubst_image :
   s' ⊆ s ->
   ssubst σ s s' = σ '' s' := by

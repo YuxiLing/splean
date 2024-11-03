@@ -652,9 +652,16 @@ lemma ysimpl_lr_cancel_hharrayFun (p : α -> loc):
   YSimp (hla, hlw, hlt, hharrayFun Set.univ f n p ∗ hlu) (hra, hrg, hharrayFun s f n p ∗ hrt) := by
   sorry
 
-lemma ysimpl_lr_cancel_same_hharrayFun (p : α -> loc) :
+lemma ysimpl_lr_cancel_same_hharrayFun (p : α -> loc) (n : ℕ) :
   YSimp (hla, hlw, hlt, hlu) (hra, hrg, hrt) →
   YSimp (hla, hlw, hlt, hharrayFun Set.univ f n p ∗ hlu) (hra, hrg, hharrayFun Set.univ f n p ∗ hrt) := by
+  sorry
+
+
+lemma ysimpl_lr_cancel_eq_hharrayFun (p : α -> loc) (n : ℕ) :
+  YSimp (hla, hlw, hlt, hlu) (hra, hrg, hrt) →
+  (∀ i ∈ ⟦0, n⟧, f i = f' i) →
+  YSimp (hharrayFun s f n p ∗ hla, hlw, hlt, hlu) (hra, hrg, hharrayFun s f' n p ∗ hrt) := by
   sorry
 
 -- lemma ysimpl_lr_cancel_same_hsingle_subset (p : α -> loc) (v₁ v₂ : α -> val) :
@@ -703,6 +710,18 @@ def ysimp_pick_same_array (p hla : Term) : TacticM Unit := withMainContext do
           withAssignableSyntheticOpaque <| isDefEq p' p | throwError "not equal"
       | _ => throwError "not equal"
     ysimp_pick_hlu i last?
+
+def ysimp_pick_same_array' (p hla : Term) : TacticM Unit := withMainContext do
+  let p  <- Tactic.elabTerm p none
+  hhstar_search hla fun i h' last? => do
+    match h' with
+      | `(@hharrayFun $_ $_ $_ $_ $p') =>
+        if p'.isMVarStx then throwError "not equal" else
+        let p' <- Tactic.elabTerm p' none
+        let .true <-
+          withAssignableSyntheticOpaque <| isDefEq p' p | throwError "not equal"
+      | _ => throwError "not equal"
+    ysimp_pick i last?
 
 -- def ysimp_pick_same_pointer (p s hla : Term) : TacticM Bool := withMainContext do
 --   let p  <- Tactic.elabTerm p none
@@ -927,8 +946,10 @@ partial def ysimp_step_r (ysimp : YSimpR) : TacticM Unit := do
                | apply ysimpl_lr_cancel_same_hharrayFun
                | apply ysimpl_lr_cancel_hharrayFun |}
         catch _ =>
-          ysimp_pick_same h ysimp.hla
-          {| apply ysimp_lr_cancel_same |}
+          ysimp_pick_same_array' p ysimp.hla
+          {| first
+              | apply ysimp_lr_cancel_same
+              | apply ysimpl_lr_cancel_eq_hharrayFun |}
       | _ =>
         if h.isMVarStx then
           {| apply ysimp_r_keep |}
@@ -1299,6 +1320,9 @@ example (H₁ : β -> hhProp α) (v : β) :
   hharrayFun (Set.univ : Set α) f n p ∗ H₁ v ==> hharrayFun s f n p ∗ ((fun v : β => hharrayFun s f n p) -∗ H₁) := by
   ysimp; sorry
 
+example (H₁ H₂ : β -> hhProp α) (v : β) :
+  hharrayFun s f n p ∗ H₁ v ==> H₂ v ∗ hharrayFun s f' n p := by
+  ysimp; sorry; sorry
 
 --
 
