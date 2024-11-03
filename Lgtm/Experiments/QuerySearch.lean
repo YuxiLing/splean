@@ -198,7 +198,7 @@ lemma boxSerachQuery_spec :
   [2| ij in @Set.univ (ℝ × ℝ) => Lang.getPoints xind yind ⟨ij.val.1⟩ ⟨ij.val.2⟩]
   [3| ij in @Set.univ (ℝ × ℝ) => Lang.getBox boxl boxr ⟨ij.val.1⟩ ⟨ij.val.2⟩]
   {v,
-    ⌜ (v ⟨1,r⟩).toNat = ({ij | v ⟨2, ij⟩ } ∩ {ij | v ⟨3, ij⟩ }).encard ⌝  ∗ ⊤ } := by stop
+    ⌜ (v ⟨1,r⟩).toNat = ({ij | v ⟨2, ij⟩ } ∩ {ij | v ⟨3, ij⟩ }).encard ⌝  ∗ ⊤ } := by
   yin 3: ystep
   yfocus 2, (fun i => (x_ind i, y_ind i)) '' ⟦0, N⟧
   yapp get_spec_out=> /==; simp [fun_insert]
@@ -561,7 +561,7 @@ lemma mem2_spec_out (s : Set (ℝ × ℝ × ℤ)) :
   arr⟨⟪l,s⟫⟩(yind , x in M => y_ind x)  ==>
   WP [l| ijk in s => Lang.mem2 yptr yind xind xid ⟨ijk.val.1⟩ ⟨ijk.val.2.1⟩ ⟨ijk.val.2.2⟩] { v,
     ⌜v = fun _ => val_bool false⌝ ∗
-    arr⟨⟪l,s⟫⟩(yind , x in M => y_ind x)  } := by stop
+    arr⟨⟪l,s⟫⟩(yind , x in M => y_ind x)  } := by
     move=> /Set.disjoint_left dj; ystep
     ywp; yapp Lang.findIdx_hspec_out=> //'
     { ystep; ywp; yifF=> //'; ywp; yval; ysimp=> //' }
@@ -569,7 +569,7 @@ lemma mem2_spec_out (s : Set (ℝ × ℝ × ℤ)) :
     scase=> /== ? > ? /dj /==
 
 set_option maxRecDepth 2000
-set_option maxHeartbeats 6400000
+set_option maxHeartbeats 20000000
 
 attribute [-simp] Set.singleton_prod
 
@@ -600,43 +600,28 @@ private lemma proj_box (v : hval (ℝ×ℤ)ˡ) :
   move=> > ?? ??; apply Set.ncard_congr (f := fun x _ => (y_ind j, x))=> /== //'
   move=> > ->; simp [Box]=> -> //
 
-open Classical
 
-lemma f (r : ℝ × ℝ × ℤ) (v : ℤ -> ℤ) (x x_1 : hval (ℝ×ℤ)ˡ) (j : ℤ) (cond := fun (i : ℤ) => i < N ∧ y_ind i < y_box 1) :
-  0 ≤ j →
-  j < M →
-  -- y_ind j < y_box 1 →
-  y_box 0 > y_ind j →
-  arr⟨⋆⟩(xind, x in N => x_ind x) ∗
-  arr⟨⋆⟩(xid,  x in N => x_id x) ∗
-  ind ~⟨i in ⟪1, {r}⟫⟩~> j ∗ arr⟨⟪1, {r}⟫⟩(out, x in K => val_int (v x)) ==>
-  (NWP [1| a in {r} => Lang.incr ind]
-    [2| a in {y_ind j} ×ˢ ⋆ => Lang.mem xind xid ⟨a.val.2.1⟩ ⟨a.val.2.2⟩ ⟨y_ptr j⟩ ⟨y_ptr (j + 1)⟩]
-    { x,
-      arr⟨⟪1, {r}⟫⟩(out, j_1 in K =>
-            val_int (v j_1 + ↑({y_ind j} ×ˢ {j_2 | (x ⟨2, (y_ind j, j_2, j_1)⟩).toBool = true} ∩ Box y_box x_box).ncard)) ∗
-          (∃ʰ b,
-              (if j + 1 < ↑M ∧ y_ind (j + 1) < y_box 1 then ind ~⟨i in ⟪1, {r}⟫⟩~> val_int (j + 1)
-                else ∃ʰ (j : ℤ), ind ~⟨x in ⟪1, {r}⟫⟩~> j ∗ ⌜0 ≤ j ∧ (j < ↑M → y_box 1 ≤ y_ind j)⌝) ∗
-                ⌜0 ≤ j + 1 ∧ j + 1 ≤ ↑M ∧ (cond (j + 1) ↔ b = true)⌝) ∗ arr⟨⋆⟩(xind, x in N => x_ind x) ∗
-  arr⟨⋆⟩(xid,  x in N => x_id x)
-            }) := by stop
-    move=> *
-    yin 1: yapp
-    yapp mem_spec_term; rotate_left
-    { apply y_prt_mon=> /== //' }
-    { srw -y_ptr0; apply y_prt_mon=> /== //' }
-    { srw -y_ptrM; apply y_prt_mon=> /== //' }
-    { apply StrictMonoOn.injOn; apply x_ind_mon=> /== //' }
-    ysimp[decide (cond (j + 1))]=> /== //'
-    { move=> i ??
-      srw -(Set.ncard_empty (α := ℝ×ℝ)) ; congr
-      move=> ! [??] /==  ->; simp [Box]
-      move=> ? *; exfalso; linarith }
-    scase_if=> //' /== ?; ysimp=> ⟨|⟩ //'
+def Set.Equiv (s₁ : Set α) (s₂ : Set β) :=
+  ∃ f : α -> β,
+  s₁.InjOn f ∧
+  s₁.SurjOn f s₂ ∧
+  ∀ x ∈ s₁, f x ∈ s₂
 
+omit x_id_range y_prt_mon y_ptr0 y_ptrM y_ind_mono x_ind_mon in
+lemma equiv_card (s₁ : Set α) (s₂ : Set β) :
+  Set.Equiv s₁ s₂ -> s₁.ncard = s₂.ncard := by
+  scase=> f /== finj fsurj fIn; apply Set.ncard_congr (f := fun x _ => f x) => /== //'
 
+omit x_id_range y_prt_mon y_ptr0 y_ptrM y_ind_mono x_ind_mon in
+lemma equiv_finite (s₁ : Set α) (s₂ : Set β) :
+  Set.Equiv s₁ s₂ -> (s₁.Finite <-> s₂.Finite) := by
+  sorry
 
+omit x_id_range y_prt_mon y_ptr0 y_ptrM y_ind_mono x_ind_mon in
+lemma Set.biUnion_ncard (fs : Finset α) (s : α -> Set β) :
+  (∀ i ∈ fs, (s i).Finite) ->
+  (∀ᵉ (i ∈ fs) (j : fs), i ≠ j -> Disjoint (s i) (s j)) ->
+  (⋃ i ∈ fs, s i).ncard = ∑ i in fs, ((s i).ncard : ℤ) := by sorry
 
 lemma boxCountQuery'_spec :
   { arr⟨⋆⟩(yind, x in M => y_ind x) ∗
@@ -653,6 +638,21 @@ lemma boxCountQuery'_spec :
   [2| ijk in @Set.univ (ℝ × ℝ × ℤ) => Lang.mem2 yptr yind xind xid ⟨ijk.val.1⟩ ⟨ijk.val.2.1⟩ ⟨ijk.val.2.2⟩]
   {v,
     arr⟨⟪1, {r}⟫⟩(out, id in K => val_int ({(i, j) | v ⟨2,i,j,id⟩} ∩ Box y_box x_box).ncard)  ∗ ⊤ } := by
+  shave seq : ∀ j (x : hval (ℝ×ℤ)ˡ) ,
+      y_box 0 ≤ y_ind j ->
+      y_ind j < y_box 1 ->
+      ∀ id ∈ ⟦0, K⟧, Set.Equiv
+      ({y_ind j} ×ˢ {i | (x ⟨2, i, id⟩).toBool = true} ∩ Box y_box x_box)
+      ({i | (x ⟨2, i, id⟩).toBool = true} ∩ Set.Ico (x_box 0) (x_box 1))
+  { move=> j x ?? > ?; exists Prod.snd=> ⟨[]?? /== //|⟨?/== *| /== > ⟩⟩
+    { exists (y_ind j) <;> simp [Box]=> // }
+    simp [Box]=> // }
+  shave seq₀ : ∀ j (x : hval (ℝ×ℝ×ℤ)ˡ),
+    ¬ (y_box 0 ≤ y_ind j ∧ y_ind j < y_box 1) ->
+    ∀ id ∈ ⟦0, K⟧,
+    ({y_ind j} ×ˢ {i | (x ⟨2, y_ind j, i, id⟩).toBool = true} ∩ Box y_box x_box) = ∅
+  { move=> > ? > ? ! [??] /== ->; simp [Box]
+    move=> ? * // }
   shave Inj: Set.InjOn y_ind (Set.Ico 0 M)
   { sby apply StrictMonoOn.injOn }
   yfocus 2, (y_ind '' ⟦0, M⟧) ×ˢ ⋆
@@ -661,7 +661,8 @@ lemma boxCountQuery'_spec :
   simp [fun_insert]
   yin 1: ystep; ywp; yref ind
   srw [1]Set.image_eq_iUnion biUnion_prod_const
-  let op id (hv : hval (ℝ×ℝ×ℤ)ˡ) i := ({y_ind i} ×ˢ {j | hv ⟨2,y_ind i,j,id⟩} ∩ Box y_box x_box).ncard
+  let op id (hv : hval (ℝ×ℝ×ℤ)ˡ) i : ℤ := ({y_ind i} ×ˢ {j | hv ⟨2,y_ind i,j,id⟩} ∩ Box y_box x_box).ncard
+  let P id (hv : hval (ℝ×ℝ×ℤ)ˡ) i := ({y_ind i} ×ˢ {j | hv ⟨2,y_ind i,j,id⟩} ∩ Box y_box x_box).Finite
   let cond (i : ℤ) := i < M ∧ y_ind i < y_box 1
   ywhile+ 0, M with (b₀ := cond 0)
     (Inv := fun b i => (
@@ -669,12 +670,13 @@ lemma boxCountQuery'_spec :
           ind ~⟪1, {r}⟫~> i
         else ∃ʰ (j : ℤ), (ind ~⟪1, {r}⟫~> j) ∗ ⌜0 <= j ∧ (j < M -> y_box 1 <= y_ind j)⌝) ∗
             ⌜0 <= i ∧ i <= M ∧ cond i = b⌝)
-    (Q := fun i hv => arr⟨⟪1, {r}⟫⟩(out, id in K => val_int $ op id hv i))
-    (H₀ := arr⟨⟪1, {r}⟫⟩(out, x in K => val_int 0)) <;> try simp [op]
+    (Q := fun i hv =>
+      (∑ j ∈ ⟦0, K⟧, (out + 1 + j.natAbs ~⟪1, {r}⟫~> op j hv i)) ∗
+      ⌜∀ j ∈ ⟦0, K⟧, P j hv i⌝ )
+    (H₀ := arr⟨⟪1, {r}⟫⟩(out, x in K => val_int 0)) <;> try simp [op, P]
   { move=> ?; scase_if; simp [hhlocalE]; srw hhlocal_hhexists; simp [hhlocalE] }
-  { move=> > ?? eq; congr! 9; srw eq //' }
-  { stop
-    move=> > ??
+  { move=> > ?? eq; congr! 10; congr! 1; all_goals srw eq //' }
+  { move=> > ??
     yin 2:
       ystep; simpWP=> /== ??? L₁;
       (sdo 2 ystep=> //'); ywp; yifT=> /== //'
@@ -682,7 +684,7 @@ lemma boxCountQuery'_spec :
     srw if_pos //'
     yin 1:(sdo 4 ystep)
     yin 1: ywp; yif=> /== L₂
-    { yin 1:(sdo 5 ystep=> //')
+    { yin 1:(sdo 5 ystep)=> //'
       ysubst with (σ := Prod.snd)
       { ysimp }
       { move=> ?; scase_if; simp [hhlocalE]; srw hhlocal_hhexists; simp [hhlocalE] }
@@ -693,26 +695,22 @@ lemma boxCountQuery'_spec :
       { srw -y_ptr0; apply y_prt_mon=> /== //' }
       { srw -y_ptrM; apply y_prt_mon=> /== //' }
       { apply x_ind_mon=> /== //' }
-      yapp; ysimp[decide (cond (j + 1))]=> /== //'
-      { clear *-L₁ L₂=> *;
-        apply Set.ncard_congr (f := fun x _ => (y_ind j, x))=> /== //'
-        move=> > ->; simp [Box]=> -> // }
+      move=> fin
+      yapp
+      ysimp[decide (cond (j + 1))]=> /== //'
+      { move=> *; srw (equiv_finite _ _ (seq ..)) //' }
+      { move=> *; srw (equiv_card _ _ (seq ..)) //' }
       scase_if=> /== H * //'
       ysimp=> ⟨//'|?⟩ //' }
-    yin 1: yapp
+    yin 1: yapp=> fin
     yapp mem_spec_term; rotate_left
     { apply y_prt_mon=> /== //' }
     { srw -y_ptr0; apply y_prt_mon=> /== //' }
     { srw -y_ptrM; apply y_prt_mon=> /== //' }
     { apply StrictMonoOn.injOn; apply x_ind_mon=> /== //' }
     ysimp[decide (cond (j + 1))]=> /== //'
-    { move=> i ??
-      srw -(Set.ncard_empty (α := ℝ×ℝ)) ; congr
-      move=> ! [??] /==  ->; simp [Box]
-      move=> ? *; exfalso; linarith }
     scase_if=> //' /== ?; ysimp=> ⟨|⟩ //' }
-  { stop
-    move=> > ? jM
+  { move=> > ? jM
     srw LGTM.triple ywp1; ypull=> /== ??; srw cond /== => /(_ (jM)) Le
     ystep; simpWP
     (sdo 2 ystep=> //'); ywp; yifT=> /== //'
@@ -725,14 +723,11 @@ lemma boxCountQuery'_spec :
     srw ?if_neg //' /==
     { ypull=> k /== ??
       ysimp=> //'
-      { move=> ?? /==; srw -Set.ncard_empty; congr
-        move=> ! [??] /== ->; simp [Box]
-        move=> ? *; exfalso; linarith }
+      -- { move=> *; srw (seq₀ ..) //' }
       move=> ⟨//'|⟨//'|?⟩⟩
       apply le_trans Le; apply le_of_lt; apply y_ind_mono=> /== //' }
     move=> ?; apply le_trans Le; apply le_of_lt; apply y_ind_mono=> /== //' }
-  { stop
-    move=> > ??
+  { move=> > ??
     srw -hwp_equiv; ypull; srw cond=> /== ??
     scase_if=> /== ??
     { ystep; ywp; yapp htriple_lt
@@ -743,8 +738,16 @@ lemma boxCountQuery'_spec :
     ywp; yif=> /== ?
     { ystep; ystep; yapp; ysimp=> /== //'; funext=> /== //' }
     ywp; yval; ysimp=> /== //' }
-  { stop move=> ?; ypull; srw cond /== => > ?? ->; ysimp=> //' }
-  { stop ysimp=> //'; scase_if=> /== //' ?; ysimp=> ⟨|⟩ /== //' }
-  ypull; srw cond=> /== > ??; ysimp=> /== //'
-  save
-  move=> i ??
+  { move=> ?; ypull; srw cond /== => > ?? ->; ysimp=> //' }
+  { ysimp=> //'; scase_if=> /== //' ?; ysimp=> ⟨|⟩ /== //' }
+  ypull; srw cond=> /== > ?? fin ?; ysimp=> /== //'
+  move=> i ?? /==
+  srw -Set.biUnion_ncard /== //'
+  { apply Set.ncard_congr  (f := fun x _ => x)=> /== >
+    { move=> *; scase_if=> /== //'; { move=> * ⟨|⟩ // }
+      exists x=> //' }
+    scase_if=> /== > *; exists x=> ⟨//|⟩//' }
+  move=> > *
+  apply Disjoint.inter_left
+  apply Disjoint.inter_right=> /==; left
+  move=> /(StrictMonoOn.injOn y_ind_mono) /== //'
