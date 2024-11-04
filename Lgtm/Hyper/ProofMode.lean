@@ -761,9 +761,6 @@ lemma xwp_lemma_fixs (xs : α -> List var) (vs : α -> List val) (t t1 : htrm α
   H ==> hwp s (fun i => Unary.isubst ((f i :: xs i).mkAlist (v0 i :: vs i)) $ t1 i) Q ->
   htriple s t H Q := by sorry
 
--- lemma wp_of_wpgen :
---   H ==> wpgen t Q →
---   H ==> wp t Q := by sorry
 
 lemma trm_apps3 :
   trm_apps (trm_apps t1 t2) ts = trm_apps t1 (t2++ts) := by
@@ -1036,6 +1033,13 @@ instance GenInstSum (op : hval α -> ℤ -> ℤ)
     eqInd := by srw hhadd_hhsingle //'
     eqSum := by move=> hv; srw hhstar_pure_hhadd [3]add_comm add_assoc [2]add_comm -hhstar_pure_hhadd hhstar_comm
 
+lemma hharrayFun_congr (m : ℕ) :
+  (∀ i ∈ ⟦0, m⟧, f i = f' i) ->
+  hharrayFun s f m x = hharrayFun s f' m x := by
+  move=> feq; srw ?hharrayFun_eq_hhadd; congr 1
+  apply Finset.sum_congr=> //
+
+set_option maxHeartbeats 1600000 in
 instance GenInstArrSum (op : ℤ -> hval α -> ℤ -> ℤ) (P : ℤ -> hval α -> ℤ -> Prop)
   (m : ℕ) (z n : ℤ) :
    IsGeneralisedSum
@@ -1050,14 +1054,34 @@ instance GenInstArrSum (op : ℤ -> hval α -> ℤ -> ℤ) (P : ℤ -> hval α -
     (fun hv =>
       hharrayFun s (fun j => val_int (∑ i ∈ ⟦z, n⟧, op j hv i)) m x ∗
       ⌜∀ i ∈ ⟦z, n⟧, ∀ k ∈ ⟦0, m⟧, P k hv i⌝) where
-    eqGen := by sorry
-    eqInd := by sorry
-    eqSum := by sorry
+    eqGen := by
+      move=>> ?
+      srw sum_hhstar_hhpure Finset.sum_comm hhstar_pure_hhadd -add_assoc hharrayFun_hhadd_sum' //'
+      srw -hhstar_pure_hhadd=> ⟨|⟨|//⟩⟩
+    eqInd := by
+      move=> *
+      srw add_comm [2]hhstar_pure_hhadd -add_assoc hharrayFun_hhadd_sum //' hhstar_pure_hhadd
+      congr; apply hharrayFun_congr=> //
+    eqSum := by
+      srw sum_hhstar_hhpure hhstar_pure_hhadd -add_assoc; congr!
+      srw Finset.sum_comm hharrayFun_hhadd_sum'
+      { apply hharrayFun_congr=> // }
+      all_goals omega
 
 lemma arr_eq_sum (m : ℕ) (op : β -> ℤ)  (f : β -> ℤ) (fs : Finset β) (ini : ℤ -> ℤ):
   f '' fs ⊆ Set.Ico 0 m →
   hharrayFun s (ini ·) m x + (∑ i ∈ fs, (x j + 1 + (f i).natAbs ~⟨j in s⟩~> op i)) =
-  hharrayFun s (fun id => val_int (ini id + ∑ i in { x ∈ fs | f x = id }, op i)) m x := by sorry
+  hharrayFun s (fun id => val_int (ini id + ∑ i in { x ∈ fs | f x = id }, op i)) m x := by
+  move=> sub
+  shave eq: fs = Finset.biUnion ⟦0,m⟧ fun i => fs.filter (f · = i)
+  { move=> !z /== ?; move: (@sub (f z))=> /== // }
+  srw [1]eq Finset.sum_biUnion /==
+  { srw (Finset.sum_congr rfl); rotate_left
+    { move=> ??; srw (Finset.sum_congr rfl)
+      move=> /== ?? -> }
+    srw hharrayFun_hhadd_sum'; apply hharrayFun_congr=> /== // }
+  move=> > ? > ?/== ?; srw Finset.disjoint_left=> /== //
+
 
 end AddPCM
 

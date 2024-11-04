@@ -71,6 +71,32 @@ lemma hharrayFun_hhadd_sum [PartialCommMonoid val] (n : ℕ) (l : ℤ) (v : Int 
     srw Finset.disjoint_left=> /==; omega }
   srw Finset.disjoint_left=> /==; omega
 
+open AddPCM in
+lemma hharrayFun_hhadd_sum' (n : ℕ) (l : ℤ) (v : ℤ -> β -> ℤ) (fs : ℤ -> Finset β)
+  (f : _ -> ℤ) :
+  -- (∀ x, PartialCommMonoid.valid (f x)) ->
+  -- (∀ x y, PartialCommMonoid.valid (v x y)) ->
+  0 <= l ->
+  l <= n ->
+  hharrayFun s (f ·) n p +
+    ∑ i in ⟦0, l⟧, ∑ k in fs i, (p j + 1 + i.natAbs ~⟨j in s⟩~> v i k) =
+    hharrayFun s (fun i => val.val_int (if i < l then f i + ∑ k in fs i, v i k else f i)) n p := by
+  move=> ??; srw hharrayFun_eq_hhadd /== add_assoc
+  srw -(Finset.Ico_union_Ico_eq_Ico (b := l)) //
+  srw ?Finset.sum_union
+  { srw add_assoc [2]add_comm add_assoc  -Finset.sum_add_distrib
+    srw [2](Finset.sum_congr rfl); rotate_left
+    { move=> ??;
+      rewrite [add_comm, sum_hhsingle']=> // }
+    srw hharrayFun_eq_hhadd; congr 1
+    srw -[3](Finset.Ico_union_Ico_eq_Ico (b := l)) // Finset.sum_union
+    { srw [2]add_comm; congr 1 <;> apply Finset.sum_congr=> //
+      move=> i /== ??
+      srw if_neg // }
+    srw Finset.disjoint_left=> /==; omega }
+  srw Finset.disjoint_left=> /==; omega
+
+
 set_option maxHeartbeats 1600000 in
 open EmptyPCM in
 lemma harrayFun_chip_off (i : ℤ) (n : ℕ) :
