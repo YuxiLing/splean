@@ -74,8 +74,7 @@ lemma find2Idx_hspec'  (l : ℕ) (f₁ : ℤ -> ℝ) (f₂ : ℤ -> ℤ) (s : Se
   move=> ??
   srw ?hharrayFun bighstar_hhstar
   apply htriple_prod_val_eq=> [] /== ? i ??
-  sorry
-  -- xapp find2Idx_spec
+  xapp find2Idx_specZ'
 
 lemma find2Idx_hspec_out'  (l : ℕ) (f₁ : ℤ -> ℝ) (f₂ : ℤ -> ℤ) (s : Set α) (tgt₁ : αˡ -> ℝ) (tgt₂ : αˡ -> ℤ)
   (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
@@ -87,8 +86,7 @@ lemma find2Idx_hspec_out'  (l : ℕ) (f₁ : ℤ -> ℝ) (f₂ : ℤ -> ℤ) (s 
   move=> ??
   srw ?hharrayFun bighstar_hhstar
   apply htriple_prod_val_eq=> [] /== ? i ??
-  sorry
-  -- xapp find2Idx_spec_out
+  xapp find2Idx_spec_outZ
 
 
 @[yapp]

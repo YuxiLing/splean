@@ -214,7 +214,8 @@ lemma boxSerachQuery_spec :
     yin 1: ywp; yval
     yapp get_spec_in; ysimp }
   { sdone }
-  yapp=> hvIn; ysimp=> /==
+  yapp=> hvIn;
+  ysimp=> /==
   erw [<-Finset.sum_image (g := fun i => (x_ind i, y_ind i)) (f := fun i => if InBox _ _ i.1 i.2 then 1 else 0)]
   erw [Finset.sum_ite, Finset.sum_const_zero]; simp [-Finset.mem_Ico, toNat]=> //'
   srw -Set.ncard_coe_Finset Set.Finite.cast_ncard_eq
@@ -228,16 +229,6 @@ end BoxCount
 namespace IntervalCount
 set_option maxRecDepth 1500
 set_option maxHeartbeats 3200000
-
--- open AddPCM in
--- lemma arr_eq_sum (m : ℕ) (op : β -> ℤ)  (f : β -> ℤ) (fs : Finset β):
---   f '' fs ⊆ Set.Ico 0 m →
---   hharrayFun s (fun i => val_int 0) m x + (∑ i ∈ fs, (x j + 1 + (f i).natAbs ~⟨j in s⟩~> op i)) =
---   hharrayFun s (fun id => val_int (∑ i in { x ∈ fs | f x = id }, op i)) m x := by sorry
-
-private lemma boo (n : ℕ) :
-  (∀ i ∈ ⟦0, n⟧, f i = g i) ->
-  hharrayFun s f n p ==> hharrayFun s g n p := by sorry
 
 @[app_unexpander hharrayFun]
 def hharrayFunUnexpander : Lean.PrettyPrinter.Unexpander
@@ -342,19 +333,18 @@ lemma mem_spec_in (l : ℕ) (k : ℤ) :
   { yapp; ysimp=> /== //'; funext=> /== //' }
   move=> ???? /= /== /x_ind_inj //
 
+omit x_ind_inj in
 lemma mem_spec_term (l : ℕ) (s : Set α) (x : αˡ -> ℝ) (y : αˡ -> ℤ) :
   -- (∀ᵉ (i ∈ s) (j ∈ ⟦z,n⟧), ¬ (x_ind j = i.1 ∧ x_id j = i.2)) ->
   arr⟨⟪l,s⟫⟩(xind, x in N => x_ind x) ∗
   arr⟨⟪l,s⟫⟩(xid, x in N => x_id x) ==>
     WP [l| ij in s => Lang.mem xind xid ⟨x ij⟩ ⟨y ij⟩ z n] { v,
      arr⟨⟪l,s⟫⟩(xind, x in N => x_ind x) ∗
-     arr⟨⟪l,s⟫⟩(xid, x in N => x_id x) } := by sorry
-  -- move=> nin
-  -- ystep; ywp; yapp Lang.find2Idx_hspec_out'
-  -- { yapp; ysimp }
-  -- move=> ??;
-  -- { move=> ?? /= /== /x_ind_inj // }
-  -- apply nin=> //
+     arr⟨⟪l,s⟫⟩(xid, x in N => x_id x) } := by
+  srw ?hharrayFun ?bighstar_hhstar; apply htriple_prod (Q := fun _ _ => _)=> a ?
+  xwp; xapp
+  xwp; xapp Lang.find2Idx_spec_term
+  xwp; xapp
 
 omit x_ind_inj in
 @[yapp]
@@ -448,7 +438,9 @@ lemma intervalCountQuery'_spec (ini : ℤ -> ℤ) :
     { srw if_pos //'; ystep=> //'; ystep=> //' /==; ystep=> //'
       shave->: ((((Nat.cast out) + 1) : ℤ).natAbs + x_id j).natAbs = out + 1 + (x_id j).natAbs;
       { move: out; unfold loc; omega }
-      ystep; yapp; ysimp[decide (cond (j + 1))]=> /== //'
+      ystep
+      yapp;
+      ysimp[decide (cond (j + 1))]=> /== //'
       scase_if=> /== * <;> ysimp; move=> ⟨|⟩ //' }
     yapp; ysimp[decide (cond (j + 1))]=> /== //'
     scase_if=> /== * <;> ysimp; move=> ⟨|⟩ //' }
@@ -608,6 +600,11 @@ def Set.Equiv (s₁ : Set α) (s₂ : Set β) :=
   ∀ x ∈ s₁, f x ∈ s₂
 
 omit x_id_range y_prt_mon y_ptr0 y_ptrM y_ind_mono x_ind_mon in
+lemma surj_on_ex_preim {α β} {s₁ : Set α} {s₂ : Set β} {f : α -> β} :
+  s₁.SurjOn f s₂ -> ∀ y ∈ s₂, ∃ x ∈ s₁, f x = y := by
+  move=> /[swap] y /(_ y) /[apply] //
+
+omit x_id_range y_prt_mon y_ptr0 y_ptrM y_ind_mono x_ind_mon in
 lemma equiv_card (s₁ : Set α) (s₂ : Set β) :
   Set.Equiv s₁ s₂ -> s₁.ncard = s₂.ncard := by
   scase=> f /== finj fsurj fIn; apply Set.ncard_congr (f := fun x _ => f x) => /== //'
@@ -615,13 +612,29 @@ lemma equiv_card (s₁ : Set α) (s₂ : Set β) :
 omit x_id_range y_prt_mon y_ptr0 y_ptrM y_ind_mono x_ind_mon in
 lemma equiv_finite (s₁ : Set α) (s₂ : Set β) :
   Set.Equiv s₁ s₂ -> (s₁.Finite <-> s₂.Finite) := by
-  sorry
+  scase! => f fi fs fin
+  refine Equiv.set_finite_iff ?intro.intro.intro.hst
+  apply (Equiv.mk (fun ⟨x,pf⟩ => ⟨f x, fin x pf⟩)
+    (fun ⟨y, pf⟩ => ⟨(choose (surj_on_ex_preim fs _ pf)), by move: (surj_on_ex_preim fs _ pf)=> x; move: (choose_spec x)=> //⟩))
+  { move=>[x pf] /==; move: (surj_on_ex_preim fs _ (fin x pf))=> x
+    scase: (choose_spec x)=> ? /fi // }
+  scase=> x pf /==; move: (surj_on_ex_preim fs _ pf)=> x
+  sby scase: (choose_spec x)
 
 omit x_id_range y_prt_mon y_ptr0 y_ptrM y_ind_mono x_ind_mon in
 lemma Set.biUnion_ncard (fs : Finset α) (s : α -> Set β) :
   (∀ i ∈ fs, (s i).Finite) ->
   (∀ᵉ (i ∈ fs) (j : fs), i ≠ j -> Disjoint (s i) (s j)) ->
-  (⋃ i ∈ fs, s i).ncard = ∑ i in fs, ((s i).ncard : ℤ) := by sorry
+  (⋃ i ∈ fs, s i).ncard = ∑ i in fs, ((s i).ncard : ℤ) := by
+  induction fs using Finset.induction_on=> //' /==
+  rename_i a fs nin ihfs=> fin /[dup] /ihfs {}ihfs fins dj djs
+  srw Finset.sum_insert //' (Set.ncard_union_eq (hs := _) (ht := _)) /== //
+  { move=> ? /[dup]? /dj; sapply=> ? // }
+  move=> ?; apply (Set.Finite.biUnion')=> /==
+  { srw (equiv_finite (s₂ := fs.toSet))=> //
+    exists id=> ⟨? /== |⟨? /== //|//⟩⟩ }
+  move=> ? /Set.mem_def //
+
 
 lemma boxCountQuery'_spec :
   { arr⟨⋆⟩(yind, x in M => y_ind x) ∗

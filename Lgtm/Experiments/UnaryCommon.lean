@@ -374,6 +374,126 @@ lemma find2Idx_spec_out (arr₁ arr₂ : loc) (f₁ f₂ : Int -> ℝ) (tgt₁ t
   scase: [i < n]=> [|/fE]; omega
   simp: fin=> /(_ i) /[swap] -> /[swap] -> /==; omega
 
+open Classical
+
+set_option maxHeartbeats 2000000
+lemma find2Idx_specZ (arr₁ arr₂ : loc) (f₁ : Int -> ℝ) (f₂ : ℤ -> ℤ) (tgt₁ : ℝ) (tgt₂ : ℤ)
+  (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
+  (tgt₁, tgt₂) ∈ (fun i => (f₁ i, f₂ i)) '' ⟦z, n⟧ ->
+  { arr(arr₁, x in N => f₁ x) ∗ arr(arr₂, x in N => f₂ x) }
+  [ find2Idx arr₁ arr₂ tgt₁ tgt₂ z n ]
+  { v, ⌜to_int v ∈ ⟦z, n⟧ ∧ f₁ v = tgt₁ ∧ f₂ v = tgt₂⌝ ∗
+      arr(arr₁, x in N => f₁ x) ∗
+      arr(arr₂, x in N => f₂ x) } := by stop
+  move=> fin
+  xwp; xref;
+  let cond := fun i : ℤ => (i < n ∧ ¬ (f₁ i = tgt₁ ∧ f₂ i = tgt₂))
+  xwhile_up (fun b i =>
+    ⌜z <= i ∧ i <= n ∧ (∀ j ∈ ⟦z, i⟧, ¬(f₁ j = tgt₁ ∧ f₂ j = tgt₂))⌝ ∗
+    p ~~> i ∗
+    ⌜cond i = b⌝ ∗
+    arr(arr₁, x in N => f₁ x) ∗
+    arr(arr₂, x in N => f₂ x)) N
+  { xsimp [(decide (cond z))]=> //; }
+  { move=> b i
+    xwp; xapp=> ?; srw cond /== => condE
+    xwp; xapp
+    xwp; xif=> //== iL
+    { xwp; xapp <;> try omega
+      xwp; xapp <;> try omega
+      xwp; xapp; xwp; xapp; xapp
+      xsimp=> //==
+      scase: b condE=> /== //
+      move=> ? H; tauto }
+    xwp; xval; xsimp=> //
+    scase: b condE=> //==; omega }
+  { move=> i;
+    xapp=> /== ?? fE ?; srw cond /== => fInvE
+    xsimp [(decide (cond (i + 1))), i+1]=> //
+    { move=> ⟨|⟨|⟩⟩ <;> try omega
+      move=> j *; scase: [j = i]=> [?|//]
+      apply fE=> //; omega }
+    { omega }
+    srw cond /==; tauto }
+  move=> hv /=; xsimp=> i ?; srw cond=> /== fE
+  sdo 2 (xwp; xapp)
+  xwp; xval; xsimp[val_int i]
+  simp [to_int]
+  scase: [i = n]=> [? ⟨|⟩ |? ]
+  { omega }
+  { apply fE; omega }
+  subst_vars; exfalso; move: fin=> /== //
+
+lemma find2Idx_specZ' (arr₁ arr₂ : loc) (f₁ : Int -> ℝ) (f₂ : ℤ -> ℤ)
+  (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
+  Set.InjOn (fun i => (f₁ i, f₂ i)) ⟦z, n⟧ ->
+  i ∈ ⟦z,n⟧ ->
+  { arr(arr₁, x in N => f₁ x) ∗ arr(arr₂, x in N => f₂ x) }
+  [ find2Idx arr₁ arr₂ ⟨f₁ i⟩ ⟨f₂ i⟩ z n ]
+  { v, ⌜v = i⌝ ∗
+      arr(arr₁, x in N => f₁ x) ∗
+      arr(arr₂, x in N => f₂ x) } := by
+  move=> inj *; xapp find2Idx_specZ; scase: x <;> (simp [to_int]; try omega)
+  move=> j /== ?? ??; xsimp; apply inj=> //
+
+lemma find2Idx_spec_outZ (arr₁ arr₂ : loc) (f₁ : Int -> ℝ) (f₂ : ℤ -> ℤ) (tgt₁ : ℝ) (tgt₂ : ℤ)
+  (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
+  (tgt₁, tgt₂) ∉ (fun i => (f₁ i, f₂ i)) '' ⟦z, n⟧ ->
+  { arr(arr₁, x in N => f₁ x) ∗ arr(arr₂, x in N => f₂ x) }
+  [ find2Idx arr₁ arr₂ tgt₁ tgt₂ z n ]
+  { v, ⌜v = n⌝ ∗
+      arr(arr₁, x in N => f₁ x) ∗
+      arr(arr₂, x in N => f₂ x) } := by stop
+  move=> fin
+  xwp; xref;
+  let cond := fun i : ℤ => (i < n ∧ ¬ (f₁ i = tgt₁ ∧ f₂ i = tgt₂))
+  xwhile_up (fun b i =>
+    ⌜z <= i ∧ i <= n ∧ (∀ j ∈ ⟦z, i⟧, ¬(f₁ j = tgt₁ ∧ f₂ j = tgt₂))⌝ ∗
+    p ~~> i ∗
+    ⌜cond i = b⌝ ∗
+    arr(arr₁, x in N => f₁ x) ∗
+    arr(arr₂, x in N => f₂ x)) N
+  { xsimp [(decide (cond z))]=> //; }
+  { move=> b i
+    xwp; xapp=> ?; srw cond /== => condE
+    xwp; xapp
+    xwp; xif=> //== iL
+    { xwp; xapp <;> try omega
+      xwp; xapp <;> try omega
+      xwp; xapp; xwp; xapp; xapp
+      xsimp=> //==
+      scase: b condE=> /== //
+      move=> ? H; tauto }
+    xwp; xval; xsimp=> //
+    scase: b condE=> //==; omega }
+  { move=> i;
+    xapp=> /== ?? fE ?; srw cond /== => fInvE
+    xsimp [(decide (cond (i + 1))), i+1]=> //
+    { move=> ⟨|⟨|⟩⟩ <;> try omega
+      move=> j *; scase: [j = i]=> [?|//]
+      apply fE=> //; omega }
+    { omega }
+    srw cond /==; tauto }
+  move=> hv /=; xsimp=> i ?; srw cond=> /== fE
+  sdo 2 (xwp; xapp)
+  xwp; xval; xsimp[val_int i]
+  simp [to_int]=> //
+  scase: [i < n]=> [|/fE]; omega
+  simp: fin=> /(_ i) /[swap] -> /[swap] -> /==; omega
+
+
+lemma find2Idx_spec_term (arr₁ arr₂ : loc) (f₁ : Int -> ℝ) (f₂ : ℤ -> ℤ) (tgt₁ : ℝ) (tgt₂ : ℤ)
+  (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
+  { arr(arr₁, x in N => f₁ x) ∗ arr(arr₂, x in N => f₂ x) }
+  [ find2Idx arr₁ arr₂ tgt₁ tgt₂ z n ]
+  { v,
+      arr(arr₁, x in N => f₁ x) ∗
+      arr(arr₂, x in N => f₂ x) } := by stop
+  scase: [(tgt₁, tgt₂) ∈ (fun i => (f₁ i, f₂ i)) '' ⟦z, n⟧]=> ?
+  { xapp find2Idx_spec_outZ }
+  xapp find2Idx_specZ
+
+
 lang_def searchIdx :=
   fun arr target Z N =>
     let arr0 := arr[Z] in
