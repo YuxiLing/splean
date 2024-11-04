@@ -794,6 +794,62 @@ lemma hhadd_hhsatr_assoc  [PartialCommMonoid val] (H₁ H₂ Q : hhProp) :
   srw -?hhaddE_of_disjoint //== => ⟨//|⟩
   apply hValidInter_of_hdisjoint=> //
 
+def hhProp.disjoint (H₁ H₂ : hhProp) : Prop :=
+  ∀ h₁ h₂, H₁ h₁ → H₂ h₂ → hdisjoint h₁ h₂
+
+lemma hhprop_disjoint_hhadd_eq  [PartialCommMonoid val]  (H₁ H₂ : hhProp) :
+  H₁.disjoint H₂ → H₁ + H₂ = H₁ ∗ H₂ := by
+  move=> hdj !h !⟨|⟩![h₁ h₂] ?? -> dj
+  { shave ?: hdisjoint h₁ h₂
+    { sby apply hdj }
+    srw hhaddE_of_disjoint // }
+  srw -hhaddE_of_disjoint //
+  shave ?: h₁ ⊥ʰ h₂=> //
+  sby apply hValidInter_of_hdisjoint
+
+def hhProp.sat (H : hhProp) := ∃ h, H h
+
+lemma hhprop_disjoint_hhadd [PartialCommMonoid val]  (H₁ H₂ H₃ : hhProp) :
+  H₁.disjoint H₃ -> H₂.disjoint H₃ -> (H₁ + H₂).disjoint H₃ := by
+    move=> dj₁ dj₂ ?? ![??] ?? -> ??; srw hdisjoint_hhadd_eq=> ⟨|⟩
+    { apply dj₁=> // }
+    apply dj₂=> //
+
+lemma hhprop_disjoint_comm (H₁ H₂ : hhProp) :
+  H₁.disjoint H₂ -> H₂.disjoint H₁ := by
+  move=> dj ?? /dj/[apply] dj ?
+  apply Finmap.Disjoint.symm=> //
+
+lemma hhprop_disjoint_hhadd' [PartialCommMonoid val]  (H₁ H₂ H₃ : hhProp) :
+  H₃.disjoint H₁ -> H₃.disjoint H₂ -> H₃.disjoint (H₁ + H₂) := by
+  move=> *; apply hhprop_disjoint_comm; apply hhprop_disjoint_hhadd=> //
+  all_goals apply hhprop_disjoint_comm=> //
+
+
+lemma hhprop_disjoint_sum [PartialCommMonoid val] (H₁ : hhProp) (fs : Finset β) (H : β -> hhProp) :
+  (∀ i ∈ fs, H₁.disjoint (H i)) -> H₁.disjoint (∑ i in fs, H i) := by
+  induction fs using Finset.induction_on=> /==
+  { move=> ? ?? -> ? /==; apply Finmap.Disjoint.symm; apply (Finmap.disjoint_empty) }
+  move=> dj djs; srw Finset.sum_insert //; apply hhprop_disjoint_comm
+  apply hhprop_disjoint_hhadd <;> apply hhprop_disjoint_comm=> //
+
+lemma hhprop_disjoint_sum_sum [PartialCommMonoid val] (fs₁ fs₂ : Finset β) (H₁ H₂ : β -> hhProp) :
+  (∀ i ∈ fs₁, ∀ j ∈ fs₂, (H₁ i).disjoint (H₂ j)) -> (∑ i in fs₁, H₁ i).disjoint (∑ j in fs₂, H₂ j) := by
+  move=> dj; apply hhprop_disjoint_sum=> ??;
+  apply hhprop_disjoint_comm;
+  apply hhprop_disjoint_sum=> ??
+  apply hhprop_disjoint_comm=> //
+
+lemma disjoint_hhsingle :
+  (∀ i ∈ s, x i ≠ x' i) ->
+  (hhsingle s x v).disjoint (hhsingle s x' v') := by
+  move=> neq ?? hs₁ hs₂ a; move: (hs₁ a) (hs₂ a); scase_if=> ain
+  { move=> ->->; refine disjoint_single (Finmap.singleton (x a) (v a)) ?_=> /==
+    move: (neq a ain)=> /[swap] // }
+  move=> ->-> /==; exact Finmap.disjoint_empty ∅
+
+
+
 namespace EmptyPCM
 
 @[simp]
@@ -1101,6 +1157,12 @@ lemma sum_hhsingle (v : α -> β -> Int) (fs : Finset β) (p : α -> loc) :
   (p i ~⟨i in s⟩~> 0) + ∑ j in fs, (p i ~⟨i in s⟩~> v i j) =
   p i ~⟨i in s⟩~> val.val_int (∑ j in fs, v i j) := by
   srw ?hhsingle bighstar_sum bighstar_hhadd; congr!; srw sum_single
+
+open AddPCM in
+lemma sum_hhsingle' (v : α -> β -> Int) (fs : Finset β) (p : α -> loc) (x : ℤ) :
+  (p i ~⟨i in s⟩~> x) + ∑ j in fs, (p i ~⟨i in s⟩~> v i j) =
+  p i ~⟨i in s⟩~> val.val_int (x + ∑ j in fs, v i j) := by
+  srw ?hhsingle bighstar_sum bighstar_hhadd; congr!; srw sum_single'
 
 open AddRealPCM in
 lemma AddRealPCM.sum_hhsingle (v : α -> β -> ℝ) (fs : Finset β) (p : α -> loc) :

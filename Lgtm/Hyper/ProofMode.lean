@@ -984,6 +984,9 @@ instance GenInstArr (op : hval α -> Int -> Int)
     eqInd := by srw hhadd_hhsingle //'
     eqSum := by move=> hv; apply GenInstArr_eqSum hv (f ·) (op · ·)=> //
 
+private lemma hhstar_hhpure_elim :
+  P -> ⌜P⌝ ∗ H = H := by move=> ?; ysimp; ysimp=> //
+
 instance GenInstSum (op : hval α -> ℤ -> ℤ)
   (m : ℕ) (z n : ℤ) (x : α -> loc) (f : ℤ -> ℤ) (ini : ℤ -> ℤ) :
    IsGeneralisedSum
@@ -995,7 +998,41 @@ instance GenInstSum (op : hval α -> ℤ -> ℤ)
     (fun k j => x i + 1 + (f k).natAbs ~⟨i in s⟩~> j)
     (fun i j hv => x k + 1 + (f i).natAbs ~⟨k in s⟩~> val.val_int (op hv i + j))
     (fun hv => ⌜f ''⟦z, n⟧ ⊆ Set.Ico 0 m⌝ ∗ hharrayFun s (ini ·) m x + (∑ i ∈ ⟦z, n⟧, (x j + 1 + (f i).natAbs ~⟨j in s⟩~> op hv i))) where
-    eqGen := by sorry
+    eqGen := by
+      move=> > jin
+      srw hhstar_pure_hhadd [2]add_comm add_assoc add_comm -hhstar_pure_hhadd hhstar_comm
+      scase: [f ''⟦z, n⟧ ⊆ Set.Ico 0 m]=> fin
+      { exists 0, ⌜f ''⟦z, n⟧ ⊆ Set.Ico 0 m⌝; ysimp=> //'
+        { ysimp=> // }
+        sdone }
+      move: (harrayFun_chip_off' s (f j) m (p := x) (f := fun i => ini i))=> H
+      specialize H ?_ ?_
+      { simp[-Set.mem_Ico]: (@fin (f j))=> H
+        specialize H j ?_ ?_=> // }
+      { simp[-Set.mem_Ico]: (@fin (f j))=> H
+        specialize H j ?_ ?_=> // }
+      scase!: H=> H eq dj
+      srw hhstar_hhpure_elim //'
+      srw eq -hhprop_disjoint_hhadd_eq //'
+      shave->: ⟦z,j⟧ = {i ∈ ⟦z,j⟧ | f i = f j} ∪ {i ∈ ⟦z,j⟧ | f i ≠ f j}
+      { move=> ! /== ? ⟨|[]⟩ // }
+      srw Finset.sum_union /==
+      { srw (Finset.sum_congr (g := fun i => x k + 1 + (f j).natAbs ~⟨k in s⟩~> op (hv i) i)); rotate_left
+        { rfl }
+        { move=> ? /== ?? //  }
+        srw add_assoc [2]add_comm -[2]add_assoc sum_hhsingle' add_assoc hhprop_disjoint_hhadd_eq //
+        apply hhprop_disjoint_hhadd'=> //'
+        apply hhprop_disjoint_sum=> i /== ?? neq; refine
+        disjoint_hhsingle ?intro.intro.refine_2.a.a.a.a
+        move=> /== ??
+        shave fi: f i ∈  Set.Ico 0 ↑m
+        { apply fin=> /==; exists i=> //
+          simp: jin=> //' }
+        shave fj: f j ∈  Set.Ico 0 ↑m
+        { apply fin=> /==; exists j=> // }
+        scase: (f i) (f j) fi fj neq=> /== ? [] /== * ? // }
+      srw Finset.disjoint_left=> /== //
+
     eqInd := by srw hhadd_hhsingle //'
     eqSum := by move=> hv; srw hhstar_pure_hhadd [3]add_comm add_assoc [2]add_comm -hhstar_pure_hhadd hhstar_comm
 
@@ -1390,7 +1427,7 @@ example :
 example :
   emp ==>
     WP [1 | i in {(1 : ℤ) ,3} => let x := ⟨i⟩ in x + 1]
-    { v, ⌜v ⟨1,1⟩ = 2 ∧ v ⟨2,1⟩ = 2 ∧ v ⟨1,3⟩ = 4⌝ } := by sorry
+    { v, ⌜v ⟨1,1⟩ = 2 ∧ v ⟨2,1⟩ = 2 ∧ v ⟨1,3⟩ = 4⌝ } := by admit
 
 example (F : False) (H : hhProp Int)
   (h :
@@ -1570,7 +1607,7 @@ example : hharrayFun (α := (ℤ×ℤ)ˡ) Set.univ f n (fun _ => p) ∗
         [2 | i in Set.Ico 1 5 ×ˢ {1,3} => let x := ⟨i.val.2⟩ in x + 1]
     { v, ⌜v ⟨1,0,1⟩ = 2 ∧ v ⟨2,0,1⟩ = 2 ∧ v ⟨1,0,1⟩ = 4⌝ ∗ ⊤ } := by
   ymerge 2 with (μ := fun x => ⟨1, x.2⟩)
-  { sorry }
-  sorry
+  { admit }
+  admit
 
 end

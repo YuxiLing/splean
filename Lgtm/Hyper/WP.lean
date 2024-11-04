@@ -3,7 +3,7 @@ import Lean
 import Mathlib.Data.Finmap
 
 import Lgtm.Common.Util
-import Lgtm.Unary.WP
+-- import Lgtm.Unary.WP
 
 import Lean
 

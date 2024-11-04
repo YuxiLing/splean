@@ -81,6 +81,25 @@ lemma harrayFun_chip_off (i : ℤ) (n : ℕ) :
   srw -(Finset.sdiff_union_of_subset (α := ℤ) (s₁ := {i}) (s₂ := ⟦0, ↑n⟧)) //
   srw Finset.sum_union //==; ysimp; ysimp
 
+set_option maxHeartbeats 1600000 in
+open EmptyPCM in
+lemma harrayFun_chip_off' (i : ℤ) (n : ℕ) :
+  0 <= i -> i < n ->
+  ∃ H, hharrayFun s f n p = (p j + 1 + i.natAbs ~⟨j in s⟩~> f i) ∗ H ∧
+  ∀ v, (p j + 1 + i.natAbs ~⟨j in s⟩~> v).disjoint H := by
+  move=> ??; econstructor
+  srw hharrayFun_eq_hhadd hhaddE
+  srw -(Finset.sdiff_union_of_subset (α := ℤ) (s₁ := {i}) (s₂ := ⟦0, ↑n⟧)) //
+  srw Finset.sum_union //== => ⟨|?⟩;
+  { ysimp; ysimp }
+  srw -hhaddE; apply  hhprop_disjoint_hhadd'
+  { apply hhprop_disjoint_sum
+    move=> k /== ?? neq; apply disjoint_hhsingle=> j ? /== ?; simp: neq
+    scase: i k=> /== ?? [] /== // }
+  apply disjoint_hhsingle=> ? ?; move: p; unfold loc; omega
+
+
+
 open trm
 
 
