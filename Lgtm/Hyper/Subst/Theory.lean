@@ -599,6 +599,9 @@ lemma hsubst_wp1 (Q' : hval β -> hhProp α) (Q : hval α -> hhProp α) (σ : α
   move=> *
   srw -LGTM.triple_sht_extend
   sorry
+  sorry
+  sorry
+  sorry
 
 lemma wp_hsubst_some [Inhabited α] (Q : hval α -> hhProp α) :
   s = s₁ ∪ s₂ ->
