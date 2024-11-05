@@ -215,6 +215,15 @@ lemma htriple_hsubst (ht : htrm β) (H : hhProp α) (Q : hval α -> hhProp α) (
   { sby move=> ?? /Ql hl ? /[dup]/hl-> /(Hl _ Hh) }
   sby apply htr; exists hh
 
+lemma hsubst_htriple (ht : htrm β) (H : hhProp α) (Q : hval α -> hhProp α) (σ : α -> β) :
+  (∀ᵉ (a ∈ s) (a' ∉ s), σ a ≠ σ a') ->
+  hhlocal s H ->
+  (∀ hv₁ hv₂, Set.EqOn hv₁ hv₂ s -> Q hv₁ = Q hv₂) ->
+  htriple s (ht ∘ σ) H Q ->
+  htriple (ssubst σ s s) ht (hsubst σ s H) (fun hv => hsubst σ s (Q (hv ∘ σ))) := by
+  move=> inj Hl Ql htr hh ![hh -> ??]; apply hsubst_heval=>//
+
+
 set_option maxHeartbeats 800000 in
 lemma hsubst_bighstar (σ : β -> α)
   (s s' : Set β) (H : α -> hProp) :
@@ -568,9 +577,11 @@ lemma hwp_hsubst (Q : hval α -> hhProp α) (σ : α -> β) :
   sby apply wp; exists h=> ⟨//|⟨//|⟩⟩; apply injectiveSet_validSubst
 
 lemma hsubst_wp (Q' : hval β -> hhProp α) (Q : hval α -> hhProp α) (σ : α -> β) :
+  (∀ᵉ (a ∈ s₁) (a' ∈ s₂), σ a ≠ σ a') ->
   (∀ᵉ (a ∈ s) (a' ∉ s), σ a ≠ σ a') ->
   (hhlocal s H) ->
   (s = s₁ ∪ s₂) ->
+  Disjoint s₁ s₂ ->
   (∀ hv₁ hv₂, Set.EqOn hv₁ hv₂ s -> Q hv₁ = Q hv₂) ->
   (∀ hv, Q' hv = Q (hv ∘ σ)) ->
   LGTM.triple
@@ -580,12 +591,40 @@ lemma hsubst_wp (Q' : hval β -> hhProp α) (Q : hval α -> hhProp α) (σ : α 
   LGTM.triple
     [⟨ssubst σ s s₁, ht₁⟩, ⟨ssubst σ s s₂, ht₂⟩]
     (hsubst σ s H)
-    fun hv => hsubst σ s (Q' hv) := by sorry
+    fun hv => hsubst σ s (Q' hv) := by
+  move=> h₁ h₂ ? seq /[dup]? /Set.disjoint_left ? eq eq' tr
+  srw LGTM.triple LGTM.wp /==
+  shave->: ssubst σ s s₁ ∪ ssubst σ s s₂ = ssubst σ s (s₁ ∪ s₂)
+  { move=> ! x /==; srw ?fsubst_inE
+    { srw -seq [1 2]seq Set.union_inter_cancel_right Set.union_inter_cancel_left /== seq
+      move=> ⟨[]![] x ? <- ⟨|⟨|⟩⟩ // | /== ? [] ? <- ⟩
+      { left=> // }
+      right=> // }
+    { srw -seq // }
+    { srw seq; srw Set.union_comm; apply validSubst_union=> //'
+      move=> * // }
+    srw seq; apply validSubst_union=> //' }
+  simp [eq', <-seq]; apply hsubst_htriple=> //'
+  srw -hwp_equiv hwp_ht_eq ?seq
+  { move: tr; srw LGTM.triple LGTM.wp /== => tr
+    apply tr }
+  move=> x /== [] xin
+  { srw ?if_pos //' fsubst_inE ?Set.union_inter_cancel_left //
+    apply validSubst_union=> // }
+  srw if_neg
+  { srw if_pos
+    { srw if_neg //' }
+    srw fsubst_inE ?Set.union_inter_cancel_right // Set.union_comm
+    apply validSubst_union=> * // }
+  srw fsubst_inE ?Set.union_inter_cancel_left /== //
+  apply validSubst_union=> * //
 
 lemma hsubst_wp1 (Q' : hval β -> hhProp α) (Q : hval α -> hhProp α) (σ : α -> β) :
+  (∀ᵉ (a ∈ s₁) (a' ∈ s₂), σ a ≠ σ a') ->
   (∀ᵉ (a ∈ s) (a' ∉ s), σ a ≠ σ a') ->
   (hhlocal s H) ->
   (s = s₁ ∪ s₂) ->
+  Disjoint s₁ s₂ ->
   (∀ hv₁ hv₂, Set.EqOn hv₁ hv₂ s₁ -> Q hv₁ = Q hv₂) ->
   (∀ hv, Q' hv = Q (hv ∘ σ)) ->
   LGTM.triple
@@ -596,12 +635,22 @@ lemma hsubst_wp1 (Q' : hval β -> hhProp α) (Q : hval α -> hhProp α) (σ : α
     [⟨ssubst σ s s₁, ht₁⟩]
     (hsubst σ s H)
     fun hv => hsubst σ s (Q' hv) := by
-  move=> *
-  srw -LGTM.triple_sht_extend
-  sorry
-  sorry
-  sorry
-  sorry
+  move=> h₁ h₂ ? /Set.union_comm seq /[dup]? /Set.disjoint_left ? eq eq' *
+  srw -(LGTM.triple_sht_extend (s' := ssubst σ s s₂))
+  { apply hsubst_wp (Q := Q)=> //' >
+    { move=> * // }
+    { move=> eq' *; apply eq; subst_vars=> ??; apply eq'=> // }
+    erw [LGTM.triple_sht_extend]=> //' /== > eq'
+    apply eq; subst_vars=> ??; apply eq'=> // }
+  { srw Set.disjoint_left=> ? /==; srw ?fsubst_inE /==
+    { move=> ? ?? <- ? ?? //' }
+    { srw seq; apply validSubst_union=> //'
+      move=> * // }
+    srw seq Set.union_comm; apply validSubst_union=> //' }
+  move=> /== > eqs; srw ?eq' eq => x xin /==
+  srw eqs fsubst_inE seq
+  { srw Set.union_inter_cancel_right; exists x }
+  srw Set.union_comm; apply validSubst_union=> //'
 
 lemma wp_hsubst_some [Inhabited α] (Q : hval α -> hhProp α) :
   s = s₁ ∪ s₂ ->
