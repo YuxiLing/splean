@@ -1139,7 +1139,7 @@ lemma wp_for_bighop_aux (β : Type) [PartialCommMonoid val] [inst : Inhabited β
   H₀ ∗ Inv z ∗  R ∗↑ s ==>
     LGTM.wp
          [⟨s', fun j => trm_for vr z n (c j)⟩, ⟨s, ht⟩]
-         (fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv n ∗ R' ∗↑ s) := by stop
+         (fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv n ∗ R' ∗↑ s) := by
   move=> lH₀ lInv lQ lgen ? eqQ gen ind *
   srw -(hsubst_H) //' LGTM.wp_Q_eq; rotate_left 2
   { move=> ?; srw -(hsubst_H) //' }
@@ -1147,8 +1147,10 @@ lemma wp_for_bighop_aux (β : Type) [PartialCommMonoid val] [inst : Inhabited β
   srw -(ssubst_s s z n sᵢ s' disj seq df) //'
   apply hsubst_wp (Q :=
     fun hv => hsubst κ s' (H₀ + ∑ j in ⟦z, n⟧, Q j (hv ∘ (j,·))) ∗ hsubst κ s' (Inv n) ∗ (R' ∘ π) ∗↑ fs)=>//'
+  { apply lem3=> //' }
   { apply lem4=> //' }
   { simp=> ⟨|⟩ <;> apply hhlocal_hsubst_κ=> //' }
+  { simp; omega }
   { move=> > hveq; congr! 3
     apply Finset.sum_congr (s₂ := ⟦z, n⟧)=> [//|]/==
     move=> i ?? ; apply eqQ=> //' /= ??; apply hveq=> /==; right
@@ -1197,8 +1199,10 @@ lemma wp_for_bighop_aux (β : Type) [PartialCommMonoid val] [inst : Inhabited β
   srw -(lem13 n sᵢ s' df) //' -(lem14 s z n sᵢ s') //'
   eapply hsubst_wp
     (Q := fun hv => ((Q j hv + Qgen j v) ∗ Inv (j+1) ∗ R' ∗↑ sᵢ j))=> //'
+  { apply lem6=> // }
   { apply lem5=> // }
   { srw ?hhlocal_hhstar=> /== ⟨|⟩ <;> apply hhlocal_subset s'=> //' }
+  { move: disj; srw seq=> /==; sapply<;> omega }
   { move=> > hveq; congr 2; apply eqQ=> //' /= ??; apply hveq=> /== //' }
   { move=> hv; congr! 2
     { apply eqQ=> //' /= ??; srw ι' if_neg ?if_pos //' => ?
@@ -1259,7 +1263,7 @@ lemma wp_while_bighop_aux [PartialCommMonoid val] [Inhabited α] (β : Type) [in
   (∀ b, hhimpl (Inv b n) (hhpure (b = false) ∗ Inv b n)) ->
   H₀ ∗ Inv b₀ z ∗ R ∗↑ s ==>
     LGTM.wp [⟨s', fun j => trm_while cnd c⟩, ⟨s, ht⟩]
-      fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv false n ∗ R' ∗↑ s := by stop
+      fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv false n ∗ R' ∗↑ s := by
   move=> lH₀ lInv lQ lgen ? eqQ gen indt indf cndN cndE
   srw -(hsubst_H) //' LGTM.wp_Q_eq; rotate_left 2
   { move=> ?; srw -(hsubst_H) //' }
@@ -1267,8 +1271,10 @@ lemma wp_while_bighop_aux [PartialCommMonoid val] [Inhabited α] (β : Type) [in
   srw -(ssubst_s s z n sᵢ s' disj seq df) //'
   apply hsubst_wp (Q :=
     fun hv => hsubst κ s' (H₀ + ∑ j in ⟦z, n⟧, Q j (hv ∘ (j,·))) ∗ hsubst κ s' (Inv false n) ∗ (R' ∘ π) ∗↑ fs)=>//'
+  { apply lem3=> //' }
   { apply lem4=> //' }
   { simp=> ⟨|⟩ <;> apply hhlocal_hsubst_κ=> //' }
+  { simp; omega }
   {
     move=> > hveq; congr! 3
     apply Finset.sum_congr (s₂ := ⟦z, n⟧)=> [//|]/==
@@ -1322,8 +1328,10 @@ lemma wp_while_bighop_aux [PartialCommMonoid val] [Inhabited α] (β : Type) [in
     srw -(lem13 n sᵢ s' df) //' -(lem14 s z n sᵢ s' _ _ df) //'
     eapply hsubst_wp
       (Q := fun hv => ((Q j hv + Qgen j v) ∗ (∃ʰ b, Inv b (j+1)) ∗ R' ∗↑ sᵢ j))=> //'
+    { apply lem6=> // }
     { apply lem5=> // }
     { srw ?hhlocal_hhstar=> /== ⟨|⟩ <;> apply hhlocal_subset s'=> //' }
+    { move: disj; srw seq=> /==; sapply<;> omega }
     { move=> > hveq; congr 2; apply eqQ=> //' /= ??; apply hveq=> /== //' }
     { move=> hv; congr! 2
       { apply eqQ=> //' /= ??; srw ι' if_neg ?if_pos //' => ?
@@ -1356,10 +1364,14 @@ lemma wp_while_bighop_aux [PartialCommMonoid val] [Inhabited α] (β : Type) [in
       (s₁ := sᵢ j)
       (s₂ := s')
       (Q := fun hv => ((Q j hv + Qgen j v) ∗ (Inv false (j+1)) ∗ R' ∗↑ sᵢ j))=> //'
+    { move=> ? /[swap] ? /[swap] ? /[swap] /(@Eq.symm _ _ _) /[swap]
+      apply lem6=> // }
     { apply lem5=> // }
     { srw ?hhlocal_hhstar=> /== ⟨|⟩ <;> apply hhlocal_subset s'=> //' }
     { srw Set.union_comm }
-    { move=> > hveq; congr 2; apply eqQ=> //' /= ??; apply hveq=> /== //' }
+    { srw disjoint_comm
+      move: disj; srw seq=> /==; sapply<;> omega }
+    { move=> > hveq; congr 2; apply eqQ=> //' }
     {
       move=> hv; congr! 2
       { apply eqQ=> //' /= ??; srw ι' if_neg ?if_pos //' => ?
@@ -1488,7 +1500,7 @@ lemma wp_for_bighop [Inhabited α] [PartialCommMonoid val] (β : Type)  [inst:In
   H₀ ∗ Inv z ∗  R ∗↑ s ==>
     LGTM.wp
          [⟨s', fun j => trm_for vr z n (c j)⟩, ⟨s, ht⟩]
-         (fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv n ∗ R' ∗↑ s) := by stop
+         (fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv n ∗ R' ∗↑ s) := by
   move=> L ???? eqQ gen *
   eapply wp_hsubst_some=> //'
   { simp=> ⟨|⟩ <;> apply hhlocal_subset s'=> //' }
@@ -1540,6 +1552,8 @@ lemma wp_for_bighop [Inhabited α] [PartialCommMonoid val] (β : Type)  [inst:In
       all_goals auto
       move=> * [] //' }
     apply hsubst_wp=> //' /==
+    { move=> ??? /[swap] <-
+      apply Set.disjoint_left.mp=> //' }
     { move=> * [] // }
     { constructor <;> apply hhlocal_subset s'=> //' }
     move=> > hveq ?; congr; apply eqQ=> //'  }
@@ -1581,7 +1595,7 @@ lemma wp_while_bighop [Inhabited α] [PartialCommMonoid val] (β : Type)  [inst:
   (∀ b, hhimpl (Inv b n) (hhpure (b = false) ∗ Inv b n)) ->
   H₀ ∗ Inv b₀ z ∗ R ∗↑ s ==>
     LGTM.wp [⟨s', fun j => trm_while cnd c⟩, ⟨s, ht⟩]
-      fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv false n ∗ R' ∗↑ s := by stop
+      fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv false n ∗ R' ∗↑ s := by
   move=> L ???? eqQ gen ?? cndN cndE
   eapply wp_hsubst_some=> //'
   { simp=> ⟨|⟩ <;> apply hhlocal_subset s'=> //' }
@@ -1633,6 +1647,8 @@ lemma wp_while_bighop [Inhabited α] [PartialCommMonoid val] (β : Type)  [inst:
       all_goals auto
       move=> * [] //' }
     apply hsubst_wp=> //' /==
+    { move=> ??? /[swap] <-
+      apply Set.disjoint_left.mp=> //' }
     { move=> * [] // }
     { constructor <;> apply hhlocal_subset s'=> //' }
     move=> > hveq ?; congr; apply eqQ=> //'  }
@@ -1649,6 +1665,8 @@ lemma wp_while_bighop [Inhabited α] [PartialCommMonoid val] (β : Type)  [inst:
       all_goals auto
       move=> * [] //' }
     eapply hsubst_wp1 (s₁ := sᵢ j) (s₂ := s'); rotate_right=> //' /==
+    { move=> ? ain ??; move: ain=> /[swap] ->
+      apply Set.disjoint_left.mp=> //' }
     { move=> * [] // }
     { constructor <;> apply hhlocal_subset s'=> //' }
     { srw Set.union_comm }
