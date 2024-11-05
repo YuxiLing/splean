@@ -24,10 +24,13 @@ lemma findIdx_hspec (l : ℕ) (f : ℤ -> ℝ) (target : Labeled α -> ℝ) (s :
 lemma findIdx_hspec' (l : ℕ) (f : ℤ -> ℝ) (s : Set α) (i : ℤ)
   (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
   Set.InjOn f ⟦z, n⟧ ->
+  i ∈ ⟦z, n⟧ ->
   arr⟨⟪l,s⟫⟩(arr, x in N => f x) ==>
     hwp ⟪l, s⟫ (fun _ ↦ [lang| findIdx arr ⟨f i⟩ z n])
     fun v ↦ ⌜v = fun _ ↦ val_int i⌝ ∗ arr⟨⟪l, s⟫⟩(arr, x in N => f x) := by
-  sorry /- Vova -/
+  move=> ???
+  apply htriple_prod_val_eq=> [] /== ? j ??
+  xapp findIdx_spec'
 
 lemma findIdx_hspec_out (l : ℕ) (f : ℤ -> ℝ) (target : Labeled α -> ℝ) (s : Set α)
   (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :

@@ -131,11 +131,30 @@ lemma hwp_swap' (Q : hval -> hhProp) :
   hwp s₂ ht (fun hv => hwp s₁ ht (fun hv' => Q (hv ∪_s₂ hv'))) := by
     move=> ?; sby srw -?hwp_union // Set.union_comm
 
+lemma hwp_ht_eq :
+  (Set.EqOn ht₁ ht₂ s) -> hwp s ht₁ Q = hwp s ht₂ Q := by
+  sby move=> ? !?; apply heval_ht_eq
+
+lemma hwp_Q_eq (Q Q' : hval -> hhProp) :
+  (∀ hv, Q hv = Q' hv) -> hwp s ht Q = hwp s ht Q' := by
+  sby move=> ?; apply congr=> // !
+
 lemma hwp_swap (Q : hval -> hhProp) :
   Disjoint s₁ s₂ ->
   hwp s₁ ht₁ (fun hv => hwp s₂ ht₂ (fun hv' => Q (hv ∪_s₁ hv'))) =
   hwp s₂ ht₂ (fun hv => hwp s₁ ht₁ (fun hv' => Q (hv ∪_s₂ hv'))) := by
-    sorry /- Vova -/
+    move=> /[dup] ? /Set.disjoint_left ?
+    srw (hwp_ht_eq (ht₂ := ht₁ ∪_s₁ ht₂))
+    { srw [2](hwp_ht_eq (ht₂ := ht₁ ∪_s₁ ht₂))
+      { srw hwp_Q_eq; rotate_right
+        { move=> ?; srw (hwp_ht_eq (ht₂ := ht₁ ∪_s₁ ht₂))
+          move=> ?? /=; scase_if=> // }
+        srw [2]hwp_Q_eq; rotate_right
+        { move=> ?; srw (hwp_ht_eq (ht₂ := ht₁ ∪_s₁ ht₂))
+          move=> ?? /=; scase_if=> // }
+        apply hwp_swap'=> // }
+      move=> ?? /=; scase_if=> // }
+    move=> ?? /=; scase_if=> //
 
 
 @[simp]
@@ -153,9 +172,7 @@ lemma hwp0_dep : hwp (∅ : Set α) ht Q = ∃ʰ hv, Q hv := by
 lemma hwp0 : hwp (∅ : Set α) ht (fun _ => Q) = Q := by
   sby srw hwp0_dep; apply hhimpl_antisymm=> ?; scase!
 
-lemma hwp_ht_eq :
-  (Set.EqOn ht₁ ht₂ s) -> hwp s ht₁ Q = hwp s ht₂ Q := by
-  sby move=> ? !?; apply heval_ht_eq
+
 
 /- ---------- Hyper Weakest-Precondition Reasoning Rules for Hyper Terms ---------- -/
 
@@ -530,9 +547,7 @@ lemma disjoint_shts_set :
   Disjoint s (SHTs.set shts) = true := by
   sby elim: shts
 
-lemma hwp_Q_eq (Q Q' : hval -> hhProp) :
-  (∀ hv, Q hv = Q' hv) -> hwp s ht Q = hwp s ht Q' := by
-  sby move=> ?; apply congr=> // !
+
 
 lemma wp_Q_eq (Q Q' : hval -> hhProp) :
   (∀ hv, Q hv = Q' hv) -> wp sht Q = wp sht Q' := by
@@ -627,7 +642,8 @@ lemma triple_conseq :
   Pre ==> Pre' ->
   Post' ===> Post ->
   triple shts Pre' Post' ->
-  triple shts Pre Post := by sorry /- Vova -/
+  triple shts Pre Post := by
+  move=> ???; apply htriple_conseq=> //
 
 lemma wp_frame (Q : hval -> hhProp) (H : hhProp) :
   wp sht Q ∗ H ==> wp sht (Q ∗ H) := by

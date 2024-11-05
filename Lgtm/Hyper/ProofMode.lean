@@ -206,7 +206,9 @@ lemma yunfocus_lemma (idx : ℕ) (l : LabType) (shts : LGTM.SHTs (Labeled α)) {
 
 lemma LGTM.wp_hv_eq :
   LGTM.wp shts Q = LGTM.wp shts (fun hv => ∃ʰ hv', Q (hv ∪_shts.set hv')) := by
-  sorry /- Vova -/
+  ysimp <;> apply hwp_conseq'=> //
+  move=> hv /=; ysimp [hv, hv]
+  srw ?fun_insert_ff //
 
 lemma congr_hhimpl :
   H = H' ->
@@ -1504,10 +1506,18 @@ lemma labLift_set (f : α -> β) (s : Set α) :
 lemma Prod.snd_img :
   (Prod.snd '' {s} ×ˢ s') = s' := by sby ext
 
-lemma LGTM.wp_sht_eq (shts : SHTs α) :
-  (shts.Forall₂ (fun sht sht'=> ∀ x ∈ sht.s, sht.s = sht'.s ∧ sht.ht x = sht'.ht x) shts') ->
+lemma LGTM.wp_sht_eq (shts shts' : SHTs α) :
+  (shts.Forall₂ (fun sht sht'=> sht.s = sht'.s ∧ ∀ x ∈ sht.s, sht.ht x = sht'.ht x) shts') ->
   LGTM.wp shts Q = LGTM.wp shts' Q := by
-  sorry /- Vova -/
+  move=> ?
+  srw ?LGTM.wp
+  shave<-: shts.set = shts'.set
+  { elim: shts shts'=> // sht shts ihst [] // sht' shts' /== -> _ /ihst -> }
+  apply hwp_ht_eq
+  elim: shts shts'=> // sht shts ihst [] // sht' shts' /== -> eq /ihst eq ⟨|⟩
+  { move=> ??; srw ?fun_insert ?if_pos // }
+  move=> ??; srw ?fun_insert; scase_if=> //
+
 
 lemma feq [Nonempty α] (σ : α -> β) :
   x ∈ σ.labLift '' s ->

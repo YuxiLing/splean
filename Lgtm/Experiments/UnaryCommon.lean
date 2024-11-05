@@ -201,6 +201,17 @@ lemma findIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
   xwp; xval; xsimp[val_int i]
   srw fE //; scase: [i = n]=> [|?] //; omega
 
+lemma findIdx_spec' (arr : loc) (f : Int -> ℝ)
+  (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
+  Set.InjOn f ⟦z, n⟧ ->
+  i ∈ ⟦z, n⟧ ->
+  { arr(arr, x in N => f x) }
+  [ findIdx arr ⟨f i⟩ z n ]
+  { v, ⌜ v = val_int i ⌝ ∗ arr(arr, x in N => f x) } := by
+  move=> inj iin
+  xapp findIdx_spec; xsimp=> /=
+  rw [Function.invFunOn_app_eq f inj iin]
+
 lemma findIdx_spec_out (arr : loc) (f : Int -> ℝ) (target : ℝ)
   (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
   Set.InjOn f ⟦z, n⟧ ->
@@ -661,16 +672,6 @@ lemma left_right_monotone_rl (lf rf : ℤ -> ℝ) :
    (∀ i ∈ ⟦z, n⟧, lf i <= rf i) ->
    (∀ i ∈ ⟦z, n-1⟧, rf i <= lf (i + 1)) ->
    ∀ᵉ (i ∈ ⟦z, n⟧) (j ∈ ⟦z, n⟧), i < j -> rf i < lf j := by sorry
-
--- lemma left_right_monotone_left (rf : ℤ -> ℝ) :
---    (∀ i ∈ ⟦z, n⟧, lf i <= rf i) ->
---    (∀ i ∈ ⟦z, n-1⟧, rf i <= lf (i + 1)) ->
---    MonotoneOn lf ⟦z, n⟧ := by sorry
-
--- lemma left_right_monotone_right (lf : ℤ -> ℝ) :
---    (∀ i ∈ ⟦z, n⟧, lf i <= rf i) ->
---    (∀ i ∈ ⟦z, n-1⟧, rf i <= lf (i + 1)) ->
---    MonotoneOn rf ⟦z, n⟧ := by sorry
 
 
 lemma searchSparseRLE_spec' (left right : loc) (lf rf : ℤ -> ℝ) (tgt : ℝ)
