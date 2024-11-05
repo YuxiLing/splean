@@ -790,6 +790,94 @@ lemma htriple_extend_univ (Q : hval -> hhProp) (H' : hProp) :
   exists (fun a => if a ∉ s then h else ∅)=> a /=
   scase: [a ∈ sᶜ]=> /== //
 
+-- @[simp]
+-- private lemma disj_compl : Disjoint s sᶜ = true := by
+--   simp
+--   exact Set.disjoint_compl_right_iff_subset.mpr fun ⦃a⦄ a ↦ a
+
+-- @[simp]
+-- private lemma disj_compl' : Disjoint sᶜ s = true := by
+--   simp
+--   exact Set.disjoint_compl_left_iff_subset.mpr fun ⦃a⦄ a ↦ a
+
+-- lemma hqstar_assoc {hH₁ : hval -> hhProp} {hH₂ hH₃ : hhProp} : (hH₁ ∗ hH₂) ∗ hH₃ = hH₁ ∗ (hH₂ ∗ hH₃) := by
+--   move=> !/=?; srw hhstar_assoc
+
+-- open Classical in
+-- lemma htriple_extend_univ' s' (Q : hval -> hhProp) (H' : hProp) :
+--   s ⊆ s' ->
+--   s'.Nonempty ->
+--   hhlocal s H ->
+--   (∀ (hv : hval), hhlocal s (Q hv)) ->
+--   htriple s t (H ∗ [∗ in Set.univ | H']) (Q ∗ [∗ in @Set.univ α | H']) =
+--   htriple s t (H ∗ [∗ in s'| H']) (Q ∗ [∗ in s'| H']) := by
+--   move=> sub
+--   scase: [∃ h, H' h]=> /==
+--   { move=> unsat [a ain] * ⟨|⟩ ?? ![] >? /(_ a); srw if_pos// }
+--   move=> h ? ? ??
+--   -- srw htriple_extend_univ //
+--   srw -(Set.diff_union_of_subset sub) Set.union_comm -bighstar_hhstar_disj //
+--   { srw -hhstar_assoc -hqstar_assoc [2](htriple_frame_in (s' := s' \ s)) //
+--     { srw (bighstarDef_univ_split (s := s))
+--       srw -[2](htriple_frame_in (H' := [∗ in sᶜ| H']) (s' := sᶜ))=> //
+--       { congr! 1=> [|!hv /=] <;> ysimp <;> ysimp }
+--       exists (fun a => if a ∉ s then h else ∅)=> a /=
+--       scase: [a ∈ sᶜ]=> /== // }
+--     { exact Set.disjoint_sdiff_right }
+--     exists (fun a => if a ∈ s' \ s then h else ∅)=> a
+--     scase: [a ∈ s' \ s]=> // }
+--   exact Set.disjoint_sdiff_right
+
+open Classical in
+lemma heval_ht_extend1 :
+  Disjoint s s' ->
+  (∀ hv₁ hv₂, s.EqOn hv₁ hv₂ -> Q hv₁ = Q hv₂) ->
+  heval s hh ht Q →
+  heval (s' ∪ s) hh ((fun _ => val.val_unit) ∪_s' ht) Q := by
+  move=> /Set.disjoint_left dj eq ![hQ] hev imp
+  exists (fun a => if a ∈ s then hQ a else fun _ h => h = hh a)=> ⟨|⟩
+  { move=> a /== [] <;> scase_if=> // <;> scase_if=> // }
+  move=> hv h hH
+  specialize imp hv h ?_
+  { move=> a; move: (hH a)=> /==; scase_if=> // [] <;> scase_if=> // }
+  scase: imp=> hv' /= Qh; exists hv=> /=; srw eq // => ? /== ?; srw if_pos //
+
+open Classical in
+lemma heval_ht_extend2 :
+  Disjoint s s' ->
+  (∀ hv₁ hv₂, s.EqOn hv₁ hv₂ -> Q hv₁ = Q hv₂) ->
+  heval (s' ∪ s) hh ((fun _ => val.val_unit) ∪_s' ht) Q ->
+  heval s hh ht Q
+  := by
+  move=> /Set.disjoint_left dj eq ![hQ] hev imp
+  exists hQ=> ⟨a|hv h hH⟩
+  { move: (hev a)=> /== /[swap]?; srw if_neg // }
+  specialize imp (fun a => if a ∈ s then hv a else val.val_unit) h ?_
+  { move=> a /==; move: (hH a); scase_if=> //== ? -> /== ?
+    move: (hev a)=> /==; srw if_pos // => H
+    specialize H ?_=> //; scase: H=> // }
+  scase: imp=> hv' /= ?; exists hv=> /=
+  srw eq // => ? /== ?; srw if_pos //
+
+open Classical in
+lemma heval_ht_extend_eq :
+  Disjoint s s' ->
+  (∀ hv₁ hv₂, s.EqOn hv₁ hv₂ -> Q hv₁ = Q hv₂) ->
+  (heval (s' ∪ s) hh ((fun _ => val.val_unit) ∪_s' ht) Q <->
+  heval s hh ht Q) := by
+  move=> ?? ⟨|⟩
+  apply heval_ht_extend2=> //; sby apply heval_ht_extend1
+
+open Classical in
+lemma htriple_ht_extend_eq :
+  Disjoint s s' ->
+  (∀ hv₁ hv₂, s.EqOn hv₁ hv₂ -> Q hv₁ = Q hv₂) ->
+  (htriple (s' ∪ s) ((fun _ => val.val_unit) ∪_s' ht) H Q <->
+  htriple s ht H Q) := by
+  move=> ??; srw ?htriple => ⟨|⟩ H ? /H
+  { move=> /heval_ht_extend2 // }
+  move=> /heval_ht_extend1 //
+
 end
 
 /- -------------- Rules for Hyper terms -------------- -/

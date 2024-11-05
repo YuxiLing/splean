@@ -846,9 +846,7 @@ lemma hhlocal_hharrayFun : hhlocal s' (hharrayFun s f n x) = (s ⊆ s') :=
 lemma hhlocal_emp : hhlocal s emp = true :=
   by simp=> ?//
 
-@[hhlocalE]
-lemma hhlocal_pure : hhlocal s ⌜P⌝ = true :=
-  by simp=> ? ![] ? -> //
+attribute [hhlocalE] hhlocal_pure
 
 @[hhlocalE]
 lemma hhlocal_if (b : Prop) : hhlocal s (if b then P else Q) =

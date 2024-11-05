@@ -532,6 +532,23 @@ lemma hsubst_hhexists :
   hsubst σ s (hhexists H) = hhexists (fun x => hsubst σ s (H x)) := by
   move=> !h !⟨![h -> [?] ?? ⟨//|/= ⟨|⟩ //⟩]| [?] /= ![?->??]⟨|⟩ //⟩
 
+lemma hsubst_hhpure :
+  hsubst σ s (H ∗ hhpure P) = hsubst σ s H ∗ hhpure P := by
+  move=> !h !⟨![h -> ![h₁ h₂ ? [? /= -> /== -> _ ?]]]|![h ?] ![h -> ?? [/== ? ->] -> _ /==]⟩
+  { exists (fsubst σ s h₁), ∅=> ⟨|⟨//|⟨//|?/== ? * ? //⟩⟩⟩
+    exists h₁ }
+  exists h=> ⟨//|⟨|//⟩⟩
+  exists h, ∅=> ⟨//|⟨//|⟨//| ?? * ?⟩⟩⟩ //
+
+lemma hsubst_hhpure' :
+  hsubst σ s (hhpure P ∗ H) = hhpure P ∗ hsubst σ s H := by
+  srw hhstar_comm hsubst_hhpure hhstar_comm
+
+lemma hsubst_hhimpl :
+  H ==> Q ->
+  hsubst σ s H ==> hsubst σ s Q := by
+  move=> imp h ![h -> /imp ??]; exists h
+
 lemma hsubst_hwp (Q : hval α -> hhProp α) (σ : α -> β) :
   (∀ᵉ (a ∈ s) (a' ∉ s), σ a ≠ σ a') ->
   (hhlocal s H) ->
@@ -550,21 +567,6 @@ lemma hwp_hsubst (Q : hval α -> hhProp α) (σ : α -> β) :
   { sby move=> > /ql hl' ? /[dup] /hl -> }
   sby apply wp; exists h=> ⟨//|⟨//|⟩⟩; apply injectiveSet_validSubst
 
-lemma hsubst_wp1 (Q' : hval β -> hhProp α) (Q : hval α -> hhProp α) (σ : α -> β) :
-  (∀ᵉ (a ∈ s) (a' ∉ s), σ a ≠ σ a') ->
-  (hhlocal s H) ->
-  (s = s₁ ∪ s₂) ->
-  (∀ hv₁ hv₂, Set.EqOn hv₁ hv₂ s -> Q hv₁ = Q hv₂) ->
-  (∀ hv, Q' hv = Q (hv ∘ σ)) ->
-  LGTM.triple
-    [⟨s₁, ht₁ ∘ σ⟩]
-    H
-    Q ->
-  LGTM.triple
-    [⟨ssubst σ s s₁, ht₁⟩]
-    (hsubst σ s H)
-    fun hv => hsubst σ s (Q' hv) := by sorry
-
 lemma hsubst_wp (Q' : hval β -> hhProp α) (Q : hval α -> hhProp α) (σ : α -> β) :
   (∀ᵉ (a ∈ s) (a' ∉ s), σ a ≠ σ a') ->
   (hhlocal s H) ->
@@ -579,6 +581,24 @@ lemma hsubst_wp (Q' : hval β -> hhProp α) (Q : hval α -> hhProp α) (σ : α 
     [⟨ssubst σ s s₁, ht₁⟩, ⟨ssubst σ s s₂, ht₂⟩]
     (hsubst σ s H)
     fun hv => hsubst σ s (Q' hv) := by sorry
+
+lemma hsubst_wp1 (Q' : hval β -> hhProp α) (Q : hval α -> hhProp α) (σ : α -> β) :
+  (∀ᵉ (a ∈ s) (a' ∉ s), σ a ≠ σ a') ->
+  (hhlocal s H) ->
+  (s = s₁ ∪ s₂) ->
+  (∀ hv₁ hv₂, Set.EqOn hv₁ hv₂ s₁ -> Q hv₁ = Q hv₂) ->
+  (∀ hv, Q' hv = Q (hv ∘ σ)) ->
+  LGTM.triple
+    [⟨s₁, ht₁ ∘ σ⟩]
+    H
+    Q ->
+  LGTM.triple
+    [⟨ssubst σ s s₁, ht₁⟩]
+    (hsubst σ s H)
+    fun hv => hsubst σ s (Q' hv) := by
+  move=> *
+  srw -LGTM.triple_sht_extend
+  sorry
 
 lemma wp_hsubst_some [Inhabited α] (Q : hval α -> hhProp α) :
   s = s₁ ∪ s₂ ->

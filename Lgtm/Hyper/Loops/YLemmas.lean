@@ -171,6 +171,67 @@ lemma RestrictToIndex.htrm_eq (restr: @RestrictToIndex α z n shts shtsᵢ)
 
 local notation (priority := high) Q " ∗↑ " s:70 => bighstar s Q
 
+lemma ywhile_lemma_aux'
+  {c : trm}
+  [PartialCommMonoidWRT val add valid]
+  [Inhabited α]
+  [Inhabited β]
+  [rstr : RestrictToIndex z n shts shtsᵢ]
+  [gen: IsGeneralisedSum z n add valid H₀ Q β Qgen Qind Qsum]
+  (R R' : α -> hProp)
+  (Inv : Bool -> Int -> hhProp) :
+  shts.Forall (Disjoint s' ·.s) ->
+  shts.Pairwise (Disjoint ·.s ·.s) ->
+  z <= n ->
+  hhlocal s' H₀ ->
+  (∀ i hv, hhlocal s' (Q i hv)) ->
+  (∀ i b, hhlocal s' (Inv b i)) ->
+  (∀ i b, hhlocal s' (Qgen i b)) ->
+  (∀ j hv₁ hv₂, z <= j ∧ j < n -> (shtsᵢ j).Forall (Set.EqOn hv₁ hv₂ ·.s) -> Q j hv₁ = Q j hv₂) ->
+
+  (∀ j (v : β), z <= j ∧ j < n ->
+    LGTM.triple
+        (⟨s', fun _ => c⟩:: shtsᵢ j)
+        ((Qgen j v ∗ (Inv true j) ∗ (R ∗↑ (shtsᵢ j).set)))
+        fun hv' =>
+        (Qind j v hv' ∗ (∃ʰ b, (Inv b (j + 1))) ∗ R' ∗↑ (shtsᵢ j).set)) ->
+  (∀ j (v : β), z <= j ∧ j < n ->
+    LGTM.triple
+        (shtsᵢ j)
+        ((Qgen j v ∗ (Inv false j) ∗ (R ∗↑ (shtsᵢ j).set)))
+        fun hv' => (Qind j v hv' ∗ (Inv false (j + 1)) ∗ (R' ∗↑ (shtsᵢ j).set))) ->
+  (∀ j b, z <= j ∧ j <= n ->
+    htriple s' (fun _ => cnd) (Inv b j) (fun bv => (⌜(bv = fun _ => val.val_bool b)⌝ ∗ Inv b j))) ->
+  (∀ b, Inv b n ==> ⌜b = false⌝ ∗ Inv b n) ->
+
+  Pre ==> H₀ ∗ Inv b₀ z  ∗  R ∗↑ shts.set ->
+  (fun hv => Qsum hv ∗ Inv false n ∗ R' ∗↑ shts.set ) ===> Post ->
+  LGTM.triple (⟨s', fun _ => trm_while cnd c⟩ :: shts)
+    Pre
+    Post := by
+  move=> dj dj' ? ???? eqQ indt indf cndN cndE preH postH
+  apply LGTM.triple_conseq=> //'
+  srw LGTM.triple LGTM.wp_squash_tail rstr.set_eq LGTM.wp_Q_eq; rotate_right
+  { move=> ?; srw gen.eqSum }
+  apply wp_while_bighop (Qgen := Qgen) (sᵢ := fun j => (shtsᵢ j).set)=> //'
+  { move=>> ? hev; apply eqQ=> //'
+    srw List.forall_iff_forall_mem=> ?; srw List.mem_iff_getElem
+    scase! => i ? <- a ?; apply hev; srw shts_set_eq_sum mem_union
+    exists i=> ⟨//|⟩; srw getElem!_pos // }
+  { apply gen.eqGen }
+  rotate_right
+  { srw -rstr.set_eq; clear *-dj; clear rstr gen; elim: shts=> // }
+  { move=>> hj; srw LGTM.wp_Q_eq; rotate_right
+    { srw -gen.eqInd //' }
+    move: (indt j v hj); srw LGTM.triple LGTM.wp_squash_tail
+    srw ForLoopAux.wp2_ht_eq; { sapply }=> //'
+    sby apply rstr.htrm_eq }
+  move=>> hj; srw LGTM.wp_Q_eq; rotate_right
+  { srw -gen.eqInd //' }
+  move: (indf j v hj); srw LGTM.triple LGTM.wp1_squash_tail
+  srw ForLoopAux.wp1_ht_eq; { sapply }=> //'
+  sby apply rstr.htrm_eq
+
 lemma yfor_lemma_aux'
   {c : htrm}
   [PartialCommMonoidWRT val add valid]
@@ -216,41 +277,41 @@ lemma yfor_lemma_aux'
   srw ForLoopAux.wp2_ht_eq; { sapply }=> //'
   sby apply rstr.htrm_eq
 
-lemma ywhile_lemma_aux
-  [PartialCommMonoidWRT val add valid]
-  [Inhabited α]
-  [Inhabited β]
-  [rstr : RestrictToIndex z n shts shtsᵢ]
-  [gen: IsGeneralisedSum z n add valid H₀ Q β Qgen Qind Qsum]
-  (R R' : α -> hProp)
-  (Inv : Bool -> Int -> hhProp) :
-  shts.Forall (Disjoint s' ·.s) ->
-  shts.Pairwise (Disjoint ·.s ·.s) ->
-  z <= n ->
-  hhlocal s' H₀ ->
-  (∀ i hv, hhlocal s' (Q i hv)) ->
-  (∀ i b, hhlocal s' (Inv b i)) ->
-  (∀ i b, hhlocal s' (Qgen i b)) ->
-  (∀ j hv₁ hv₂, z <= j ∧ j < n -> (shtsᵢ j).Forall (Set.EqOn hv₁ hv₂ ·.s) -> Q j hv₁ = Q j hv₂) ->
-  (∀ (i j : ℤ), (i != j) = true → z ≤ i ∧ i < n → z ≤ j ∧ j < n → Disjoint (shtsᵢ i).set (shtsᵢ j).set) ->
-  (∀ j (v : β), z <= j ∧ j < n ->
-    LGTM.triple
-        (⟨s', fun _ => c⟩:: shtsᵢ j)
-        (Qgen j v ∗ (Inv true j) ∗ (R ∗↑ (shtsᵢ j).set))
-        fun hv' =>
-        Qind j v hv' ∗ (∃ʰ b, (Inv b (j + 1))) ∗ R' ∗↑ (shtsᵢ j).set) ->
-  (∀ j (v : β), z <= j ∧ j < n ->
-    LGTM.triple
-        (shtsᵢ j)
-        (Qgen j v ∗ (Inv false j) ∗ (R ∗↑ (shtsᵢ j).set))
-        fun hv' => Qind j v hv' ∗ (Inv false (j + 1)) ∗ (R' ∗↑ (shtsᵢ j).set)) ->
-  (∀ j b, z <= j ∧ j <= n ->
-    htriple s' (fun _ => cnd) (Inv b j) (fun bv => ⌜(bv = fun _ => val.val_bool b)⌝ ∗ Inv b j)) ->
-  (∀ b, Inv b n ==> ⌜b = false⌝ ∗ Inv b n) ->
-    LGTM.triple
-      (⟨s', fun _ => trm_while cnd c⟩ :: shts)
-      (H₀ ∗ Inv b₀ z ∗ R ∗↑ shts.set)
-      fun hv => Qsum hv ∗ Inv false n ∗ R' ∗↑ shts.set := by sorry
+-- lemma ywhile_lemma_aux
+--   [PartialCommMonoidWRT val add valid]
+--   [Inhabited α]
+--   [Inhabited β]
+--   [rstr : RestrictToIndex z n shts shtsᵢ]
+--   [gen: IsGeneralisedSum z n add valid H₀ Q β Qgen Qind Qsum]
+--   (R R' : α -> hProp)
+--   (Inv : Bool -> Int -> hhProp) :
+--   shts.Forall (Disjoint s' ·.s) ->
+--   shts.Pairwise (Disjoint ·.s ·.s) ->
+--   z <= n ->
+--   hhlocal s' H₀ ->
+--   (∀ i hv, hhlocal s' (Q i hv)) ->
+--   (∀ i b, hhlocal s' (Inv b i)) ->
+--   (∀ i b, hhlocal s' (Qgen i b)) ->
+--   (∀ j hv₁ hv₂, z <= j ∧ j < n -> (shtsᵢ j).Forall (Set.EqOn hv₁ hv₂ ·.s) -> Q j hv₁ = Q j hv₂) ->
+--   (∀ (i j : ℤ), (i != j) = true → z ≤ i ∧ i < n → z ≤ j ∧ j < n → Disjoint (shtsᵢ i).set (shtsᵢ j).set) ->
+--   (∀ j (v : β), z <= j ∧ j < n ->
+--     LGTM.triple
+--         (⟨s', fun _ => c⟩:: shtsᵢ j)
+--         (Qgen j v ∗ (Inv true j) ∗ (R ∗↑ (shtsᵢ j).set))
+--         fun hv' =>
+--         Qind j v hv' ∗ (∃ʰ b, (Inv b (j + 1))) ∗ R' ∗↑ (shtsᵢ j).set) ->
+--   (∀ j (v : β), z <= j ∧ j < n ->
+--     LGTM.triple
+--         (shtsᵢ j)
+--         (Qgen j v ∗ (Inv false j) ∗ (R ∗↑ (shtsᵢ j).set))
+--         fun hv' => Qind j v hv' ∗ (Inv false (j + 1)) ∗ (R' ∗↑ (shtsᵢ j).set)) ->
+--   (∀ j b, z <= j ∧ j <= n ->
+--     htriple s' (fun _ => cnd) (Inv b j) (fun bv => ⌜(bv = fun _ => val.val_bool b)⌝ ∗ Inv b j)) ->
+--   (∀ b, Inv b n ==> ⌜b = false⌝ ∗ Inv b n) ->
+--     LGTM.triple
+--       (⟨s', fun _ => trm_while cnd c⟩ :: shts)
+--       (H₀ ∗ Inv b₀ z ∗ R ∗↑ shts.set)
+--       fun hv => Qsum hv ∗ Inv false n ∗ R' ∗↑ shts.set := by sorry
 
 local notation (priority := high) "∗↓" Q => FindUniversal.univ Q
 
@@ -336,6 +397,15 @@ lemma yfor_lemma_aux
   apply hhlocal_subset; rotate_left; auto
   auto
 
+lemma hqstar_assoc {hH₁ : hval -> hhProp} {hH₂ hH₃ : hhProp} : (hH₁ ∗ hH₂) ∗ hH₃ = hH₁ ∗ (hH₂ ∗ hH₃) := by
+  move=> !/=?; srw hhstar_assoc
+
+@[simp]
+lemma hhlocal_pure : hhlocal s ⌜P⌝ = true :=
+  by simp=> ? ![] ? -> //
+
+attribute [-simp] Bool.forall_bool
+set_option maxHeartbeats 1600000 in
 lemma ywhile_lemma
   [PartialCommMonoidWRT val add valid]
   [Inhabited α]
@@ -380,7 +450,82 @@ lemma ywhile_lemma
     LGTM.triple
       (⟨s', fun _ => trm_while cnd c⟩ :: shts)
       Pre
-      Post := by sorry
+      Post := by
+  move=> HuImpl ? dj ?????? eqQ trt trf cndN cndE PreH PostH
+  shave: Disjoint s' (∑ i ∈ ⟦z, n⟧, (shtsᵢ i).set)
+  { srw -rstr.set_eq; clear *-dj; clear rstr gen; elim: shts=> // }
+  move=> /== DJ
+  shave->: Post = Post' ∗ Hu'
+  { move=> !hv
+    rw [(uPost hv).H_eq]; ysimp; ysimp }
+  apply LGTM.triple_conseq
+  { apply hhimpl_refl }
+  { move=> hv /=; apply hhimpl_frame_r; apply HuImpl }
+  srw ?uPre.H_eq hhstar_comm uPre.Hu_eq
+  apply LGTM.triple_conseq
+  { apply hhimpl_frame_l; apply PreH }
+  { move=> ? /=; apply hhimpl_frame_l; apply PostH }
+  srw /=
+  erw [LGTM.triple_extend_univ]=> //' /==
+  { apply ywhile_lemma_aux' (gen := gen)
+     (R := fun a => R a ∗ ∗↓ Pre)
+     (R' := fun a => R' a ∗ ∗↓ Pre)
+     (Inv := fun b i => Inv b i ∗ [∗ in s'| ∗↓ Pre])=> //'
+    { move=> > /[dup]? /(trt j v); srw uPre.Hu_eq
+      erw [LGTM.triple_extend_univ]=> //' /==
+      { apply LGTM.triple_conseq=> [|hv/=]
+        { srw -?bighstar_hhstar -bighstar_hhstar_disj //'; ysimp }
+        srw -?bighstar_hhstar -bighstar_hhstar_disj //'; ysimp }
+      { move=> ⟨|⟩
+        { apply hhlocal_subset; rotate_left=> //' }
+        apply hhlocal_subset; rotate_left=> //'  }
+      move=> ? /= ⟨|⟩
+      { apply hhlocal_subset; rotate_left=> //';
+        srw gen.eqInd //' }
+      move=> ?
+      apply hhlocal_subset; rotate_left=> //' }
+    { move=> > /[dup]? /(trf j v); srw uPre.Hu_eq
+      srw -(LGTM.triple_sht_extend (s' := s')); rotate_left
+      { move: DJ; srw disjoint_comm=> // }
+      { move=> > eq; congr; srw ?gen.eqInd eqQ //'
+        srw List.forall_iff_forall_mem=> ?; srw List.mem_iff_getElem
+        scase! => i ? <- a ?; apply eq; srw shts_set_eq_sum mem_union
+        exists i=> ⟨//|⟩; srw getElem!_pos // }
+      erw [LGTM.triple_extend_univ]=> //' /==
+      { srw LGTM.triple_sht_extend; rotate_left
+        { move: DJ; srw disjoint_comm=> // }
+        { move=> > eq /=; congr; srw ?gen.eqInd eqQ //'
+          srw List.forall_iff_forall_mem=> ?; srw List.mem_iff_getElem
+          scase! => i ? <- a ?; apply eq; srw shts_set_eq_sum mem_union
+          exists i=> ⟨//|⟩; srw getElem!_pos // }
+        apply LGTM.triple_conseq=> [|hv/=]
+        { srw -?bighstar_hhstar -bighstar_hhstar_disj //'; ysimp }
+        srw -?bighstar_hhstar -bighstar_hhstar_disj //'; ysimp }
+      { move=> ⟨|⟩
+        { apply hhlocal_subset; rotate_left=> //' }
+        apply hhlocal_subset; rotate_left=> //'  }
+      move=> ? /= ⟨|⟩
+      { apply hhlocal_subset; rotate_left=> //';
+        srw gen.eqInd //' }
+      apply hhlocal_subset; rotate_left=> //' }
+    { move=> > /cndN; simp [<-hhstar_assoc]
+      erw [<-htriple_extend_univ]=> //' /==
+      srw uPre.Hu_eq // }
+    { move=> b; ychange (cndE b)=> ?; ysimp }
+    { srw -bighstar_hhstar; ysimp
+      srw -bighstar_hhstar_disj //';
+      clear *-dj; clear rstr gen; elim: shts=> // }
+    move=> ? /=; srw -bighstar_hhstar; ysimp
+    srw -bighstar_hhstar_disj //'
+    clear *-dj; clear rstr gen; elim: shts=> // }
+  { move=> ⟨|⟩
+    { apply hhlocal_subset; rotate_left=> //' }
+    apply hhlocal_subset; rotate_left=> //' }
+  move=> ? /= ⟨|⟩
+  { apply hhlocal_subset; rotate_left=> //'
+    srw gen.eqSum /==// }
+  apply hhlocal_subset; rotate_left; auto
+  auto
 
 lemma zseq_lemma_aux (shts : LGTM.SHTs α) (ht₁ ht₂ : htrm) :
   Disjoint s shts.set ->

@@ -576,6 +576,11 @@ lemma wp_squash_tail (sht : SHT) (shts : SHTs α) :
     wp [sht, ⟨shts.set, shts.htrm⟩] Q := by
     sby srw ?wp /==; apply hwp_ht_eq=> ?/== []
 
+lemma wp1_squash_tail (shts : SHTs α) :
+    wp (shts) Q =
+    wp [⟨shts.set, shts.htrm⟩] Q := by
+    sby srw ?wp /==; apply hwp_ht_eq=> ??/==
+
 lemma wp_unfold_last (shts : SHTs α) :
     shts.getLast? = .some ⟨s ∪ ss, ht ∪_s hts⟩ ->
     wp shts Q =
@@ -644,6 +649,23 @@ lemma triple_extend_univ (Q : hval -> hhProp) :
   triple shts (H ∗ [∗ in shts.set | H']) (Q ∗ [∗ in shts.set| H'])
    := by
   apply htriple_extend_univ
+
+lemma triple_sht_extend (shts : SHTs α) :
+  Disjoint shts.set s' ->
+  (∀ hv₁ hv₂, shts.set.EqOn hv₁ hv₂ -> Q hv₁ = Q hv₂) ->
+  (triple (⟨s', fun _ => val.val_unit⟩ :: shts) H Q <->
+  triple shts H Q) := by
+  apply htriple_ht_extend_eq
+
+-- lemma triple_extend_univ' s' (Q : hval -> hhProp) :
+--   shts.set ⊆ s' ->
+--   s'.Nonempty ->
+--   hhlocal shts.set H ->
+--   (∀ (hv : hval), hhlocal shts.set (Q hv)) ->
+--   triple shts (H ∗ [∗ in Set.univ | H']) (Q ∗ [∗ in @Set.univ α| H']) =
+--   triple shts (H ∗ [∗ in s' | H']) (Q ∗ [∗ in s'| H'])
+--    := by
+--   apply htriple_extend_univ'
 
 macro "auto" : tactic => `(tactic|
   try solve
