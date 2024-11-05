@@ -311,7 +311,7 @@ lemma yfor_lemma_aux'
 --     LGTM.triple
 --       (⟨s', fun _ => trm_while cnd c⟩ :: shts)
 --       (H₀ ∗ Inv b₀ z ∗ R ∗↑ shts.set)
---       fun hv => Qsum hv ∗ Inv false n ∗ R' ∗↑ shts.set := by sorry
+--       fun hv => Qsum hv ∗ Inv false n ∗ R' ∗↑ shts.set := by
 
 local notation (priority := high) "∗↓" Q => FindUniversal.univ Q
 
@@ -538,7 +538,7 @@ lemma zseq_lemma_aux (shts : LGTM.SHTs α) (ht₁ ht₂ : htrm) :
   srw LGTM.wp_cons //=; apply hwp_conseq=> hv /=
   -- simp [fun_insert]
   srw LGTM.wp_Q_eq; rotate_right
-  { move=> ?; srw LGTM.hwp_Q_eq=> hv
+  { move=> ?; srw hwp_Q_eq=> hv
     srw fun_insert_ss' }
   apply hhimpl_trans; apply LGTM.wp_cons_last (sht := ⟨s, _⟩)=> //
   srw LGTM.wp_cons=> //=

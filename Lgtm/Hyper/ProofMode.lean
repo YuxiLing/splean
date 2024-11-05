@@ -1033,12 +1033,6 @@ instance GenInstSum (op : hval α -> ℤ -> ℤ)
     eqInd := by srw hhadd_hhsingle //'
     eqSum := by move=> hv; srw hhstar_pure_hhadd [3]add_comm add_assoc [2]add_comm -hhstar_pure_hhadd hhstar_comm
 
-lemma hharrayFun_congr (m : ℕ) :
-  (∀ i ∈ ⟦0, m⟧, f i = f' i) ->
-  hharrayFun s f m x = hharrayFun s f' m x := by
-  move=> feq; srw ?hharrayFun_eq_hhadd; congr 1
-  apply Finset.sum_congr=> //
-
 set_option maxHeartbeats 1600000 in
 instance GenInstArrSum (op : ℤ -> hval α -> ℤ -> ℤ) (P : ℤ -> hval α -> ℤ -> Prop)
   (m : ℕ) (z n : ℤ) :
@@ -1217,7 +1211,7 @@ lemma zlet_lemma_aux (shts : LGTM.SHTs αˡ) (ht₁ ht₂ : htrm αˡ) :
   srw LGTM.wp_cons //=; apply hwp_conseq=> hv /=
   simp [fun_insert]
   srw LGTM.wp_Q_eq; rotate_right
-  { move=> ?; srw LGTM.hwp_Q_eq=> hv
+  { move=> ?; srw hwp_Q_eq=> hv
     srw fun_insert_ss' }
   apply hhimpl_trans; apply LGTM.wp_cons_last (sht := ⟨⟪l, {s}⟫, _⟩)=> //
   srw LGTM.wp_cons=> //=; srw hwp_labSet_single [2]hwp_labSet_single //
@@ -1245,7 +1239,8 @@ lemma zapp_lemma (H : hhProp α) :
   LGTM.triple shts H' Q' ->
     H ==> H' ∗ (Q' -∗ protect Q) ->
   H ==> LGTM.wp shts Q := by
-  sorry
+  move=> ??
+  apply htriple_ramified_frame=> //
 
 macro "zapp" e:term : tactic =>
   `(tactic| (
@@ -1505,18 +1500,6 @@ lemma labLift_set (f : α -> β) (s : Set α) :
 @[simp]
 lemma Prod.snd_img :
   (Prod.snd '' {s} ×ˢ s') = s' := by sby ext
-
-lemma LGTM.wp_sht_eq (shts shts' : SHTs α) :
-  (shts.Forall₂ (fun sht sht'=> sht.s = sht'.s ∧ ∀ x ∈ sht.s, sht.ht x = sht'.ht x) shts') ->
-  LGTM.wp shts Q = LGTM.wp shts' Q := by
-  move=> ?
-  srw ?LGTM.wp
-  shave<-: shts.set = shts'.set
-  { elim: shts shts'=> // sht shts ihst [] // sht' shts' /== -> _ /ihst -> }
-  apply hwp_ht_eq
-  elim: shts shts'=> // sht shts ihst [] // sht' shts' /== -> eq /ihst eq ⟨|⟩
-  { move=> ??; srw ?fun_insert ?if_pos // }
-  move=> ??; srw ?fun_insert; scase_if=> //
 
 
 lemma feq [Nonempty α] (σ : α -> β) :

@@ -20,6 +20,7 @@ import Lgtm.Hyper.SepLog
 import Lgtm.Hyper.WP
 import Lgtm.Hyper.Subst.Theory
 import Lgtm.Hyper.Subst.Util
+import Lgtm.Hyper.ArraysFun
 
 open Classical
 
@@ -119,12 +120,6 @@ lemma subst_hhsingle_const [Nonempty α] :
   (hhsingle s' (fun _ => p) (fun _ => x)).subst σ s = hhsingle (σ '' s') (fun _ => p) (fun _ => x) := by
   move=> ?; srw subst_hhsingle //
 
-@[substE]
-lemma subst_hharray_const [Nonempty α] :
-  s' ⊆ s ->
-  (hharrayFun s' f n (fun _ => p)).subst σ s = hharrayFun (σ '' s') f n (fun _ => p) := by
-  sorry /- Vova -/
-
 omit inj in
 @[substE]
 lemma subst_if (b : Prop) {dc : Decidable b} (H₁ H₂ : hhProp α) :
@@ -192,6 +187,21 @@ lemma subst_hhstar (H₁ H₂ : hhProp α) :
     { srw hl₁ ?hl₂ // }
     move: (dj (σ a)); srw ?fsubst_σ' // }
   move=> ?? /=; srw hl₁ ?hl₂ //
+
+open EmptyPCM in
+@[substE]
+lemma subst_hharray_const [Nonempty α] :
+  s' ⊆ s ->
+  (hharrayFun s' f n (fun _ => p)).subst σ s = hharrayFun (σ '' s') f n (fun _ => p) := by
+  move=> ?;
+  srw ?hharrayFun_eq_hhadd ?hhaddE subst_hhstar // subst_hhsingle_const; congr
+  move: (⟦0,n⟧)=> fs
+  induction fs using Finset.induction_on=> // /==
+  apply subst_emp
+  rename_i a s ain ihfs
+  srw ?Finset.sum_insert // ?hhaddE subst_hhstar // subst_hhsingle_const //
+
+
 
 end
 
@@ -264,7 +274,7 @@ lemma ysubst_lemma_aux (Q : hval αˡ -> hhProp αˡ) (σ : α -> β)
   move=> dj hl₁ hl₂ inj himp
   srw LGTM.wp hwp_ht_eq; rotate_right; apply (htrm_subst_σ (σ := σ))=> //
   apply hwp_hsubst=> //
-  srw !hsubst_hhlocalE // LGTM.hwp_Q_eq; rotate_right
+  srw !hsubst_hhlocalE // hwp_Q_eq; rotate_right
   { move=> ?; srw !hsubst_hhlocalE // }
   srw ssubst_image // set_subst_σ //
 

@@ -1363,7 +1363,7 @@ lemma xwhile_inv_measure_lemma_up (Xtop : Int) (I : Bool -> Int -> hProp)
   ((fun _ => H' ∗ ∃ʰ a, I false a) ===> Q) ->
   H ==> wpgen_while F1 F2 Q := by
   apply xwhile_inv_basic_lemmaQ
-  admit -- wf?
+  sorry -- wf?
 
 macro "xwhile" I:term:max R:term : tactic => do
   `(tactic| (

@@ -107,6 +107,22 @@ abbrev hhsingle (s : Set α) (p : α -> loc) (v : α -> val) : hhProp := [∗ i 
 def hharrayFun (s : Set α) (f : ℤ -> val)  (n : ℕ) (p : α -> loc) : hhProp :=
   bighstar s (fun i => harrayFun f n (p i))
 
+lemma harrayFun_congr (m : ℕ) :
+  (∀ i ∈ ⟦0, m⟧, f i = f' i) ->
+  harrayFun f m x = harrayFun f' m x := by
+  move=> eq
+  srw ?harrayFun; congr! 1
+  refine List.ofFn_inj.mpr ?h.e'_1.a
+  funext x; scase: x=> /==??; apply eq=> /== //
+
+
+lemma hharrayFun_congr (m : ℕ) :
+  (∀ i ∈ ⟦0, m⟧, f i = f' i) ->
+  hharrayFun s f m x = hharrayFun s f' m x := by
+  move=> ?
+  srw ?hharrayFun; congr! 2
+  sby apply harrayFun_congr
+
 -- notation:60 p:57 " ~" s:max "~> " v:57 => hhsingle s p v
 -- notation:60 p:57 " ~" s:max "~> " v:57 => hhsingle s (fun _ => p) (fun _ => v)
 -- notation:60 p:57 " ~" s:max "~> " v:57 => hhsingle s p (fun _ => v)

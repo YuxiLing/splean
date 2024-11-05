@@ -510,7 +510,8 @@ lemma ysimp_l_cancel_qwand β (Q1 Q2 : β -> hhProp) x :
 lemma ysimpl_l_merge_hharrayFun (p : α -> loc) :
   YSimp (hla, hlw, hlt, hharrayFun Set.univ f n p ∗ hlu) hr →
   YSimp (hla, hlw, hharrayFun s f n p ∗ hlt, hharrayFun sᶜ f n p ∗ hlu) hr := by
-  sorry /- Vova -/
+  ysimp_l_start'; srw ?hharrayFun bighstar_hhstar_disj /==
+  exact Set.disjoint_compl_right_iff_subset.mpr fun ⦃a⦄ a ↦ a
 
 lemma ypull_protect (h : H1 ==> protect H2) : H1 ==> H2 :=
   by simp [protect] at h; assumption
@@ -650,19 +651,28 @@ lemma ysimpl_lr_cancel_same_hsingle (p : α -> loc) (v₁ v₂ : α -> val) :
 lemma ysimpl_lr_cancel_hharrayFun (p : α -> loc):
   YSimp (hla, hlw, hlt, hharrayFun sᶜ f n p ∗ hlu) (hra, hrg, hrt) →
   YSimp (hla, hlw, hlt, hharrayFun Set.univ f n p ∗ hlu) (hra, hrg, hharrayFun s f n p ∗ hrt) := by
-  sorry /- Vova -/
+  ysimp_lr_start'
+  srw ?hharrayFun -(Set.compl_union_self (s := s)) -bighstar_hhstar_disj /==
+  { srw hhstar_assoc [5]hhstar_comm -[4]hhstar_assoc -[3]hhstar_assoc -[2]hhstar_assoc -[1]hhstar_assoc
+    apply hhimpl_hhstar_trans_l=> //
+    hhstar_simp }
+  exact Set.disjoint_compl_left_iff_subset.mpr fun ⦃a⦄ a ↦ a
 
 lemma ysimpl_lr_cancel_same_hharrayFun (p : α -> loc) (n : ℕ) :
   YSimp (hla, hlw, hlt, hlu) (hra, hrg, hrt) →
   YSimp (hla, hlw, hlt, hharrayFun Set.univ f n p ∗ hlu) (hra, hrg, hharrayFun Set.univ f n p ∗ hrt) := by
-  sorry /- Vova -/
+  ysimp_lr_start'
+  hhstar_simp; srw [5]hhstar_comm -[3]hhstar_assoc [5]hhstar_comm hhstar_assoc [5]hhstar_comm //
 
 
 lemma ysimpl_lr_cancel_eq_hharrayFun (p : α -> loc) (n : ℕ) :
   YSimp (hla, hlw, hlt, hlu) (hra, hrg, hrt) →
   (∀ i ∈ ⟦0, n⟧, f i = f' i) →
   YSimp (hharrayFun s f n p ∗ hla, hlw, hlt, hlu) (hra, hrg, hharrayFun s f' n p ∗ hrt) := by
-  sorry /- Vova -/
+  ysimp_lr_start'=> h
+  rw [hharrayFun_congr _ h]
+  hhstar_simp;
+  srw [5]hhstar_comm -[3]hhstar_assoc [5]hhstar_comm hhstar_assoc [5]hhstar_comm //
 
 -- lemma ysimpl_lr_cancel_same_hsingle_subset (p : α -> loc) (v₁ v₂ : α -> val) :
 --   YSimp ([∗ i in s₁ \ s₂ | p i ~~> v₁ i] ∗ Hla, Hlw, Hlt) (Hra, Hrg, Hrt) →

@@ -177,17 +177,25 @@ variable [PartialCommMonoid val]
 -- lemma sum_bighstar (H : β -> α -> hProp) :
 --   -- Finset.sum fs (bighstar s H)=
 --   ∑ i in fs, H i ∗↑ s = [∗ a in s| ∑ i in fs, H i a] := by sorry
-open EmptyPCM in
+open EmptyPCM  in
+omit [PartialCommMonoid val] in
 lemma sum_bighstar_set (H : α -> hProp) (s : β -> Set α) :
   -- Finset.sum fs (bighstar s H)=
-  H ∗↑ ∑ i in fs, s i = ∗∗ i in fs, H ∗↑ s i := by sorry /- Vova -/
+  (∀ᵉ (i ∈ fs) (j ∈ fs), i != j -> Disjoint (s i) (s j)) ->
+  H ∗↑ ∑ i in fs, s i = ∗∗ i in fs, H ∗↑ s i := by
+  induction fs using Finset.induction_on=> //==
+  srw ?(@Finset.sum_insert) // /== => dj djs
+  srw -bighstar_hhstar_disj /== //
+  move=> *; apply dj=> // ? //
 
+omit [PartialCommMonoid val] in
 lemma hhimpl_bighstar_himpl
    (Q R : α -> hProp) (s : Set α) :
   (∀ x ∈ s, himpl (Q x) (R x)) ->
   [∗ i in s| Q i] ==> [∗ i in s| R i] := by
   sorry
 
+omit [PartialCommMonoid val] in
 lemma choose_fun2 {α β γ : Type}  [Inhabited β] [Inhabited γ]
    (p : α -> β -> γ -> Prop) (s : Set α) :
   (∀ a ∈ s, ∃ b c, p a b c) -> (∃ (f : α -> β) (g : α -> γ), (∀ a ∈ s, p a (f a) (g a))) := by
@@ -199,7 +207,7 @@ lemma choose_fun2 {α β γ : Type}  [Inhabited β] [Inhabited γ]
 
 -- #check instAddHhPropOfPartialCommMonoidVal
 
-
+omit [PartialCommMonoid val] in
 lemma congr_hhimpl :
   H = H' ->
   H ==> H' := by move=>-> //
@@ -264,9 +272,11 @@ lemma LGTM.wp_for_bighop (β : Type) [inst : Inhabited β]
       move: (Set.disjoint_left.mp dij' f)=> //' }
     apply eqQ=> //' }
   { srw Finset.Ico_self /== //'; subst_vars; srw -sum_bighstar_set
-    erw [add_zero]; ysimp }
-  move=> hv' /=; subst_vars; srw sum_bighstar_set Finset.Ico_self /==;
+    { erw [add_zero]; ysimp }
+    move=> /== *; apply dij' => //' }
+  move=> hv' /=; subst_vars; srw sum_bighstar_set ?Finset.Ico_self /==;
   ysimp
+  move=> /== *; apply dij' => //'
 
 
 end ForLoop
@@ -486,7 +496,7 @@ lemma LGTM.wp_while_bighop [PartialCommMonoid val] (β : Type) [inst : Inhabited
   (∀ b, Inv b n ==> ⌜b = false⌝ ∗ Inv b n) ->
   H₀ ∗ Inv b₀ z ∗ R ∗↑ s ==>
     LGTM.wp [⟨s', fun _ => trm_while cnd c⟩, ⟨s, ht⟩]
-      fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv false n ∗ R' ∗↑ s := by stop
+      fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv false n ∗ R' ∗↑ s := by
   move=> ? eqQ ? gen dj dij' indt indf cndE cndn
   eapply LGTM.wp_while
     (z := z)
@@ -540,12 +550,28 @@ lemma LGTM.wp_while_bighop [PartialCommMonoid val] (β : Type) [inst : Inhabited
     apply hhimpl_trans; apply hwp_frame;
     apply hwp_conseq=> ?; ysimp }
   { move=> ??; ychange cndn; ysimp }
-  { srw Finset.Ico_self /== -sum_bighstar_set; erw [add_zero]; ysimp; ysimp }
-  move=> ? /=; srw Finset.Ico_self -sum_bighstar_set /==; ysimp; ysimp
+  { srw Finset.Ico_self /== -sum_bighstar_set;
+    { erw [add_zero]; ysimp; ysimp }
+    move=> /== *; apply dij' => //'}
+  move=> ? /=; srw Finset.Ico_self -sum_bighstar_set /==;
+  { ysimp; ysimp }
+  move=> /== *; apply dij' => //'
 
 end WhileLoop
 
 end Disjoint
+
+lemma LGTM.wp_sht_eq (shts shts' : LGTM.SHTs α) :
+  (shts.Forall₂ (fun sht sht'=> sht.s = sht'.s ∧ ∀ x ∈ sht.s, sht.ht x = sht'.ht x) shts') ->
+  LGTM.wp shts Q = LGTM.wp shts' Q := by
+  move=> ?
+  srw ?LGTM.wp
+  shave<-: shts.set = shts'.set
+  { elim: shts shts'=> // sht shts ihst [] // sht' shts' /== -> _ /ihst -> }
+  apply hwp_ht_eq
+  elim: shts shts'=> // sht shts ihst [] // sht' shts' /== -> eq /ihst eq ⟨|⟩
+  { move=> ??; srw ?fun_insert ?if_pos // }
+  move=> ??; srw ?fun_insert; scase_if=> //
 
 namespace ForLoopAux
 
@@ -634,7 +660,7 @@ private lemma validSubst_s' :
 set_option maxHeartbeats 1600000 in
 @[simp]
 private lemma validSubst_s :
-  validSubst π (⟪n,s'⟫ ∪ fs) fs := by stop
+  validSubst π (⟪n,s'⟫ ∪ fs) fs := by
   move: (disj')=> d
   simp=> []/== > [/== -> ? | > /== > ?? -> ? > [/== -> ? | /== y ?? -> ? ] ]
   { move=> > /== [/== -> ?| /== ? ?? -> ? ]
@@ -659,7 +685,7 @@ private lemma ssubst_s' :
   move=> ?; exists n, x=> //
 
 private lemma ssubst_s :
-  ssubst π (⟪n, s'⟫ ∪ fs) fs = s := by stop
+  ssubst π (⟪n, s'⟫ ∪ fs) fs = s := by
   move=>!x; srw fsubst_inE; rotate_right
   { apply validSubst_s=> // }
   simp=> ⟨|⟩ /==
@@ -677,7 +703,7 @@ private lemma lem0 : (df ∉ s') ∧ (∀ i, z <= i -> i < n -> df ∉ sᵢ i) :
 
 set_option maxHeartbeats 1600000 in
 private lemma lem1 :
-  (∀ a ∈ fs, ∀ a' ∉ fs, π a ≠ π a') := by stop
+  (∀ a ∈ fs, ∀ a' ∉ fs, π a ≠ π a') := by
   move: (lem0 s z n sᵢ s' seq df dfN)=> [? ?]
   move: (disj') => d
   move=> [] > /== ? ?? -> ? > ?
@@ -689,7 +715,7 @@ private lemma lem1 :
 
 set_option maxHeartbeats 1600000 in
 private lemma lem2 :
-  (∀ a ∈ ⟪n,s'⟫, ∀ a' ∉ ⟪n,s'⟫, π a ≠ π a') := by stop
+  (∀ a ∈ ⟪n,s'⟫, ∀ a' ∉ ⟪n,s'⟫, π a ≠ π a') := by
   move: (lem0 s z n sᵢ s' seq df dfN)=> [? ?]
   move: (disj') => d
   scase=> > /== -> ? > ?; srw if_neg //' if_pos //' if_pos //'
@@ -699,7 +725,7 @@ private lemma lem2 :
 
 set_option maxHeartbeats 1600000 in
 private lemma lem3 :
-  (∀ a ∈ ⟪n,s'⟫, ∀ a' ∈ fs, π a ≠ π a') := by stop
+  (∀ a ∈ ⟪n,s'⟫, ∀ a' ∈ fs, π a ≠ π a') := by
   move=> ? /lem2 /[swap] a /(_ a) /[swap]?; sapply=> //'
   scase: a=> > /[swap] _ /== //
 
@@ -765,7 +791,7 @@ private lemma vsπ (h : hheap α) :
 set_option maxHeartbeats 1600000 in
 private lemma hE (h : hheap α) :
   hlocal s' h ->
-  h = (fsubst π (⟪n, s'⟫ ∪ fs) (fsubst κ s' h)) := by stop
+  h = (fsubst π (⟪n, s'⟫ ∪ fs) (fsubst κ s' h)) := by
   move=> ?
   srw fsubst_set_union
   { move=> !a; scase: [a ∈ s']
@@ -813,7 +839,7 @@ set_option maxHeartbeats 1600000 in
 private lemma hsubst_H_aux :
   hhlocal s' H₁ ->
   hsubst π (⟪n, s'⟫ ∪ fs) (hsubst κ s' H₁ ∗ (H₂ ∘ π) ∗↑ fs) =
-  (H₁ ∗ H₂ ∗↑ s) := by stop
+  (H₁ ∗ H₂ ∗↑ s) := by
   move=> ?
   move: (lem1 s z n sᵢ s' disj seq)=> ?
   move: (lem2 s z n sᵢ s' disj seq)=> ?
@@ -1084,20 +1110,24 @@ omit disj seq dfN in
 lemma LGTM.triple_Q_eq :
   (∀ hv, Q hv = Q' hv) ->
   LGTM.triple sht H Q = LGTM.triple sht H Q' := by
-  sby move=> /LGTM.hwp_Q_eq=> eq; srw ?LGTM.triple ?LGTM.wp eq
+  move=> /hwp_Q_eq=> eq; srw ?LGTM.triple ?LGTM.wp eq
 
 omit disj seq dfN in
 lemma wp2_ht_eq :
   Set.EqOn ht₁ ht₁' s₁ ->
   Set.EqOn ht₂ ht₂' s₂ ->
   LGTM.wp [⟨s₁, ht₁⟩, ⟨s₂, ht₂⟩] Q =
-  LGTM.wp [⟨s₁, ht₁'⟩, ⟨s₂, ht₂'⟩] Q := by sorry /- Vova -/
+  LGTM.wp [⟨s₁, ht₁'⟩, ⟨s₂, ht₂'⟩] Q := by
+  move=> *
+  apply LGTM.wp_sht_eq=> //==
 
 omit disj seq dfN in
 lemma wp1_ht_eq :
   Set.EqOn ht₂ ht₂' s₂ ->
   LGTM.wp [⟨s₂, ht₂⟩] Q =
-  LGTM.wp [⟨s₂, ht₂'⟩] Q := by sorry /- Vova -/
+  LGTM.wp [⟨s₂, ht₂'⟩] Q := by
+  move=> *
+  apply LGTM.wp_sht_eq=> //
 
 omit disj seq dfN in
 lemma hlocal_fsubst_κ :
