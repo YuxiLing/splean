@@ -77,8 +77,8 @@ example :
   H1 ∗ H4 ==> (H5 -∗ H6) := by
   intro M
   dup 2
-  { xchange M; sorry }
-  xchanges M; sorry
+  { xchange M; admit }
+  xchanges M; admit
 
 example (Q : α -> hProp) :
   H1 ==> (∃ʰ x, Q x ∗ (H2 -∗ H3)) ->
