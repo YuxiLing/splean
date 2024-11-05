@@ -180,7 +180,7 @@ variable [PartialCommMonoid val]
 open EmptyPCM in
 lemma sum_bighstar_set (H : α -> hProp) (s : β -> Set α) :
   -- Finset.sum fs (bighstar s H)=
-  H ∗↑ ∑ i in fs, s i = ∗∗ i in fs, H ∗↑ s i := by sorry
+  H ∗↑ ∑ i in fs, s i = ∗∗ i in fs, H ∗↑ s i := by sorry /- Vova -/
 
 lemma hhimpl_bighstar_himpl
    (Q R : α -> hProp) (s : Set α) :
@@ -355,7 +355,6 @@ lemma LGTM.wp_while_aux
     { move=> ???? ->/==; ychange cndn=> //' }
     move=> j ? ind ? s dij hv₀ ?
     srw LGTM.wp_cons /=; ychange hwp_while=> //'
-    -- { sorry }
     ychange cndE
     { sby srw foo''' }
     apply hwp_conseq=> hv /=
@@ -1092,13 +1091,13 @@ lemma wp2_ht_eq :
   Set.EqOn ht₁ ht₁' s₁ ->
   Set.EqOn ht₂ ht₂' s₂ ->
   LGTM.wp [⟨s₁, ht₁⟩, ⟨s₂, ht₂⟩] Q =
-  LGTM.wp [⟨s₁, ht₁'⟩, ⟨s₂, ht₂'⟩] Q := by sorry
+  LGTM.wp [⟨s₁, ht₁'⟩, ⟨s₂, ht₂'⟩] Q := by sorry /- Vova -/
 
 omit disj seq dfN in
 lemma wp1_ht_eq :
   Set.EqOn ht₂ ht₂' s₂ ->
   LGTM.wp [⟨s₂, ht₂⟩] Q =
-  LGTM.wp [⟨s₂, ht₂'⟩] Q := by sorry
+  LGTM.wp [⟨s₂, ht₂'⟩] Q := by sorry /- Vova -/
 
 omit disj seq dfN in
 lemma hlocal_fsubst_κ :

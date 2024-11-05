@@ -206,7 +206,7 @@ lemma yunfocus_lemma (idx : ℕ) (l : LabType) (shts : LGTM.SHTs (Labeled α)) {
 
 lemma LGTM.wp_hv_eq :
   LGTM.wp shts Q = LGTM.wp shts (fun hv => ∃ʰ hv', Q (hv ∪_shts.set hv')) := by
-  sorry
+  sorry /- Vova -/
 
 lemma congr_hhimpl :
   H = H' ->
@@ -1507,7 +1507,7 @@ lemma Prod.snd_img :
 lemma LGTM.wp_sht_eq (shts : SHTs α) :
   (shts.Forall₂ (fun sht sht'=> ∀ x ∈ sht.s, sht.s = sht'.s ∧ sht.ht x = sht'.ht x) shts') ->
   LGTM.wp shts Q = LGTM.wp shts' Q := by
-  sorry
+  sorry /- Vova -/
 
 lemma feq [Nonempty α] (σ : α -> β) :
   x ∈ σ.labLift '' s ->

@@ -135,7 +135,7 @@ lemma hwp_swap (Q : hval -> hhProp) :
   Disjoint s₁ s₂ ->
   hwp s₁ ht₁ (fun hv => hwp s₂ ht₂ (fun hv' => Q (hv ∪_s₁ hv'))) =
   hwp s₂ ht₂ (fun hv => hwp s₁ ht₁ (fun hv' => Q (hv ∪_s₂ hv'))) := by
-    sorry
+    sorry /- Vova -/
 
 
 @[simp]
@@ -385,14 +385,6 @@ def hwpgen_ref (s : Set α) (x : α → var) (ht₁ ht₂ : htrm) : hformula :=
 --   | trm_while c t =>
 --       trm_while (isubst E a c) (isubst E a t)
 
--- @[simp]
--- lemma isubst0 : isubst (∅ : ctx α) = fun _ x => x := by sorry
-
--- @[simp]
--- lemma subst_isubst (v : hval) (t : htrm) :
---   (fun a => subst x (v a) (isubst (AList.erase x E) a (t a))) =
---   fun a => isubst (AList.insert x v E) a (t a) := by sorry
-
 
 class HWpSound (s : Set α) (t : htrm) (F : outParam hformula) :=
   impl : ∀ Q, F Q ==> hwp s (fun a => t a) Q
@@ -635,7 +627,7 @@ lemma triple_conseq :
   Pre ==> Pre' ->
   Post' ===> Post ->
   triple shts Pre' Post' ->
-  triple shts Pre Post := by sorry
+  triple shts Pre Post := by sorry /- Vova -/
 
 lemma wp_frame (Q : hval -> hhProp) (H : hhProp) :
   wp sht Q ∗ H ==> wp sht (Q ∗ H) := by

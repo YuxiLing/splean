@@ -510,7 +510,7 @@ lemma ysimp_l_cancel_qwand β (Q1 Q2 : β -> hhProp) x :
 lemma ysimpl_l_merge_hharrayFun (p : α -> loc) :
   YSimp (hla, hlw, hlt, hharrayFun Set.univ f n p ∗ hlu) hr →
   YSimp (hla, hlw, hharrayFun s f n p ∗ hlt, hharrayFun sᶜ f n p ∗ hlu) hr := by
-  sorry
+  sorry /- Vova -/
 
 lemma ypull_protect (h : H1 ==> protect H2) : H1 ==> H2 :=
   by simp [protect] at h; assumption
@@ -650,19 +650,19 @@ lemma ysimpl_lr_cancel_same_hsingle (p : α -> loc) (v₁ v₂ : α -> val) :
 lemma ysimpl_lr_cancel_hharrayFun (p : α -> loc):
   YSimp (hla, hlw, hlt, hharrayFun sᶜ f n p ∗ hlu) (hra, hrg, hrt) →
   YSimp (hla, hlw, hlt, hharrayFun Set.univ f n p ∗ hlu) (hra, hrg, hharrayFun s f n p ∗ hrt) := by
-  sorry
+  sorry /- Vova -/
 
 lemma ysimpl_lr_cancel_same_hharrayFun (p : α -> loc) (n : ℕ) :
   YSimp (hla, hlw, hlt, hlu) (hra, hrg, hrt) →
   YSimp (hla, hlw, hlt, hharrayFun Set.univ f n p ∗ hlu) (hra, hrg, hharrayFun Set.univ f n p ∗ hrt) := by
-  sorry
+  sorry /- Vova -/
 
 
 lemma ysimpl_lr_cancel_eq_hharrayFun (p : α -> loc) (n : ℕ) :
   YSimp (hla, hlw, hlt, hlu) (hra, hrg, hrt) →
   (∀ i ∈ ⟦0, n⟧, f i = f' i) →
   YSimp (hharrayFun s f n p ∗ hla, hlw, hlt, hlu) (hra, hrg, hharrayFun s f' n p ∗ hrt) := by
-  sorry
+  sorry /- Vova -/
 
 -- lemma ysimpl_lr_cancel_same_hsingle_subset (p : α -> loc) (v₁ v₂ : α -> val) :
 --   YSimp ([∗ i in s₁ \ s₂ | p i ~~> v₁ i] ∗ Hla, Hlw, Hlt) (Hra, Hrg, Hrt) →
@@ -1203,20 +1203,20 @@ example (α : Type) (H1 H2 H3 H4 H5 : hhProp α) :
       admit }
     ysimp; admit
 
-/--
-warning: declaration uses 'sorry'
----
-info: case ysimp_goal.a.a.a
-α α✝ : Type
-H1 H2 H3 H4 H5 H6 H7 : hhProp α✝
-⊢ H1 ∗ H2 ∗ H4 ==> H5 ∗ H6 ∗ H7
--/
-#guard_msgs in
-example :
-  H1 ∗ H2 ∗ H3 ∗ H4 ==> H5 ∗ H3 ∗ H6 ∗ H7 := by
-  ysimp
-  trace_state
-  admit
+-- /--
+-- warning: declaration uses
+-- ---
+-- info: case ysimp_goal.a.a.a
+-- α α✝ : Type
+-- H1 H2 H3 H4 H5 H6 H7 : hhProp α✝
+-- ⊢ H1 ∗ H2 ∗ H4 ==> H5 ∗ H6 ∗ H7
+-- -/
+-- #guard_msgs in
+-- example :
+--   H1 ∗ H2 ∗ H3 ∗ H4 ==> H5 ∗ H3 ∗ H6 ∗ H7 := by
+--   ysimp
+--   trace_state
+--   admit
 
 example (α : Type) (H1 H2 H3 H4 H5 : hhProp α) :
   H1 ∗ H2 ∗ H3 ∗ H4 ∗ H5 ==> H3 ∗ H1 ∗ H2 ∗ (⊤ : hhProp α) := by

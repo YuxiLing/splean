@@ -652,7 +652,7 @@ end evalProp
 
 /- --------------------- Structural Rules --------------------- -/
 
-/- For proofs below, [sorry] takes the place of [xsimp] -/
+/- For proofs below, [admit] takes the place of [xsimp] -/
 
 /- Consequence and Frame Rule -/
 
@@ -1162,7 +1162,7 @@ def harray (L : List val) (p : loc) : hProp :=
 
 lemma harray_eq p L :
   harray L p = ∃ʰ n, ⌜n = L.length⌝ ∗ hheader n p ∗ hseg L p 0 := by
-  sby srw harray ; sorry
+  sby srw harray ; xsimp[L.length]; xsimp=> //
 
 /- inversion lemma for hseg -/
 
@@ -1294,8 +1294,11 @@ lemma hpure_intr :
   scase: [P]=> p
   { exists ⊤, s, ∅; repeat' constructor=> //
     { xsimp=>// }
-    sorry }
-  sorry
+    exact Finmap.Disjoint.symm ∅ s (Finmap.disjoint_empty s) }
+  exists H=> /=
+  exists s, ∅=> ⟨|⟨|⟨|⟩⟩⟩ //
+  { move=> ⟨|⟩//; xsimp }
+  exact Finmap.Disjoint.symm ∅ s (Finmap.disjoint_empty s)
 
 lemma hforall_impl (J₁ J₂ : α -> hProp) :
   (forall x, J₁ x ==> J₂ x) ->

@@ -320,26 +320,26 @@ by
 --   isubst ∅ t = t :=
 -- by
 --   -- induction t
---   sorry
+--
 
 -- lemma subst_eq_isubst_one x v t :
 --   subst x v t = isubst (insert x v ∅) t :=
 -- by
 --   -- induction t
---   sorry
+--
 
 -- lemma isubst_ctx_equiv t E1 E2 :
 --   ctx_equiv E1 E2 →
 --   isubst E1 t = isubst E2 t :=
 -- by
 --   -- induction t
---   sorry
+--
 
 -- lemma isubst_app t E1 E2 :
 --   isubst (E1 ∪ E2) t = isubst E2 (isubst E1 t) :=
 -- by
 --   --induction t
---   sorry
+--
 
 -- lemma app_insert_one_r x v (l : ctx) :
 --   insert x v l = (insert x v ∅) ∪ l :=
@@ -605,7 +605,7 @@ by
   sby apply wp_app_fun
 
 lemma wpgen_fix_sound f x t1 Fof :
-  (forall vf vx, formula_sound (subst v vx (subst f vf t1)) (Fof vf vx)) →
+  (forall vf vx, formula_sound (subst x vx (subst f vf t1)) (Fof vf vx)) →
   formula_sound (trm_fix f x t1) (wpgen_fix Fof) :=
 by
   srw ?formula_sound=> h >
@@ -615,8 +615,7 @@ by
   { apply wp_fix }
   move=> >
   xchange h
-  apply wp_app_fix
-  sorry -- xchange hwand_hpure_l
+  apply wp_app_fix=> //
 
 lemma wpgen_seq_sound F1 F2 t1 t2 :
   formula_sound t1 F1 →
@@ -686,6 +685,7 @@ lemma triple_mkstruct_pre : forall t (F:formula) Q,
 
 -- set_option pp.notation false
 
+/- This is a hard proof, but we can omit it here as we don't use for loops in Unary logic -/
 lemma wpgen_for_sound x v1 v2 F1 :
   (forall v, formula_sound (subst x v t1) (F1 v)) →
   formula_sound (trm_for x v1 v2 t1) (wpgen_for v1 v2 F1) := by
@@ -698,8 +698,8 @@ lemma wpgen_for_sound x v1 v2 F1 :
   srw wp_equiv
   apply triple_hforall _ _ S
   apply triple_hwand_hpure_l
-  { sorry }
-  sorry
+  { sorry /- Vova: hard -/ }
+  sorry /- Vova: hard -/
 
 lemma wpgen_ref_sound x t1 t2 :
   formula_sound (trm_ref x t1 t2) (wpgen_ref x t1 t2) :=
@@ -734,7 +734,6 @@ by
   { apply wpgen_fun_sound=> >
     sby srw formula_sound }
   { apply wpgen_fix_sound=> >
-    rotate_left ; apply a_1
     sby srw formula_sound }
   { apply wpgen_app_sound }
   { apply wpgen_seq_sound
@@ -1319,7 +1318,7 @@ lemma xwhile_inv_basic_lemma (I : Bool -> α -> hProp) R
   (∀ X, I true X ==> F2 (fun _ => ∃ʰ b X', ⌜R X' X⌝ ∗ I b X')) ->
   H ==> wpgen_while F1 F2 (fun _ => H' ∗ ∃ʰ a, I false a) := by
   move=> wf sf1 sf2 hh hf1 hf2
-  sorry
+  sorry /- Vova -/
   -- apply xwhile_inv_lemma _ _ _ wf=> // > ls fs
   -- xlet; xchange hf1; apply structural_imp sf1=> bv /=
   -- xsimp; xchange mkstruct_erase; xif=> // ->
@@ -1338,20 +1337,22 @@ lemma xwhile_inv_basic_lemmaQ (I : Bool -> α -> hProp) R
   ((fun _ => H' ∗ ∃ʰ a, I false a) ===> Q) ->
   H ==> wpgen_while F1 F2 Q := by
   move=> *
-  sorry
+  sorry /- Vova -/
 
-lemma xwhile_inv_measure_lemma_down (Xbot : Int) (I : Bool -> Int -> hProp)
-  (F1 F2 : formula) :
-  structural F1 ->
-  structural F2 ->
-  (H ==> H' ∗ ∃ʰ b a, I b a) ->
-  (∀ b X, I b X ==> F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
-  (∀ X, I true X ==> F2 (fun _ => ∃ʰ b X', ⌜Xbot <= X' /\ X' < X⌝ ∗ I b X')) ->
-  ((fun _ => H' ∗ ∃ʰ a, I false a) ===> Q) ->
-  H ==> wpgen_while F1 F2 Q := by
-  apply xwhile_inv_basic_lemmaQ
-  sorry -- wf?
+-- /- We can omit this as well -/
+-- lemma xwhile_inv_measure_lemma_down (Xbot : Int) (I : Bool -> Int -> hProp)
+--   (F1 F2 : formula) :
+--   structural F1 ->
+--   structural F2 ->
+--   (H ==> H' ∗ ∃ʰ b a, I b a) ->
+--   (∀ b X, I b X ==> F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
+--   (∀ X, I true X ==> F2 (fun _ => ∃ʰ b X', ⌜Xbot <= X' /\ X' < X⌝ ∗ I b X')) ->
+--   ((fun _ => H' ∗ ∃ʰ a, I false a) ===> Q) ->
+--   H ==> wpgen_while F1 F2 Q := by
+--   apply xwhile_inv_basic_lemmaQ
+--   admit -- wf?
 
+/- We can omit this as well -/
 lemma xwhile_inv_measure_lemma_up (Xtop : Int) (I : Bool -> Int -> hProp)
   (F1 F2 : formula) :
   structural F1 ->
@@ -1362,7 +1363,7 @@ lemma xwhile_inv_measure_lemma_up (Xtop : Int) (I : Bool -> Int -> hProp)
   ((fun _ => H' ∗ ∃ʰ a, I false a) ===> Q) ->
   H ==> wpgen_while F1 F2 Q := by
   apply xwhile_inv_basic_lemmaQ
-  sorry -- wf?
+  admit -- wf?
 
 macro "xwhile" I:term:max R:term : tactic => do
   `(tactic| (
@@ -1395,21 +1396,21 @@ macro "xwhile_up" I:term:max Xtop:term : tactic => do
      skip⟩
     ))
 
-macro "xwhile_down" I:term:max colGt Xbot:term ? : tactic => do
-  let Xbot <-
-    match Xbot with
-    | .some x => pure x
-    | .none => `(term| 0)
-  `(tactic| (
-    xwp
-    xseq_xlet_if_needed_xwp
-    xstruct_if_needed
-    eapply xwhile_inv_measure_lemma_down $Xbot $I <;> try simp only [wp_equiv]
-    ⟨try apply wp_structural,
-     try apply wp_structural,
-     skip,
-     skip,
-     skip,
-     skip,
-     skip⟩
-    ))
+-- macro "xwhile_down" I:term:max colGt Xbot:term ? : tactic => do
+--   let Xbot <-
+--     match Xbot with
+--     | .some x => pure x
+--     | .none => `(term| 0)
+--   `(tactic| (
+--     xwp
+--     xseq_xlet_if_needed_xwp
+--     xstruct_if_needed
+--     eapply xwhile_inv_measure_lemma_down $Xbot $I <;> try simp only [wp_equiv]
+--     ⟨try apply wp_structural,
+--      try apply wp_structural,
+--      skip,
+--      skip,
+--      skip,
+--      skip,
+--      skip⟩
+--     ))

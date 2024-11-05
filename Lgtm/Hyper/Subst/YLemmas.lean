@@ -123,7 +123,7 @@ lemma subst_hhsingle_const [Nonempty α] :
 lemma subst_hharray_const [Nonempty α] :
   s' ⊆ s ->
   (hharrayFun s' f n (fun _ => p)).subst σ s = hharrayFun (σ '' s') f n (fun _ => p) := by
-  sorry
+  sorry /- Vova -/
 
 omit inj in
 @[substE]
@@ -331,25 +331,4 @@ class SHTsSubst (shts : LGTM.SHTs αˡ) (σ : α -> β) (shts' : outParam (LGTM.
 
 instance : SHTsSubst [] σ [] where
   eq := by simp
-
-instance [inst:SHTsSubst shts σ shts'] (ht : β -> _) :
-  SHTsSubst (⟨s, fun x => ht (σ x.val)⟩ :: shts) σ (⟨σ.labLift '' s, (ht ·.val)⟩ :: shts') where
-  eq := by sorry
-
--- lemma ysubst_lemma (Q Q' : hval αˡ -> hhProp αˡ) (σ : α -> β)
---   [uH : FindUniversal H Hu H']
---   [uQ : ∀ hv, FindUniversal (Q hv) Qu (Q' hv)]
---   [sub : SubstTypeUniversal Hu Hu']
---   [SHTsSubst shts σ shts']
---   (shts : LGTM.SHTs αˡ):
---   Hu ==> Qu ->
---   shts.set.Nonempty ->
---   shts.Pairwise (Disjoint ·.s ·.s) ->
---   hhlocal shts.set H' ->
---   (∀ hv, hhlocal shts.set (Q' hv)) ->
---   Set.InjOn σ.labLift shts.set ->
---   (H'.subst σ.labLift shts.set ∗ Hu' ==>
---     LGTM.wp shts' (fun hv => Q' (hv ∘ σ.labLift) |>.subst σ.labLift shts.set ∗ Hu')) ->
---   H ==> LGTM.wp shts Q := by sorry
-
 end

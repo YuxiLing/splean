@@ -27,7 +27,7 @@ lemma findIdx_hspec' (l : ℕ) (f : ℤ -> ℝ) (s : Set α) (i : ℤ)
   arr⟨⟪l,s⟫⟩(arr, x in N => f x) ==>
     hwp ⟪l, s⟫ (fun _ ↦ [lang| findIdx arr ⟨f i⟩ z n])
     fun v ↦ ⌜v = fun _ ↦ val_int i⌝ ∗ arr⟨⟪l, s⟫⟩(arr, x in N => f x) := by
-  sorry
+  sorry /- Vova -/
 
 lemma findIdx_hspec_out (l : ℕ) (f : ℤ -> ℝ) (target : Labeled α -> ℝ) (s : Set α)
   (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
