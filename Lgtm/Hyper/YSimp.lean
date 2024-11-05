@@ -1314,15 +1314,15 @@ example (v : val) :
 
 example (x : α -> loc) :
   x i ~⟨i in s⟩~> 1 ==> y ~⟨_ in s⟩~> 2 ∗ x i ~⟨i in s⟩~> 1 := by
-  ysimp; sorry
+  ysimp; admit
 
 example (H₁ : β -> hhProp α) (v : β) :
   hharrayFun (Set.univ : Set α) f n p ∗ H₁ v ==> hharrayFun s f n p ∗ ((fun v : β => hharrayFun s f n p) -∗ H₁) := by
-  ysimp; sorry
+  ysimp; admit
 
 example (H₁ H₂ : β -> hhProp α) (v : β) :
   hharrayFun s f n p ∗ H₁ v ==> H₂ v ∗ hharrayFun s f' n p := by
-  ysimp; sorry; sorry
+  ysimp; admit; admit
 
 --
 
