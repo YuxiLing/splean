@@ -1173,7 +1173,7 @@ example :
 
 example :
   x ~~> 1 ==> y ~~> 2 ∗ x ~~> 1 := by
-  xsimp; sorry
+  xsimp; admit
 
 
 
