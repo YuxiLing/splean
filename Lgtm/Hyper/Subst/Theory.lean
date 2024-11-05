@@ -652,6 +652,21 @@ lemma hsubst_wp1 (Q' : hval β -> hhProp α) (Q : hval α -> hhProp α) (σ : α
   { srw Set.union_inter_cancel_right; exists x }
   srw Set.union_comm; apply validSubst_union=> //'
 
+
+@[simp]
+lemma ssubst_some_inE [Inhabited α] (s s' : Set α) (x : Option α) :
+  x ∈ ssubst some s s' ↔ (∃ y ∈ x, (y ∈ s ∩ s')) := by
+  srw fsubst_inE => [⟨|⟩|?//] /==
+  { move=> ??? <- /== // }
+  sby scase: x
+
+private lemma sssubst_some_union [Inhabited α] (s₁ s₂ : Set α) :
+  ssubst some (s₁ ∪ s₂) s₁ ∪ ssubst some (s₁ ∪ s₂) s₂ =
+  ssubst some (s₁ ∪ s₂) (s₁ ∪ s₂) := by
+  move=> ! x; srw /== ?ssubst_some_inE
+  scase: x=> //== x; tauto
+
+
 lemma wp_hsubst_some [Inhabited α] (Q : hval α -> hhProp α) :
   s = s₁ ∪ s₂ ->
   hhlocal s H ->
@@ -663,16 +678,18 @@ lemma wp_hsubst_some [Inhabited α] (Q : hval α -> hhProp α) :
   LGTM.triple
     [⟨s₁, ht₁⟩, ⟨s₂, ht₂⟩]
     H
-    Q := by sorry
+    Q := by
+  move=> -> ?? tr
+  srw LGTM.triple LGTM.wp /==
+  apply hwp_hsubst (ht := (ht₁ ∪_s₁ ht₂ ∪_s₂ fun _ ↦ [lang| ()]) ∘ Option.get!) (σ := some)=> //
+  { move=> ? // }
+  srw hwp_ht_eq
+  { move: tr; srw LGTM.triple LGTM.wp /== sssubst_some_union; sapply }
+  move; simp [sssubst_some_union]=> [] //
 
 attribute [simp] Option.any
 
-@[simp]
-lemma ssubst_some_inE [Inhabited α] (s s' : Set α) (x : Option α) :
-  x ∈ ssubst some s s' ↔ (∃ y ∈ x, (y ∈ s ∩ s')) := by
-  srw fsubst_inE => [⟨|⟩|?//] /==
-  { move=> ??? <- /== // }
-  sby scase: x
+
 
 lemma hsubst_some_hhstar (s₁ s₂) [Inhabited α] (H₂ : α -> hProp) :
   hhlocal s₁ H₁ ->
