@@ -31,7 +31,11 @@ open Lean Elab Command Term Meta Tactic
 lemma ychange_lemma (H1 : hhProp α) :
   H1 ==> H2 ->
   H3 ==> H1 ∗ (H2 -∗ protect H4) ->
-  H3 ==> H4 := by sorry
+  H3 ==> H4 := by
+  move=> M1 M2
+  apply hhimpl_trans ; apply M2
+  apply hhimpl_hhstar_trans_l ; apply M1
+  apply hhwand_cancel
 
 def toHHimp (e : Expr) : MetaM Expr := do
   let eTy <- inferType e
@@ -78,8 +82,8 @@ example (H1 : hhProp α) :
   H1 ∗ H4 ==> (H5 -∗ H6) := by
   intro M
   dup 2
-  { ychange M; sorry }
-  ychanges M; sorry
+  { ychange M; admit }
+  ychanges M; admit
 
 example (Q : β -> hhProp α) :
   H1 ==> (∃ʰ x, Q x ∗ (H2 -∗ H3)) ->
