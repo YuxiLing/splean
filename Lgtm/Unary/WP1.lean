@@ -698,8 +698,8 @@ lemma wpgen_for_sound x v1 v2 F1 :
   srw wp_equiv
   apply triple_hforall _ _ S
   apply triple_hwand_hpure_l
-  { sorry /- Vova: hard -/ }
-  sorry /- Vova: hard -/
+  { sorry }
+  sorry
 
 lemma wpgen_ref_sound x t1 t2 :
   formula_sound (trm_ref x t1 t2) (wpgen_ref x t1 t2) :=
@@ -1318,7 +1318,7 @@ lemma xwhile_inv_basic_lemma (I : Bool -> α -> hProp) R
   (∀ X, I true X ==> F2 (fun _ => ∃ʰ b X', ⌜R X' X⌝ ∗ I b X')) ->
   H ==> wpgen_while F1 F2 (fun _ => H' ∗ ∃ʰ a, I false a) := by
   move=> wf sf1 sf2 hh hf1 hf2
-  sorry /- Vova -/
+  sorry
   -- apply xwhile_inv_lemma _ _ _ wf=> // > ls fs
   -- xlet; xchange hf1; apply structural_imp sf1=> bv /=
   -- xsimp; xchange mkstruct_erase; xif=> // ->
@@ -1337,7 +1337,7 @@ lemma xwhile_inv_basic_lemmaQ (I : Bool -> α -> hProp) R
   ((fun _ => H' ∗ ∃ʰ a, I false a) ===> Q) ->
   H ==> wpgen_while F1 F2 Q := by
   move=> *
-  sorry /- Vova -/
+  sorry
 
 -- /- We can omit this as well -/
 -- lemma xwhile_inv_measure_lemma_down (Xbot : Int) (I : Bool -> Int -> hProp)
@@ -1352,7 +1352,6 @@ lemma xwhile_inv_basic_lemmaQ (I : Bool -> α -> hProp) R
 --   apply xwhile_inv_basic_lemmaQ
 --   admit -- wf?
 
-/- We can omit this as well -/
 lemma xwhile_inv_measure_lemma_up (Xtop : Int) (I : Bool -> Int -> hProp)
   (F1 F2 : formula) :
   structural F1 ->
