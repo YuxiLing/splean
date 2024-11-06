@@ -814,7 +814,7 @@ lemma hhadd_assoc [PartialCommMonoid val] (h₁ h₂ h₃ : hheap) :
   (h₁ +ʰ h₂) +ʰ h₃ = h₁ +ʰ (h₂ +ʰ h₃) := by
   move=> !a; apply Heap.add_assoc
 
-lemma hhadd_hhsatr_assoc  [PartialCommMonoid val] (H₁ H₂ Q : hhProp) :
+lemma hhadd_hhstar_assoc  [PartialCommMonoid val] (H₁ H₂ Q : hhProp) :
   H₁ + H₂ ∗ Q ==> H₁ + (H₂ ∗ Q) := by
   move=> h ![h q] ![h₁ h₂] ?? -> ?? -> /hdisjoint_hhadd_eq [??]
   exists h₁, (h₂ ∪ q); sdo 3 constructor=> //

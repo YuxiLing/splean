@@ -264,7 +264,7 @@ lemma LGTM.wp_for_bighop (β : Type) [inst : Inhabited β]
     srw //' [2]sum_Ico_succl //' /==
     ychange ind=> //'; apply hhimpl_trans; apply LGTM.wp_frame; apply hwp_conseq=> hv' /=
     srw [4]sum_Ico_predr //' /== ?hhProp_add_def; ysimp
-    apply hhimpl_trans; apply hhadd_hhsatr_assoc
+    apply hhimpl_trans; apply hhadd_hhstar_assoc
     srw sum_Ico_predr //' -gen //' /== add_left_comm [2]add_comm
     apply congr_hhimpl; congr 2
     { apply Finset.sum_congr=> //'
@@ -523,7 +523,7 @@ lemma LGTM.wp_while_bighop [PartialCommMonoid val] (β : Type) [inst : Inhabited
     srw //' [2]sum_Ico_succl //' /==
     ychange indt=> //'; apply hhimpl_trans; apply LGTM.wp_frame; apply hwp_conseq=> hv' /=
     srw [4]sum_Ico_predr //' /== ?hhProp_add_def; ysimp=> ?
-    apply hhimpl_trans; apply hhadd_hhsatr_assoc
+    apply hhimpl_trans; apply hhadd_hhstar_assoc
     srw sum_Ico_predr //' -gen //' /== add_left_comm [2]add_comm
     apply congr_hhimpl; congr 2
     { apply Finset.sum_congr=> //'
@@ -538,7 +538,7 @@ lemma LGTM.wp_while_bighop [PartialCommMonoid val] (β : Type) [inst : Inhabited
     srw //' [2]sum_Ico_succl //' /==
     ychange indf=> //'; apply hhimpl_trans; apply LGTM.wp_frame; apply hwp_conseq=> hv' /=
     srw [4]sum_Ico_predr //' /== ?hhProp_add_def; ysimp=> ?
-    apply hhimpl_trans; apply hhadd_hhsatr_assoc
+    apply hhimpl_trans; apply hhadd_hhstar_assoc
     srw sum_Ico_predr //' -gen //' /== add_left_comm [2]add_comm
     apply congr_hhimpl; congr 2
     { apply Finset.sum_congr=> //'
