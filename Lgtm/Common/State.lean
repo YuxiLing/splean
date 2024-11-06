@@ -456,8 +456,7 @@ lemma union_diff_disjoint_r (h₁ h₂ h₃ : state) :
   scase: [a₂ ∈ s2]=> > /=
   apply Finmap.erase_erase
 
-def intersect (s1 s2 : state) :=
-  s1.foldl (fun s x _ ↦ if x ∈ s2 then s else s.erase x) (intersect_comm s2) s1
+def intersect (s1 s2 : state) := s1 \ (s1 \ s2)
 
 def st1 : state := (Finmap.singleton 0 1).insert 1 1
 def st2 : state := ((Finmap.singleton 0 2).insert 2 2).insert 1 2
@@ -499,88 +498,89 @@ lemma intersect_foldl_mem (s₂ : state) (l₁ l₂ : @AList loc fun _ ↦ val):
   srw List.kerase_of_not_mem_keys=> // >
   sby scase_if=> // ? /ih
 
-lemma intersect_mem_l (s₁ s₂ : state) :
-  p ∈ (intersect s₁ s₂) → p ∈ s₁ := by
-  refine Finmap.induction_on s₁ ? _
-  move=> >
-  unfold intersect Finmap.foldl=> /==
-  elim: a=> //=
-  move=> > ? ih
-  srw List.kerase_of_not_mem_keys=> //
-  scase_if=> ? /==
-  { sby move=> /intersect_foldl_mem }
-  sby srw Alist_insert_delete_id
+-- lemma intersect_mem_l (s₁ s₂ : state) :
+--   p ∈ (intersect s₁ s₂) → p ∈ s₁ := by
+--   refine Finmap.induction_on s₁ ? _
+--   move=> >
+--   unfold intersect Finmap.foldl=> /==
+--   elim: a=> //=
+--   move=> > ? ih
+--   srw List.kerase_of_not_mem_keys=> //
+--   scase_if=> ? /==
+--   { sby move=> /intersect_foldl_mem }
+--   sby srw Alist_insert_delete_id
 
-lemma intersect_mem_r_helper (s₂ : state) (l : @AList loc fun _ ↦ val) :
-  (p ∈ List.foldl (fun d s ↦ if s.fst ∈ s₂ then d else Finmap.erase s.fst d)
-    l.toFinmap l.entries → p ∈ s₂) →
-  a ∈ s₂ →
-  p ∈ List.foldl (fun d s ↦ if s.fst ∈ s₂ then d else Finmap.erase s.fst d)
-    (AList.insert a b l).toFinmap l.entries →
-  p ∈ s₂ := by
-  elim: l=> > /==
-  { sby move=> _ ? /AList.mem_keys }
-  move=> ? ih1 >
-  srw List.kerase_of_not_mem_keys=> //
-  move=> ih2 ?
-  sorry
+-- lemma intersect_mem_r_helper (s₂ : state) (l : @AList loc fun _ ↦ val) :
+--   (p ∈ List.foldl (fun d s ↦ if s.fst ∈ s₂ then d else Finmap.erase s.fst d)
+--     l.toFinmap l.entries → p ∈ s₂) →
+--   a ∈ s₂ →
+--   p ∈ List.foldl (fun d s ↦ if s.fst ∈ s₂ then d else Finmap.erase s.fst d)
+--     (AList.insert a b l).toFinmap l.entries →
+--   p ∈ s₂ := by
+--   elim: l=> > /==
+--   { sby move=> _ ? /AList.mem_keys }
+--   move=> ? ih1 >
+--   srw List.kerase_of_not_mem_keys=> //
+--   move=> ih2 ?
+--   sorry
 
-lemma intersect_foldl_mem_s2 (s₂ : state) (l₁ : @AList loc fun _ ↦ val) :
-  p ∈ List.foldl (fun d s ↦ if s.fst ∈ s₂ then d else Finmap.erase s.fst d)
-    l₁.toFinmap l₁.entries →
-  p ∈ s₂ := by
-  elim: l₁=> // >
-  move=> ? ih /==
-  srw Alist_insert_delete_id=> //
-  srw List.kerase_of_not_mem_keys=> //
-  scase_if=> ? //
-  sorry
+-- lemma intersect_foldl_mem_s2 (s₂ : state) (l₁ : @AList loc fun _ ↦ val) :
+--   p ∈ List.foldl (fun d s ↦ if s.fst ∈ s₂ then d else Finmap.erase s.fst d)
+--     l₁.toFinmap l₁.entries →
+--   p ∈ s₂ := by
+--   elim: l₁=> // >
+--   move=> ? ih /==
+--   srw Alist_insert_delete_id=> //
+--   srw List.kerase_of_not_mem_keys=> //
+--   scase_if=> ? //
+--   sorry
 
-lemma intersect_mem_r (s₁ s₂ : state) :
-  p ∈ (intersect s₁ s₂) → p ∈ s₂  := by
-  refine Finmap.induction_on s₁ ? _
-  move=> >
-  unfold intersect Finmap.foldl=> /=
-  elim: a=> > //=
-  move=> ? ih
-  srw List.kerase_of_not_mem_keys=> //==
-  srw Alist_insert_delete_id=> //
-  scase_if=> //
-  move: ih=> /== /intersect_mem_r_helper ih
-  specialize (ih a b)
-  sby move=> /ih
+-- lemma intersect_mem_r (s₁ s₂ : state) :
+--   p ∈ (intersect s₁ s₂) → p ∈ s₂  := by
+--   refine Finmap.induction_on s₁ ? _
+--   move=> >
+--   unfold intersect Finmap.foldl=> /=
+--   elim: a=> > //=
+--   move=> ? ih
+--   srw List.kerase_of_not_mem_keys=> //==
+--   srw Alist_insert_delete_id=> //
+--   scase_if=> //
+--   move: ih=> /== /intersect_mem_r_helper ih
+--   specialize (ih a b)
+--   sby move=> /ih
 
-lemma mem_intersect :
-  p ∈ s₁ ∧ p ∈ s₂ → p ∈ (intersect s₁ s₂) := by
-  refine Finmap.induction_on s₁ ? _
-  move=> >
-  unfold intersect Finmap.foldl=> /==
-  elim: a=> > //? ih ? /==
-  move=> ?
-  srw Alist_insert_delete_id=> //
-  srw List.kerase_of_not_mem_keys=> //
-  sorry
+-- lemma mem_intersect :
+--   p ∈ s₁ ∧ p ∈ s₂ → p ∈ (intersect s₁ s₂) := by
+--   refine Finmap.induction_on s₁ ? _
+--   move=> >
+--   unfold intersect Finmap.foldl=> /==
+--   elim: a=> > //? ih ? /==
+--   move=> ?
+--   srw Alist_insert_delete_id=> //
+--   srw List.kerase_of_not_mem_keys=> //
+--   sorry
 
 @[simp]
 lemma intersect_mem_iff (s₁ s₂ : state) :
-  p ∈ (intersect s₁ s₂) ↔ p ∈ s₁ ∧ p ∈ s₂ := by
-  apply Iff.intro
-  { sby move=> /[dup] /intersect_mem_l ? /intersect_mem_r }
-  apply mem_intersect
+  p ∈ (intersect s₁ s₂) ↔ p ∈ s₁ ∧ p ∈ s₂ := by srw intersect !mem_diff_iff //
+  -- apply Iff.intro
+  -- { sby move=> /[dup] /intersect_mem_l ? /intersect_mem_r }
+  -- apply mem_intersect
 
 lemma lookup_intersect (s₁ s₂ : state) :
   p ∈ s₁ ∧ p ∈ s₂ →
   (intersect s₁ s₂).lookup p = s₁.lookup p := by
-  move=> ?
-  refine Finmap.induction_on s₁ ? _
-  move=> >
-  unfold intersect Finmap.foldl=> /==
-  elim: a=> > //
-  move=> ? ih /==
-  scase_if=> ? ; srw List.kerase_of_not_mem_keys=> //
-  { sorry }
-  srw Alist_insert_delete_id=> //
-  sorry
+  move=> []h1 h2
+  srw intersect lookup_diff //
+  -- refine Finmap.induction_on s₁ ? _
+  -- move=> >
+  -- unfold intersect Finmap.foldl=> /==
+  -- elim: a=> > //
+  -- move=> ? ih /==
+  -- scase_if=> ? ; srw List.kerase_of_not_mem_keys=> //
+  -- { sorry }
+  -- srw Alist_insert_delete_id=> //
+  -- sorry
 
 lemma diff_insert_intersect_id (s₁ s₂ : state) :
   (s₁ \ s₂) ∪ (intersect s₁ s₂) = s₁ := by
