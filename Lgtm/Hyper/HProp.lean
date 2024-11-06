@@ -310,10 +310,10 @@ lemma hdisjoint_hunion_left (h₁ h₂ h₃ : hheap) :
   move=> /=
   sby srw Finmap.disjoint_union_left
 
-@[simp]
-lemma hValidInter_add_left [PartialCommMonoid val] (h₁ h₂ h₃ : hheap) :
-  hValidInter (h₁ +ʰ h₂) h₃ ↔ hValidInter h₁ h₃ ∧ hValidInter h₂ h₃ := by
-  sdone
+-- @[simp]
+-- lemma hValidInter_add_left [PartialCommMonoid val] (h₁ h₂ h₃ : hheap) :
+--   hValidInter (h₁ +ʰ h₂) h₃ ↔ hValidInter h₁ h₃ ∧ hValidInter h₂ h₃ := by
+--   sdone
 
 
 lemma hdisjoint_hunion_right (h₁ h₂ h₃ : hheap) :
@@ -321,10 +321,10 @@ lemma hdisjoint_hunion_right (h₁ h₂ h₃ : hheap) :
     move=> /=
     sby srw Finmap.disjoint_union_right
 
-@[simp]
-lemma hValidInter_add_right [PartialCommMonoid val] (h₁ h₂ h₃ : hheap) :
-  hValidInter h₁ (h₂ +ʰ h₃) ↔ hValidInter h₁ h₂ ∧ hValidInter h₁ h₃ := by
-  sdone
+-- @[simp]
+-- lemma hValidInter_add_right [PartialCommMonoid val] (h₁ h₂ h₃ : hheap) :
+--   hValidInter h₁ (h₂ +ʰ h₃) ↔ hValidInter h₁ h₂ ∧ hValidInter h₁ h₃ := by
+--   sdone
 
 
 /- ============ Properties of Hyper Separation Logic Operators ============ -/
@@ -761,12 +761,24 @@ instance (priority := high) ofPCM [PartialCommMonoid val] : AddCommMonoid (hhPro
     move=> H₁ H₂ !h !⟨|⟩![h₁ h₂ ?? /hHeap.add_comm -> /hValidInter_symm ?]
     <;> exists h₂, h₁
   add_assoc := by
-    move=> H₁ H₂ H₃ !h !⟨![h₁ h₃ ![h₁ h₂] ??-> ?? -> /hValidInter_add_left [] ??]|⟩
-    { exists h₁, (h₂ +ʰ h₃); sdo 3 constructor=> //
-      srw hHeap.add_assoc }
-    scase! => h₁ h₂  ? ![h₂ h₃ ??-> ? -> /hValidInter_add_right []??]
-    exists (h₁ +ʰ h₂), h₃; sdo 3 constructor=> //
-    srw hHeap.add_assoc
+    move=> H₁ H₂ H₃ !h !⟨|⟩
+    on_goal 1=> (move=> [h' [h3 [hh1 [hh2 [hh3 hh4]]]]] ; move: hh1=> [h1 [h2 [hh1' [hh2' [hh3' hh4']]]]])
+    on_goal 2=> (move=> [h1 [h' [hh1 [hh2 [hh3 hh4]]]]] ; move: hh2=> [h2 [h3 [hh1' [hh2' [hh3' hh4']]]]])
+    all_goals subst_eqs
+    on_goal 1=> srw hHeap.add_assoc
+    on_goal 2=> srw -hHeap.add_assoc
+    { exists h1, (h2 +ʰ h3) ; split_ands=> //
+      { exists h2, h3 ; split_ands=> //
+        move=> a ; specialize hh4 a ; specialize hh4' a
+        apply validInter_hop_distr_l at hh4=> // }
+      { move=> a ; specialize hh4 a ; specialize hh4' a
+        apply validInter_assoc_l=> // } }
+    { exists (h1 +ʰ h2), h3 ; split_ands=> //
+      { exists h1, h2 ; split_ands=> //
+        move=> a ; specialize hh4 a ; specialize hh4' a
+        apply validInter_hop_distr_r at hh4=> // }
+      { move=> a ; specialize hh4 a ; specialize hh4' a
+        apply validInter_assoc_r=> // } }
   add_zero  := by
     move=> H !h !⟨![?? ? -> //]|?⟩
     exists h, ∅ ; sdo 3 constructor=> //
@@ -807,7 +819,9 @@ lemma hhadd_hhsatr_assoc  [PartialCommMonoid val] (H₁ H₂ Q : hhProp) :
   move=> h ![h q] ![h₁ h₂] ?? -> ?? -> /hdisjoint_hhadd_eq [??]
   exists h₁, (h₂ ∪ q); sdo 3 constructor=> //
   { srw -?hhaddE_of_disjoint // hhadd_assoc }
-  srw -?hhaddE_of_disjoint //== => ⟨//|⟩
+  srw -?hhaddE_of_disjoint=> a //
+  apply validInter_assoc_l <;> revert a
+  { aesop }
   apply hValidInter_of_hdisjoint=> //
 
 def hhProp.disjoint (H₁ H₂ : hhProp) : Prop :=
