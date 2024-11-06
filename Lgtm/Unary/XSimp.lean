@@ -54,7 +54,7 @@ lemma foo : (@OfNat.ofNat ℕ n _) = (n : ℤ) := rfl
 @[heapSimp]
 lemma foo' : (@OfNat.ofNat ℤ n _) = (n : ℤ) := rfl
 @[heapSimp]
-lemma foo'' : (@OfNat.ofNat val n _) = val.val_int (n : ℤ) := by sorry
+lemma foo'' : (@OfNat.ofNat val n _) = val.val_int (n : ℤ) := by congr
 -- @[heapSimp]
 lemma foo''' (n : ℕ) : (@OfNat.ofNat ℕ n _) = n := rfl
 

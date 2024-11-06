@@ -29,7 +29,11 @@ open Lean Elab Command Term Meta Tactic
 lemma xchange_lemma :
   H1 ==> H2 ->
   H3 ==> H1 ∗ (H2 -∗ protect H4) ->
-  H3 ==> H4 := by sorry
+  H3 ==> H4 := by
+  move=> M1 M2
+  apply himpl_trans ; apply M2
+  apply himpl_hstar_trans_l ; apply M1
+  apply hwand_cancel
 
 def toHimp (e : Expr) : MetaM Expr := do
   let eTy <- inferType e
