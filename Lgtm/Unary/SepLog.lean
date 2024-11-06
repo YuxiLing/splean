@@ -111,8 +111,8 @@ lemma eval_sat :
   { move=> ?? ![>?]; sapply=> // }
   { move=> ?? ![>?]; sapply=> // }
   { scase=> >
-    any_goals move=> pp; (sdo 2 econstructor); apply pp=> //
-    move=> ? pp; sdo 2 econstructor; apply pp=> //}
+    any_goals move=> pp; (sdo 2 econstructor); apply pp=> // }
+    -- move=> ? pp; sdo 2 econstructor; apply pp=> //}
   { scase=> >
     any_goals move=> pp; (sdo 2 econstructor); apply pp=> //
     any_goals move=> ? pp; (sdo 2 econstructor); apply pp=> // }
@@ -296,12 +296,12 @@ lemma evalExact_det :
   { sby move=> > _ ih > /ih /[apply] }
   { unfold purepost=> > ; scase: op=> > //
     { sby move=> [>] }
-    { sby move=> [] > }
-    sorry } -- can't have val_rand
+    { sby move=> [] > } }
+    -- sorry } -- can't have val_rand
   { unfold purepost=> > ; scase: op=> // >
     scase: a=> //
     any_goals (sby move=> [] >) }
-  { move=> > hev₁ hev₂ ih1 ih2 >
+  { move=> > hev₁ hev₂ _ ih2 >
     scase: (finite_state s_1)=> p ?
     have hev:(evalExact s_1 (trm_ref x t1 t2) Q_1) := by
       { sby apply evalExact.ref }
@@ -977,14 +977,14 @@ lemma triple_divr r1 r2 :
     (fun r ↦ ⌜r = val_real (r1 / r2)⌝) :=
 by move=> ?; sby apply triple_binop
 
-lemma triple_rand n :
-  n > 0 →
-  triple (trm_app val_rand (val_int n))
-    emp
-    (fun r ↦ ⌜exists n1, r = val_int n1 ∧ 0 <= n1 ∧ n1 < n⌝) :=
-by
-  move=> ?
-  sby apply triple_unop
+-- lemma triple_rand n :
+--   n > 0 →
+--   triple (trm_app val_rand (val_int n))
+--     emp
+--     (fun r ↦ ⌜exists n1, r = val_int n1 ∧ 0 <= n1 ∧ n1 < n⌝) :=
+-- by
+--   move=> ?
+--   sby apply triple_unop
 
 lemma triple_neg (b1 : Bool) :
   triple (trm_app val_neg b1)

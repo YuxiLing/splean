@@ -24,7 +24,7 @@ inductive prim where
   | val_mul : prim
   | val_div : prim
   | val_mod : prim
-  | val_rand : prim
+  -- | val_rand : prim
   | val_le : prim
   | val_lt : prim
   | val_ge : prim
@@ -188,9 +188,9 @@ inductive step : state → trm → state → trm → Prop where
       step s (trm_app val_neg (val_bool b)) s (val_bool (¬ b))
   | step_opp : forall s n,
       step s (trm_app val_opp (val_int n)) s (val_int (- n))
-  | step_rand : forall s n n1,
-      0 <= n1 ∧ n1 < n →
-      step s (trm_app val_rand (val_int n)) s (val_int n1)
+  -- | step_rand : forall s n n1,
+  --     0 <= n1 ∧ n1 < n →
+  --     step s (trm_app val_rand (val_int n)) s (val_int n1)
 
   -- Binary Operations
   | step_eq : forall s v1 v2,
@@ -287,10 +287,10 @@ inductive evalunop : prim → val → (val → Prop) → Prop where
       evalunop val_opp (val_int n1) (fun v => v = val_int (- n1))
   | evalunop_oppr : forall r1,
       evalunop val_opp (val_real r1) (fun v => v = val_real (- r1))
-  | evalunop_rand : forall n,
-      n > 0 →
-      evalunop val_rand (val_int n)
-        (fun r => exists n1, r = val_int n1 ∧ 0 <= n1 ∧ n1 < n)
+  -- | evalunop_rand : forall n,
+  --     n > 0 →
+  --     evalunop val_rand (val_int n)
+  --       (fun r => exists n1, r = val_int n1 ∧ 0 <= n1 ∧ n1 < n)
 
 /- Big-step relation for binary operators -/
 inductive evalbinop : val → val → val → (val->Prop) → Prop where
@@ -368,7 +368,7 @@ lemma evalunop_unique :
   { sby move=> [] }
   { sby move=> [] }
   { sby move=> [] }
-  { sby move=> ? [] }
+  -- { sby move=> ? [] }
 
 lemma evalbinop_unique :
   evalbinop op v1 v2 P → evalbinop op v1 v2 P' → P = P' := by
@@ -585,15 +585,15 @@ by
   { apply evalbinop.evalbinop_divr=>// }
   sdone
 
-lemma eval_rand s (n : ℤ) Q :
-  n > 0 ->
-  (forall n1, 0 <= n1 ∧ n1 < n -> Q n1 s) ->
-  eval s (trm_app val_rand (val_int n)) Q :=
-by
-  move=> *
-  apply eval.eval_unop
-  { apply evalunop.evalunop_rand=>// }
-  sby move=> ? []
+-- lemma eval_rand s (n : ℤ) Q :
+--   n > 0 ->
+--   (forall n1, 0 <= n1 ∧ n1 < n -> Q n1 s) ->
+--   eval s (trm_app val_rand (val_int n)) Q :=
+-- by
+--   move=> *
+--   apply eval.eval_unop
+--   { apply evalunop.evalunop_rand=>// }
+--   sby move=> ? []
 
 
 /- Derived rules for reasoning about applications that don't require checking
