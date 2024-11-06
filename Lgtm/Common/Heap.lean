@@ -243,7 +243,11 @@ lemma Heap.add_assoc (h₁ h₂ h₃ : heap) : (h₁ +ʰ h₂) +ʰ h₃ = h₁ +
 def validLoc (l : loc) (h : heap) : Prop := (h.lookup l).any (valid (α := val))
 
 def validInter (h₁ h₂ : heap) : Prop :=
-  ∀ l ∈ h₁, l ∈ h₂ -> validLoc l h₁ ∧ validLoc l h₂
+  ∀ l ∈ h₁, l ∈ h₂ -> ((h₁ +ʰ h₂).lookup l).any (valid (α := val))
+  -- NOTE: originally it was `validLoc l h₁ ∧ validLoc l h₂`,
+  -- but in some cases it is not sufficient to imply the validity of the `((h₁ +ʰ h₂).lookup l)`;
+  -- another possible fix is to allow the axiom like
+  -- `valid x → valid y → valid (x + y)`
 
 lemma Heap.addE_of_disjoint (h₁ h₂ : heap) :
   h₁.Disjoint h₂ ->  h₁ +ʰ h₂ = h₁ ∪ h₂ := by
@@ -259,7 +263,7 @@ lemma Heap.addE_of_disjoint (h₁ h₂ : heap) :
 infixr:55 " ⊥ʰ " => validInter
 
 lemma validInter_comm (h₁ h₂ : heap) :
-  h₁ ⊥ʰ h₂ = h₂ ⊥ʰ h₁ := by simp [validInter]; aesop
+  h₁ ⊥ʰ h₂ = h₂ ⊥ʰ h₁ := by simp [validInter]; apply Iff.intro=> ???? <;> srw [1](Option.merge_comm _ add_comm)=> //
 
 lemma validInter_empty_r (h : heap) : h ⊥ʰ ∅ := by simp [validInter, Finmap.not_mem_empty]
 
@@ -273,31 +277,50 @@ lemma disjoint_add_eq (h₁ h₂ h₃ : heap) :
   { move: (dj l)=> // }
   scase=> [/dj₁|/dj₂] //
 
-@[simp]
-lemma validInter_hop_eq_r (h₁ h₂ h₃ : heap) :
-  (h₁ +ʰ h₂) ⊥ʰ h₃ = (h₁ ⊥ʰ h₃ ∧ h₂ ⊥ʰ h₃) := by
+lemma validInter_assoc_l (h₁ h₂ h₃ : heap) :
+  h₁ ⊥ʰ h₂ -> (h₁ +ʰ h₂) ⊥ʰ h₃ -> h₁ ⊥ʰ (h₂ +ʰ h₃) := by
   simp [validInter]
-  move=> ⟨ h ⟨|⟩ l /[tac (specialize h l)] | [] h1 h2 l [] /[tac (specialize h1 l; specialize h2 l)] ⟩
+  move=> h1 h2 l hin1 /[tac (specialize h1 _ hin1 ; specialize h2 _ (Or.intro_left _ hin1))] [ hin2 | hin3 ]
+  { rcases h : Finmap.lookup l h₃
+    { rw [Option.merge_none_r] ; aesop }
+    { srw h at h2 ; rw [← Option.merge_assoc, h2] ; apply Finmap.mem_of_lookup_eq_some at h=> //
+      apply add_assoc } }
+  { rw [← Option.merge_assoc, h2]=> //
+    apply add_assoc }
+
+lemma validInter_assoc_r (h₁ h₂ h₃ : heap) :
+  h₂ ⊥ʰ h₃ -> h₁ ⊥ʰ (h₂ +ʰ h₃) -> (h₁ +ʰ h₂) ⊥ʰ h₃ := by
+  simp [validInter]
+  move=> h1' h2' l /[swap] hin3 /[tac (have h1 := (fun H => h1' _ H hin3) ; have h2 := (fun H => h2' _ H (Or.intro_right _ hin3)) ; clear h1' h2')] [ hin1 | hin2 ]
+  { rw [Option.merge_assoc, h2]=> //
+    apply add_assoc }
+  { rcases h : Finmap.lookup l h₁
+    { rw [Option.merge_none_l] ; aesop }
+    { srw h at h2 ; rw [Option.merge_assoc, h2] ; apply Finmap.mem_of_lookup_eq_some at h=> //
+      apply add_assoc } }
+
+lemma validInter_hop_distr_l (h₁ h₂ h₃ : heap) :
+  (h₁ +ʰ h₂) ⊥ʰ h₃ -> (h₁ ⊥ʰ h₃ ∧ h₂ ⊥ʰ h₃) := by
+  simp [validInter]
+  move=> h ⟨|⟩ l /[tac (specialize h l)]-- | [] h1 h2 l [] /[tac (specialize h1 l; specialize h2 l)] ⟩
   all_goals (move=> /[dup] hin1 /[swap] /[dup] hin2)
   all_goals (srw [1]Finmap.mem_iff=> []v3 hv3 ; srw Finmap.mem_iff=> []v hv)
-  all_goals (simp [validLoc] at * => ⟨ | /[tac (srw hv3 ; dsimp)] ⟩)
-  all_goals (first
-    | srw hv hv3 at h
-    | srw hv3 at h1 h2)
-  all_goals (first
-    | srw hv
-    | skip)
-  all_goals (first
-    | srw hv at h1
-    | srw hv at h2
-    | skip)
-  all_goals (dsimp at * ; try solve
+  all_goals (srw hv hv3 at h ⊢)
+  all_goals (dsimp [Option.merge]; try solve
     | aesop)
-  all_goals sorry       -- TODO intro.intro.left not provable, since there is no way to prove (v1 + v2) is valid using v1 is valid and v2 is valid
+  { move: h; scase: (Finmap.lookup l h₂)=> > //==
+    all_goals (simp [Option.merge]=> //)
+    srw add_assoc (add_comm _ v3) -add_assoc
+    have hq := fun y => PartialCommMonoid.valid_add (v + v3) (y := y)
+    aesop }
+  { move: h; scase: (Finmap.lookup l h₁)=> > //==
+    all_goals (simp [Option.merge]=> //)
+    srw add_assoc [1]add_comm
+    have hq := fun y => PartialCommMonoid.valid_add (v + v3) (y := y)
+    aesop }
 
-@[simp]
-lemma validInter_hop_eq_l (h₁ h₂ h₃ : heap) :
-  h₁ ⊥ʰ (h₂ +ʰ h₃) = (h₁ ⊥ʰ h₂ ∧ h₁ ⊥ʰ h₃) := by srw [1]validInter_comm validInter_hop_eq_r [2]validInter_comm [1]validInter_comm
+lemma validInter_hop_distr_r (h₁ h₂ h₃ : heap) :
+  h₁ ⊥ʰ (h₂ +ʰ h₃) -> (h₁ ⊥ʰ h₂ ∧ h₁ ⊥ʰ h₃) := by srw [3]validInter_comm [2]validInter_comm [1]validInter_comm ; apply validInter_hop_distr_l
 
 lemma validInter_of_disjoint (h₁ h₂ : heap) :
   h₁.Disjoint h₂ ->  h₁ ⊥ʰ h₂ := by simp [validInter, Finmap.Disjoint]; aesop
@@ -334,7 +357,13 @@ lemma validLocE : validLoc (val := val) l h = False := by
 
 lemma validInter_disjoint (h₁ h₂ : Heap.heap val) :
   h₁ ⊥ʰ h₂ = h₁.Disjoint h₂ := by
-  srw validInter /==; rfl
+  srw validInter /==
+  have hh : ∀ (o : Option val), Option.any (fun _ => decide False) o = false := by
+    move=> []//
+  simp [Finmap.Disjoint, hh]=> ⟨|⟩ <;> (try solve
+    | aesop)
+  move=> h x h1 h2 ; specialize h x h1 h2 ; move: h=> /==
+  srw -hh ; congr ; ext ; congr   -- ???
 
 @[simp]
 lemma Heap.add_union_validInter (h₁ h₂ : Heap.heap val) {h : h₁ ⊥ʰ h₂} :
