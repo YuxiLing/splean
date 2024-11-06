@@ -54,7 +54,8 @@ lemma disjoint_label_set :
         {aesop}
         aesop }
       move: G; simp[z]
-      sorry
+      srw Set.eq_empty_iff_forall_not_mem /== => H
+      exact Set.subset_eq_empty H rfl
     }
   }
   sorry
