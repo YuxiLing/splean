@@ -773,8 +773,7 @@ instance [PartialCommMonoidWRT val add valid] : AddCommMonoidWRT hProp hadd wher
 lemma Heap.add_single (v v' : val) [PartialCommMonoid val] :
   (Finmap.singleton p v) +ʰ (Finmap.singleton p v') = (Finmap.singleton p (v + v')) := by
   apply Finmap.ext_lookup; srw Heap.add_lookup /== => l
-  scase_if=> [->//|?]; srw ?Finmap.lookup_eq_none.mpr //
-
+  scase: [l = p]=> [?|->//]; srw ?Finmap.lookup_eq_none.mpr //
 
 lemma hadd_single_gen (v v' : val) [PartialCommMonoid val] :
   PartialCommMonoid.valid v ->
@@ -783,7 +782,7 @@ lemma hadd_single_gen (v v' : val) [PartialCommMonoid val] :
   move=> ?? !h ⟨![??->-> ? ->]|->⟩ //
   srw -Heap.add_single; exists (Finmap.singleton p v), (Finmap.singleton p v')
   sdo 3 constructor=> //
-  move=> /==; srw validLoc Finmap.lookup_singleton_eq //
+  move=> /==; srw !validLoc Finmap.lookup_singleton_eq //
 
 namespace EmptyPCM
 
