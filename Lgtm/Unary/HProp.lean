@@ -784,14 +784,13 @@ lemma Heap.add_single (v v' : val) [PartialCommMonoid val] :
   scase: [l = p]=> [?|->//]; srw ?Finmap.lookup_eq_none.mpr //
 
 lemma hadd_single_gen (v v' : val) [PartialCommMonoid val] :
-  (∀ (x y : val), PartialCommMonoid.valid x -> PartialCommMonoid.valid y -> PartialCommMonoid.valid (x + y)) ->
   PartialCommMonoid.valid v ->
   PartialCommMonoid.valid v' ->
   (p ~~> v) + (p ~~> v') = p ~~> (v + v') := by
-  move=> hvalid ?? !h ⟨![??->-> ? ->]|->⟩ //
+  move=> ?? !h ⟨![??->-> ? ->]|->⟩ //
   srw -Heap.add_single; exists (Finmap.singleton p v), (Finmap.singleton p v')
   sdo 3 constructor=> //
-  move=> /==; aesop
+  move=> /==; apply PartialCommMonoid.add_valid=> //
 
 namespace EmptyPCM
 
@@ -821,9 +820,6 @@ abbrev valid : val -> Prop
   | .val_int _ => True
   | _ => False
 
-lemma add_valid (v v' : val) : valid v → valid v' → valid (add v v') := by
-  scase: v => /== ; scase: v' => /==
-
 scoped instance : PartialCommMonoid val where
   add := add
   add_assoc := by
@@ -836,6 +832,7 @@ scoped instance : PartialCommMonoid val where
   valid := valid
   valid_add := by
     move=> a b; scase: a <;> scase: b=> //==
+  add_valid := by move=> v v'; scase: v => /== ; scase: v' => /==
 
 scoped instance inst : PartialCommMonoidWRT val add valid where
   validE := by rfl
@@ -844,7 +841,7 @@ scoped instance inst : PartialCommMonoidWRT val add valid where
 
 lemma hadd_single (v v' : Int) :
   (p ~~> v) + (p ~~> v') = p ~~> (v + v') := by
-  apply hadd_single_gen=> //; apply add_valid
+  apply hadd_single_gen=> //
 
 lemma sum_single (v : β -> Int) (fs : Finset β) :
   (p ~~> 0) + ∑ i in fs, (p ~~> v i) = p ~~> val.val_int (∑ i in fs, v i) := by
@@ -878,9 +875,6 @@ abbrev valid : val -> Prop
   | .val_bool _ => True
   | _ => False
 
-lemma add_valid (v v' : val) : valid v → valid v' → valid (add v v') := by
-  scase: v => /== ; scase: v' => /==
-
 scoped instance : PartialCommMonoid val where
   add := add
   add_assoc := by
@@ -890,6 +884,7 @@ scoped instance : PartialCommMonoid val where
   valid := valid
   valid_add := by
     move=> a b; scase: a <;> scase: b=> //==
+  add_valid := by move=> v v'; scase: v => /== ; scase: v' => /==
 
 scoped instance inst : PartialCommMonoidWRT val add valid where
   validE := by rfl
@@ -898,7 +893,7 @@ scoped instance inst : PartialCommMonoidWRT val add valid where
 
 lemma hadd_single (v v' : Bool) :
   (p ~~> v) + (p ~~> v') = p ~~> (v || v') := by
-  apply hadd_single_gen=> //; apply add_valid
+  apply hadd_single_gen=> //
 
 lemma sum_single (v : β -> Bool) (fs : Finset β) :
   (p ~~> false) + ∑ i in fs, (p ~~> v i) =
@@ -921,9 +916,6 @@ abbrev valid : val -> Prop
   | .val_real _ => True
   | _ => False
 
-lemma add_valid (v v' : val) : valid v → valid v' → valid (add v v') := by
-  scase: v => /== ; scase: v' => /==
-
 scoped instance : PartialCommMonoid val where
   add := add
   add_assoc := by
@@ -937,6 +929,7 @@ scoped instance : PartialCommMonoid val where
   valid := valid
   valid_add := by
     move=> a b; scase: a <;> scase: b=> //==
+  add_valid := by move=> v v'; scase: v => /== ; scase: v' => /==
 
 scoped instance inst : PartialCommMonoidWRT val add valid where
   validE := by rfl
@@ -945,7 +938,7 @@ scoped instance inst : PartialCommMonoidWRT val add valid where
 
 lemma hadd_single (v v' : ℝ) :
   (p ~~> val.val_real v) + (p ~~> val.val_real v') = p ~~> val.val_real (v + v') := by
-  apply hadd_single_gen=> //; apply add_valid
+  apply hadd_single_gen=> //
 
 lemma sum_single (v : β -> ℝ) (fs : Finset β) :
   (p ~~> val.val_real 0) + ∑ i in fs, (p ~~> val.val_real (v i)) = p ~~> val.val_real (∑ i in fs, v i) := by

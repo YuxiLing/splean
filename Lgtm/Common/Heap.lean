@@ -52,7 +52,10 @@ abbrev Heap.heap (val : Type) := Finmap (λ _ : loc ↦ val)
 class PartialCommMonoid (α : Type) extends AddCommSemigroup α where
   valid : α -> Prop
   valid_add : ∀ x, valid (x + y) -> valid x
-
+  add_valid : ∀ x y, valid x -> valid y -> valid (x + y)
+  -- NOTE: for now, this axiom is added so that we do not have to put it as a premise in the statements
+  -- of some lemmas; in other cases, we should avoid using this axiom since it seems not common in
+  -- formalizations of PCM
 
 class PartialCommMonoidWRT (α : Type) (add' : semiOutParam (α -> α -> α)) (valid' : semiOutParam (α -> Prop)) extends PartialCommMonoid α where
   addE : (· + ·) = add'
@@ -342,6 +345,7 @@ scoped instance (priority := low) : AddCommSemigroup val where
 scoped instance (priority := 1) EPCM : PartialCommMonoid val where
   valid := valid
   valid_add := by sdone
+  add_valid := by sdone
 
 scoped instance (priority := 0) EPCM' : PartialCommMonoidWRT val add valid where
   addE := by sdone
