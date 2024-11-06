@@ -193,7 +193,8 @@ lemma hhimpl_bighstar_himpl
    (Q R : α -> hProp) (s : Set α) :
   (∀ x ∈ s, himpl (Q x) (R x)) ->
   [∗ i in s| Q i] ==> [∗ i in s| R i] := by
-  sorry
+  move=> imp a; srw ?bighstar ?bighstarDef /=
+  move=> H a; move: (H a); scase_if=> //
 
 omit [PartialCommMonoid val] in
 lemma choose_fun2 {α β γ : Type}  [Inhabited β] [Inhabited γ]

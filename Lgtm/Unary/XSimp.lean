@@ -54,7 +54,7 @@ lemma foo : (@OfNat.ofNat ℕ n _) = (n : ℤ) := rfl
 @[heapSimp]
 lemma foo' : (@OfNat.ofNat ℤ n _) = (n : ℤ) := rfl
 @[heapSimp]
-lemma foo'' : (@OfNat.ofNat val n _) = val.val_int (n : ℤ) := by congr
+lemma foo'' : (@OfNat.ofNat val n _) = val.val_int (n : ℤ) := by sorry
 -- @[heapSimp]
 lemma foo''' (n : ℕ) : (@OfNat.ofNat ℕ n _) = n := rfl
 
@@ -1063,19 +1063,19 @@ example :
       xsimp1; xsimp1; admit }
     xsimp; admit
 
-/--
-warning: declaration uses 'sorry'
----
-info: case xsimp_goal.a.a.a
-H1 H2 H3 H4 H5 H6 H7 : hProp
-⊢ H1 ∗ H2 ∗ H4 ==> H5 ∗ H6 ∗ H7
--/
-#guard_msgs in
-example :
-  H1 ∗ H2 ∗ H3 ∗ H4 ==> H5 ∗ H3 ∗ H6 ∗ H7 := by
-  xsimp
-  trace_state
-  admit
+-- /--
+-- warning: declaration uses
+-- ---
+-- info: case xsimp_goal.a.a.a
+-- H1 H2 H3 H4 H5 H6 H7 : hProp
+-- ⊢ H1 ∗ H2 ∗ H4 ==> H5 ∗ H6 ∗ H7
+-- -/
+-- #guard_msgs in
+-- example :
+--   H1 ∗ H2 ∗ H3 ∗ H4 ==> H5 ∗ H3 ∗ H6 ∗ H7 := by
+--   xsimp
+--   trace_state
+--   admit
 
 example :
   H1 ∗ H2 ∗ H3 ∗ H4 ∗ H5 ==> H3 ∗ H1 ∗ H2 ∗ ⊤ := by

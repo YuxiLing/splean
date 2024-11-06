@@ -135,15 +135,16 @@ lemma update_middle (A : Type) (_ : Inhabited A) (n : Nat)
 lemma hseg_focus_relative (k : Nat) L p j (v : 0 <= k ∧ k < L.length):
   hseg L p j ==>
   hcell L[k]! p (j + k)
-    ∗ (h∀ w, hcell w p (j + k) -∗ hseg (L.set k w) p j) := by sorry
-  -- move: v=> [] ? /list_middle_inv ![> ?] hlen
-  -- move: (Eq.symm hlen) => /nth_middle hmid
-  -- subst L ; srw (hmid _ w_2 w) hseg_app hseg_cons hlen -hstar_comm_assoc
-  -- apply himpl_frame_r
-  -- apply himpl_hforall_r => ?
-  -- move: (Eq.symm hlen) => /(update_middle val _ k w_1 w_2 w) hset
-  -- srw hset ?List.concat_append ?hseg_app ?hseg_cons ?hlen
-  -- sby xsimp
+    ∗ (h∀ w, hcell w p (j + k) -∗ hseg (L.set k w) p j) := by
+  move: v=> [] ? /list_middle_inv ![> ?] hlen
+  move: (Eq.symm hlen) => /nth_middle hmid
+  subst L ; srw (hmid _ w_2 w) hseg_app hseg_cons hlen -hstar_comm_assoc
+  apply himpl_frame_r
+  apply himpl_hforall_r => ?
+  move: (Eq.symm hlen) => /(update_middle val _ k w_1 w_2 w) hset
+  srw hset ?List.concat_append ?hseg_app ?hseg_cons ?hlen
+  { sby xsimp }
+  sdone
 
 lemma add_Int.natAbs i j :
   0 <= i - j → j + Int.natAbs (i - j) = i := by omega
@@ -409,25 +410,6 @@ lemma get_out_of_bounds {_ : Inhabited α} (L : List α) (i : Int) :
     sby srw (natabs_eq n)=> /ih }
   move=> /== >
   sby srw (natabs_eq a) => /ih
-
--- set_option pp.all true
--- set_option pp.fullNames false
--- set_option pp. false↑
--- set_option trace.xsimp true
--- lemma triple_array_default_get (p : loc) (i : Int) :
---   triple [lang| p[i]]
---     (harray L p)
---     (fun r ↦ ⌜r = L[i]!⌝ ∗ harray L p) := by
---   xwp
---   xapp triple_abs ; xwp
---   xapp triple_array_length ; xwp
---   xapp triple_lt ; xwp
---   xif=> /== ?
---   { xapp triple_array_get }
---   xwp
---   xval ; xsimp
---   srw ?get_out_of_bounds=> //
---   sorry
 
 lemma set_keep_length (L : List val) i v :
   L.length = (L.set i v).length := by
