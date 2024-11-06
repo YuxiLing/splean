@@ -45,16 +45,25 @@ attribute [-simp] hhwandE
 
 @[simp]
 lemma disjoint_union (sᵢ : β -> Set α)  :
-  Disjoint s (∑ i in fs, sᵢ i) =
-  (∀ x ∈ fs, Disjoint s (sᵢ x)) := by sorry
+  Disjoint s (∑ i ∈ fs, sᵢ i) =
+  (∀ x ∈ fs, Disjoint s (sᵢ x)) := by
+  induction fs using Finset.induction_on=> //==
+  rename_i e s hnotin ih
+  srw Finset.sum_insert /==; rw [← ih]=> //
+  apply Set.disjoint_union_right
 
 @[simp]
 lemma disjoint_union' (sᵢ : β -> Set α)  :
-  Disjoint (∑ i in fs, sᵢ i) s =
-  (∀ x ∈ fs, Disjoint (sᵢ x) s) := by sorry
+  Disjoint (∑ i ∈ fs, sᵢ i) s =
+  (∀ x ∈ fs, Disjoint (sᵢ x) s) := by
+  srw disjoint_comm disjoint_union=> ! ⟨|⟩ ???
+  all_goals (srw [1]disjoint_comm=> //)
 
 lemma mem_union (sᵢ : β -> Set α) :
-  (x ∈ ∑ i ∈ fs, sᵢ i) = ∃ i ∈ fs, x ∈ sᵢ i := by sorry
+  (x ∈ ∑ i ∈ fs, sᵢ i) = ∃ i ∈ fs, x ∈ sᵢ i := by
+  induction fs using Finset.induction_on=> //==
+  rename_i e s hnotin ih
+  srw Finset.sum_insert /==; rw [← ih]=> //
 
 lemma sum_set_eq_iunion (sᵢ : β -> Set α) :
   ⋃ i ∈ fs, sᵢ i = ∑ i in fs, sᵢ i := by
@@ -176,7 +185,7 @@ variable [PartialCommMonoid val]
 
 -- lemma sum_bighstar (H : β -> α -> hProp) :
 --   -- Finset.sum fs (bighstar s H)=
---   ∑ i in fs, H i ∗↑ s = [∗ a in s| ∑ i in fs, H i a] := by sorry
+--   ∑ i in fs, H i ∗↑ s = [∗ a in s| ∑ i in fs, H i a] := by
 open EmptyPCM  in
 omit [PartialCommMonoid val] in
 lemma sum_bighstar_set (H : α -> hProp) (s : β -> Set α) :
@@ -741,7 +750,25 @@ omit disj seq dfN in
 @[simp]
 lemma disjoint_labSet :
   Disjoint ⟪l, s⟫ ⟪l', s'⟫ = (l ≠ l' ∨ Disjoint s s') := by
-  sorry
+  -- NOTE: overlapping with `disjoint_label_set`
+  simp [labSet]; constructor
+  {
+    move=>H; by_cases L: (l = l')=>//
+    { subst l'; right=>w H1 H2
+      let z := {x | ∃ y ∈ w, (l, y) = x}
+      shave G: z ≤ ⊥
+      { apply H; simp [z]
+        {aesop}
+        aesop }
+      move: G; simp[z]
+      srw Set.eq_empty_iff_forall_not_mem /== => H
+      exact Set.subset_eq_empty H rfl }
+  }
+  scase=>H; srw Set.disjoint_iff_inter_eq_empty Set.eq_empty_iff_forall_not_mem=>x//==
+  {aesop}
+  move=>y1 H1 [y2] H2 Z; cases Z
+  move: H
+  sby srw Set.disjoint_iff_inter_eq_empty Set.eq_empty_iff_forall_not_mem
 
 -- set_option maxHeartbeats 1600000 in
 -- @[simp]
@@ -1001,6 +1028,7 @@ lemma fsubst_ι' i :
   move=> ???; srw fsubst_set_union //
   apply lem6=> //
 
+omit dfN in
 lemma fsubst_κι i :
   z <= i ->
   i < n ->
@@ -1020,7 +1048,7 @@ lemma fsubst_κι i :
   srw ι' if_pos //' => []; exists a=> ⟨//|⟩
   srw if_pos //
 
-
+omit dfN in
 lemma hsubst_κι i :
   z <= i ->
   i < n ->
@@ -1250,7 +1278,7 @@ lemma wp_for_bighop_aux (β : Type) [PartialCommMonoid val] [inst : Inhabited β
     apply lem7=> // }
   move=> ??; apply Eq.symm; apply lem7=>//
 
-
+omit disj seq dfN in
 lemma labSet_nonempty :
   s'.Nonempty ->
   ⟪n, s'⟫.Nonempty := by scase=> w ? ⟨⟨|⟩|//⟩
@@ -1292,7 +1320,7 @@ lemma wp_while_bighop_aux [PartialCommMonoid val] [Inhabited α] (β : Type) [in
     htriple s' (fun _ => cnd) (Inv b j) (fun bv => hhpure (bv = fun _ => val.val_bool b) ∗ Inv b j)) ->
   (∀ b, hhimpl (Inv b n) (hhpure (b = false) ∗ Inv b n)) ->
   H₀ ∗ Inv b₀ z ∗ R ∗↑ s ==>
-    LGTM.wp [⟨s', fun j => trm_while cnd c⟩, ⟨s, ht⟩]
+    LGTM.wp [⟨s', fun _ => trm_while cnd c⟩, ⟨s, ht⟩]
       fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv false n ∗ R' ∗↑ s := by
   move=> lH₀ lInv lQ lgen ? eqQ gen indt indf cndN cndE
   srw -(hsubst_H) //' LGTM.wp_Q_eq; rotate_left 2
@@ -1426,7 +1454,7 @@ lemma wp_while_bighop_aux [PartialCommMonoid val] [Inhabited α] (β : Type) [in
       apply hhimpl_trans; apply cndN=> //'
       apply hwp_conseq'=> v /=; ysimp[v]=> ?? //' }
     apply hwp_conseq'=> v /=; srw hsubst_hhpure'
-    ysimp[(fun x => val.val_bool b)]=> eq; funext ⟨x, l⟩=> /==
+    ysimp[(fun _ => val.val_bool b)]=> eq; funext ⟨x, l⟩=> /==
     srw κ_s' /== => -> /[dup] ? /eq <-; sby srw if_pos }
   move=> ?; srw -hsubst_hhpure'
   apply hsubst_hhimpl=> //'
@@ -1624,7 +1652,7 @@ lemma wp_while_bighop [Inhabited α] [PartialCommMonoid val] (β : Type)  [inst:
     htriple s' (fun _ => cnd) (Inv b j) (fun bv => hhpure (bv = fun _ => val.val_bool b) ∗ Inv b j)) ->
   (∀ b, hhimpl (Inv b n) (hhpure (b = false) ∗ Inv b n)) ->
   H₀ ∗ Inv b₀ z ∗ R ∗↑ s ==>
-    LGTM.wp [⟨s', fun j => trm_while cnd c⟩, ⟨s, ht⟩]
+    LGTM.wp [⟨s', fun _ => trm_while cnd c⟩, ⟨s, ht⟩]
       fun hv => H₀ + (∑ j in ⟦z, n⟧, Q j hv) ∗ Inv false n ∗ R' ∗↑ s := by
   move=> L ???? eqQ gen ?? cndN cndE
   eapply wp_hsubst_some=> //'
@@ -1711,7 +1739,7 @@ lemma wp_while_bighop [Inhabited α] [PartialCommMonoid val] (β : Type)  [inst:
       apply hhimpl_trans; apply cndN=> //'
       apply hwp_conseq'=> v /=; ysimp[v]=> ?? //' }
     apply hwp_conseq'=> v /=; srw hsubst_hhpure'
-    ysimp[(fun x => val.val_bool b)]=> eq; funext x=> /== //' }
+    ysimp[(fun _ => val.val_bool b)]=> eq; funext x=> /== //' }
   { move=> ?; srw -hsubst_hhpure'
     apply hsubst_hhimpl=> //' }
   { apply ssubst_some_disjoint=> // }
