@@ -1288,6 +1288,36 @@ lemma triple_alloc (n : Int) :
 abbrev sP h t :=fun v => h∀ (Q : val -> hProp), ⌜eval h t Q⌝ -∗ Q v
 
 open Classical
+
+noncomputable def sP' (h : heap) (t : trm) : (val → hProp) :=
+  if ex : ∃ Q, evalExact h t Q then choose ex else fun _ _ ↦ False
+
+lemma sP'_strongest :
+  eval h t Q → sP' h t ===> Q := by
+  move=>  /evalExact_post hex
+  unfold sP'
+  scase: [∃ Q, evalExact h t Q]
+  { move=> > ; sby srw dif_neg=> // ?? }
+  move=> > ; srw (dif_pos h_1)=> //
+  sby apply choose_spec in h_1=> /hex
+
+lemma evalExact_sP' :
+  evalExact h t Q → evalExact h t (sP' h t) := by
+  move=> ?
+  have hex:(∃ Q, evalExact h t Q) := by exists Q
+  unfold sP'
+  scase: [∃ Q, evalExact h t Q]=> // >
+  srw (dif_pos hex)
+  apply choose_spec
+
+lemma sP'_post :
+  eval h t Q → eval h t (sP' h t) := by
+  sby move=> /eval_imp_exact=> [>] /evalExact_sP' /exact_imp_eval
+
+lemma sP'_post_exact :
+  eval h t Q → evalExact h t (sP' h t) := by
+  sby move=> /eval_imp_exact [>] /evalExact_sP'
+
 lemma hpure_intr :
   (P -> H s) -> (⌜P⌝ -∗ H) s := by
   move=> ?

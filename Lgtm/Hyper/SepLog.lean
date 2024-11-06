@@ -630,7 +630,7 @@ lemma heval_ref (x : α → var) (hh : α → heap) (hv : α → val) (ht : α �
 by
   move=> h
   exists (fun a v ↦ hexists fun p ↦ hpure (p ∉ hh a) ∗
-    (hexists fun u ↦ p ~~> u -∗ sP ((hh a).insert p (hv a)) (subst (x a) p (ht a)) v))
+    (hexists fun u ↦ p ~~> u -∗ sP' (if a ∈ s then (hh a).insert p (hv a) else hh a) (subst (x a) p (ht a)) v))
   /- maybe should be something like:
      fun a v ↦ ∃ʰ p, ⌜p ∉ hh a⌝ ∗
       fun h ↦ ⌜p ∉ h⌝ ∗ ∃ʰ u, (sP ...) v (h.insert p u)
@@ -653,20 +653,30 @@ by
     move=> {hheq}
     specialize hev a ; apply hev in ain=> /== ; scase_if=> // _
     srw hp=> /= {}hev
-    apply (eval_conseq (Q1 := sP (Finmap.insert p (hv a) (hh a)) (subst (x a) p (ht a))))
-    { sby apply sP_post }
+    apply (eval_conseq (Q1 := sP' (Finmap.insert p (hv a) (hh a)) (subst (x a) p (ht a))))
+    { sby apply sP'_post }
     move=> v h /= hsP
     exists p=> /==
     srw hstar_hpure_l=> ⟨//|⟩
     apply hwand_pointer_erase=> //
-    sorry }
+    move: hev hsP=> /sP'_post_exact /evalExact_WellAlloc /[apply]
+    srw -Finmap.mem_keys=> -> ; sby srw Finmap.mem_keys }
   move=> hv' ; srw ?bighstarDef_hexists
   apply hhimpl_hhexists_l=> hp
   srw -(empty_hunion hh) -bighstarDef_hhstar; rotate_left
   { move=> ?; apply Finmap.disjoint_empty }
   erw [bighstarDef_hpure] ; srw empty_hunion
   apply hhimpl_hstar_hhpure_l=> /h {h} ![hQ' /hstrongest_postP sPimp /= himp]
-  specialize himp hv'
+  -- apply hhimpl_trans_r
+  -- { apply hhimpl_trans_r ; rotate_left ; apply himp hv'
+  --   move=> hh' ![hv₂ hh₂ hh₃] ? [hv₃] /=
+  --   sorry  }
+  let hh' := fun i ↦ (hh i).insert (hp i) (hv i)
+  specialize himp hv' (hh' ∪_s hh) ?_
+  { move=> > ; scase_if=> //== /[dup] ? /sPimp {}sPimp
+    specialize sPimp (hv' a) ((hh' ∪_s hh) a) ; apply sPimp=> /=
+    unfold hsP=> /== ; srw hh' ; scase_if=> // _
+    sorry }
   sorry
 
 end HEvalTrm
