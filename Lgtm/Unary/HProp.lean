@@ -846,7 +846,7 @@ lemma sum_single' (v : β -> Int) (fs : Finset β) (x : ℤ) :
   rename_i ih; srw ?Finset.sum_insert // add_left_comm ih hadd_single //
   congr!; simp [instHAdd]; simp [Add.add]; omega
 
-lemma sum_single'' (v : β -> Int) (fs : Finset β) (x : ℤ)  :
+lemma sum_single'' (v : β -> Int) (fs : Finset β) (_ : ℤ)  :
   fs.Nonempty ->
   ∑ i in fs, (p ~~> v i) = p ~~> val.val_int (∑ i in fs, v i) := by
   induction fs using Finset.induction_on=> //==
