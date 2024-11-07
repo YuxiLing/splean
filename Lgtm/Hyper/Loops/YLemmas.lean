@@ -68,10 +68,12 @@ instance RestrictToIndexNil (sᵢ : ℤ -> _) :
   sdone
 
 lemma iUnion_eq_sum (f : Int -> Set α) :
-  (⋃ i ∈ Set.Ico z n, f i) = (∑ i in Finset.Ico z n, f i)  := by sorry
+  (⋃ i ∈ Set.Ico z n, f i) = (∑ i in Finset.Ico z n, f i)  := by
+  ext; simp
 
 lemma iUnion_eq_sum' (f : Int -> Set α) :
-  (⋃ i ∈ Finset.Ico z n, f i) = (∑ i in Finset.Ico z n, f i)  := by sorry
+  (⋃ i ∈ Finset.Ico z n, f i) = (∑ i in Finset.Ico z n, f i)  := by
+  ext; simp
 
 instance RestrictToIndexNilU (sᵢ : ℤ -> _) :
   RestrictToIndex z n [⟨⋃ i ∈ (Set.Ico z n), sᵢ i, ht⟩] (fun i => [⟨sᵢ i, ht⟩]) := by
