@@ -765,7 +765,10 @@ lemma htriple_prod (H : α -> hProp) (Q : α -> val -> hProp) :
 
 lemma hhlocal_mem  (hh : hheap α):
   hlocal s hh ->
-  x ∈ (hh a) -> a ∈ s := by sorry
+  x ∈ (hh a) -> a ∈ s := by
+  unfold hlocal
+  cases eqn:(is_true (a ∈ s)) ; move: eqn
+  all_goals sby unfold is_true
 
 lemma htriple_frame_in :
   hhlocal s' H' ->
