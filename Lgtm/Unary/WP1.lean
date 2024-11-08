@@ -2,6 +2,7 @@ import Lean
 
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
+import Mathlib.Data.List.Indexes
 
 import Lgtm.Common.State
 import Lgtm.Common.Util
@@ -538,8 +539,8 @@ def wpgen (t : trm) : formula :=
   | trm_seq t1 t2      => wpgen_seq (wp t1) (wp t2)
   | trm_let x t1 t2    => wpgen_let (wp t1) (fun v ↦ wp $ subst x v t2)
   | trm_app _ _        => wpgen_app t
-  | trm_for x v1 v2 t1 => wpgen_for v1 v2 (fun v ↦ wp $ subst x v t1)
-  | trm_while t0 t1    => wpgen_while (wp t0) (wp t1)
+  -- | trm_for x v1 v2 t1 => wpgen_for v1 v2 (fun v ↦ wp $ subst x v t1)
+  -- | trm_while t0 t1    => wpgen_while (wp t0) (wp t1)
   | trm_ref x t1 t2    => wpgen_ref x t1 t2
   | trm_alloc x t1 t2  => wpgen_alloc x t1 t2
   | _ => wp t
@@ -679,27 +680,27 @@ lemma triple_for_raw (x:var) (n1 n2: Int) t3 H (Q:val->hProp) :
   unfold triple=> ?>?
   sby constructor
 
-lemma triple_mkstruct_pre : forall t (F:formula) Q,
-  (forall Q, triple t (F Q) Q) ->
-  triple t (mkstruct F Q) Q := by sorry
+-- lemma triple_mkstruct_pre : forall t (F:formula) Q,
+--   (forall Q, triple t (F Q) Q) ->
+--   triple t (mkstruct F Q) Q := by
 
 -- set_option pp.notation false
 
 /- This is a hard proof, but we can omit it here as we don't use for loops in Unary logic -/
-lemma wpgen_for_sound x v1 v2 F1 :
-  (forall v, formula_sound (subst x v t1) (F1 v)) →
-  formula_sound (trm_for x v1 v2 t1) (wpgen_for v1 v2 F1) := by
-  move=> M
-  apply qimpl_wp_of_triple=> Q
-  apply triple_mkstruct_pre=> {}Q
-  srw -wp_equiv
-  xsimp=> >
-  let S (i : Int) := wp (trm_for x i n₂ t1)
-  srw wp_equiv
-  apply triple_hforall _ _ S
-  apply triple_hwand_hpure_l
-  { sorry }
-  sorry
+-- lemma wpgen_for_sound x v1 v2 F1 :
+--   (forall v, formula_sound (subst x v t1) (F1 v)) →
+--   formula_sound (trm_for x v1 v2 t1) (wpgen_for v1 v2 F1) := by
+--   move=> M
+--   apply qimpl_wp_of_triple=> Q
+--   apply triple_mkstruct_pre=> {}Q
+--   srw -wp_equiv
+--   xsimp=> >
+--   let S (i : Int) := wp (trm_for x i n₂ t1)
+--   srw wp_equiv
+--   apply triple_hforall _ _ S
+--   apply triple_hwand_hpure_l
+--   {  }
+--
 
 lemma wpgen_ref_sound x t1 t2 :
   formula_sound (trm_ref x t1 t2) (wpgen_ref x t1 t2) :=
@@ -726,7 +727,7 @@ by
   scase: t
   any_goals move=> > * ; srw wpgen ; try apply mkstruct_sound=> /=
   { apply wpgen_val_sound }
-  { sorry }
+  { srw formula_sound=> // }
   -- { srw wpgen_var
   --   cases eqn:(lookup _ E)=> /=
   --   { apply wpgen_fail_sound }
@@ -742,9 +743,12 @@ by
     sby srw formula_sound }
   { apply wpgen_if_sound
     sby srw formula_sound }
-  { apply wpgen_for_sound
-    sby srw formula_sound }
-  { sorry }
+  { srw formula_sound=> // }
+  -- { apply wpgen_for_sound
+  --   sby srw formula_sound }
+  { srw formula_sound=> // }
+  -- NOTE: it seems that we do not need to apply wpgen for `while`,
+  -- but only some other specific lemmas far below
   { apply wpgen_ref_sound }
   { apply wpgen_alloc_sound }
 
@@ -761,6 +765,9 @@ by
   xchange h
   apply himpl_wpgen_wp
 
+lemma wp_of_wpgen :
+  H ==> wpgen t Q →
+  H ==> wp t Q := by apply triple_of_wpgen
 
 /- ################################################################# -/
 /-* * Practical Proofs -/
@@ -861,14 +868,14 @@ lemma xwp_lemma_fun v1 v2 x t H Q :
   v1 = val_fun x t →
   H ==> wpgen (subst x v2 t) Q →
   triple (trm_app v1 v2) H Q :=
-by sorry
+by move=> -> h ; srw -wp_equiv ; xchange h ; xchange (himpl_wpgen_wp (subst x v2 t)) ; apply wp_app_fun=> //
 
 lemma xwp_lemma_fix : forall v1 v2 f x t H Q,
   v1 = val_fix f x t ->
   f != x ->
   H ==> wpgen (subst x v2 $ subst f v1 $ t) Q ->
   triple (trm_app v1 v2) H Q :=
-by sorry
+by move=> > -> ?h ; srw -wp_equiv ; xchange h ; xchange (himpl_wpgen_wp (subst x v2 (subst f (val_fix f x t) t))) ; apply wp_app_fix=> //
 
 lemma xtriple_lemma t H (Q:val → hProp) :
   H ==> mkstruct (wpgen_app t) Q →
@@ -964,7 +971,7 @@ elab "xtriple_if_needed" : tactic => do
 
 lemma xapp_simpl_lemma (F : formula) :
   H ==> F Q ->
-  H ==> F Q ∗ (Q -∗ protect Q) := by sorry
+  H ==> F Q ∗ (Q -∗ protect Q) := by move=> hh; apply himpl_trans ; apply hh ; xsimp
 
 elab "xsimp_step_no_cancel" : tactic => do
   let xsimp <- XSimpRIni
@@ -1083,6 +1090,12 @@ def trms_to_vals (ts:List trm) : Option (List val) := do
   | (trm_val v) :: ts' => v :: (<- trms_to_vals ts')
   | _ => failure
 
+lemma trms_to_vals_some_equiv ts vs : trms_to_vals ts = some vs → ts = vs.map trm_val := by
+  elim: ts vs <;> try (simp [trms_to_vals])
+  move=> t ts ih vs h
+  scase: t h=> // > /==; rcases h : trms_to_vals ts=> /== <-
+  apply ih at h; subst_eqs=> //
+
 /- ======================= WP Generator ======================= -/
 /- Below we define a function [wpgen t] recursively over [t] such that
    [wpgen t Q] entails [wp t Q].
@@ -1131,12 +1144,297 @@ def isubst (E : ctx) (t : trm) : trm :=
 def _root_.List.mkAlist [DecidableEq α] (xs : List α) (vs : List β) :=
   ((xs.zip vs).map fun (x, y) => ⟨x, y⟩).toAList
 
+lemma List.toAList_perm {α : Type u} {β : α → Type v} [DecidableEq α]
+  (es es' : List (Sigma β)) (hnodup : es.NodupKeys) (hp : es.Perm es') :
+  es.toAList.entries.Perm es'.toAList.entries := by
+  apply List.lookup_ext <;> try apply AList.keys_nodup
+  move=> x y
+  simp [List.dlookup_dedupKeys] ; rw [List.perm_dlookup] <;> try assumption
+  srw -List.perm_nodupKeys ; apply hnodup ; assumption
+
+-- a very special case, but should be sufficient for the proof below
+lemma List.mkAlist_snoc_to_cons [DecidableEq α] (xs : List α) (vs : List β)
+    (x : α) (v : β) : x ∉ xs → xs.length = vs.length → xs.Nodup →
+    ((xs ++ [x]).mkAlist (vs ++ [v])).entries.Perm (((x :: xs).mkAlist (v :: vs)).entries) := by
+  move=> hnotin hlen hnodup
+  unfold List.mkAlist
+  srw List.zip_append <;> try assumption
+  dsimp only [List.zip, List.zipWith]
+  srw List.map_append
+  dsimp only [List.map]
+  srw !List.map_zipWith
+  symm ; apply List.toAList_perm
+  { simp only [List.NodupKeys, List.keys, List.map]
+    srw List.map_zipWith /=
+    have heq : xs = List.zipWith (fun x _ ↦ x) xs vs := by
+      clear hnotin hnodup x v
+      elim: xs vs hlen=> // > ih vs /== hlen
+      cases vs=> //==
+      simp at hlen ; apply ih at hlen=> //
+    srw -heq List.nodup_cons // }
+  { symm ; apply List.perm_append_singleton }
+
+-- supplementary lemmas for `AList`
+lemma AList.erase_insert_cancel {α : Type u} {β : α → Type v} [DecidableEq α] (a : α) (b : β a) (l : AList β) :
+    (AList.erase a (AList.insert a b l)).entries.Perm (AList.erase a l).entries := by
+  rcases l with ⟨l, hnodup⟩
+  simp [AList.erase, AList.insert, AList.entries, List.kerase, List.kinsert]
+
+lemma AList.erase_insert_swap {α : Type u} {β : α → Type v} [DecidableEq α] (a a' : α) (b : β a) (l : AList β) :
+  a ≠ a' → (AList.erase a' (AList.insert a b l)).entries.Perm (AList.insert a b (AList.erase a' l)).entries := by
+  move=> hneq
+  rcases l with ⟨l, hnodup⟩
+  simp [AList.erase, AList.insert, AList.entries] -- , List.kerase, List.kinsert]
+  srw List.kerase_cons_ne /=    -- why // does weird things
+  on_goal 2=> aesop
+  srw List.kerase_kerase
+
+lemma AList.erase_noop {α : Type u} {β : α → Type v} [DecidableEq α] (a : α) (l : AList β) :
+    a ∉ l → (AList.erase a l).entries.Perm l.entries := by
+  move=> hnotin
+  rcases l with ⟨l, hnodup⟩
+  simp [AList.erase, AList.insert, AList.entries, List.kerase, List.kinsert]
+  srw List.eraseP_of_forall_not=> /==
+  srw mem_keys AList.keys List.keys at hnotin ; simp at hnotin
+  aesop
+
+lemma AList.erase_twice {α : Type u} {β : α → Type v} [DecidableEq α] (a : α) (l : AList β) :
+    (AList.erase a (AList.erase a l)).entries.Perm (AList.erase a l).entries := by
+  apply erase_noop=> //
+
+lemma AList.erase_empty {α : Type u} {β : α → Type v} [DecidableEq α] (a : α) :
+  AList.erase a (∅ : AList β) = ∅ := by apply AList.ext=> //
+
+-- `isubst` theory
+lemma isubst_empty t : isubst ∅ t = t := by
+  induction t using (subst.induct default default)  -- `isubst.induct` is not easily usable? same below
+  all_goals (simp [isubst, AList.erase]=> //)
+
+lemma isubst_perm {al al'} t (hp : al.entries.Perm al'.entries) :
+  isubst al t = isubst al' t := by
+  move: al al' hp
+  induction t using (subst.induct default default)=> > hp
+  all_goals (simp [isubst])
+  all_goals (have hh := fun a => AList.perm_erase (a := a) hp)
+  all_goals (split_ands <;> (try solve
+    | aesop))
+  { srw (perm_lookup hp) }
+  { have hh' := fun a a' => AList.perm_erase (a := a') (hh a)
+    aesop }
+
+lemma isubst_insert (al : ctx) x v t :
+  isubst (al.insert x v) t = subst x v (isubst (al.erase x) t) := by
+  move: al
+  induction t using (subst.induct x v)=> >
+  all_goals (simp [isubst, subst]=> //)
+  all_goals (split_ands=> //)
+  all_goals ((try split_ifs=> //) <;> (try subst_eqs))
+  all_goals (try srw (fun t => isubst_perm t (AList.erase_twice x al)))
+  all_goals (try srw (fun v t => isubst_perm t (AList.erase_insert_cancel x v al)))
+  all_goals (try solve
+    | srw (fun x' hneq v t => isubst_perm t (AList.erase_insert_swap x x' v al hneq)) <;> aesop ; -- `aesop` does autorewrite here
+      apply congrArg ; srw AList.erase_erase)
+  all_goals (try apply isubst_perm)
+  { rename_i x' ; by_cases h : x' = x
+    { subst x' ; simp [subst] }
+    { srw AList.lookup_insert_ne // AList.lookup_erase_ne //
+      scase: (lookup x' al)=> //=
+      simp [subst, h] } }
+  { apply AList.perm_erase
+    trans ; apply AList.erase_insert_cancel ; symm ; apply AList.erase_twice }
+  { srw [2]AList.erase_erase [1]AList.erase_erase
+    apply AList.perm_erase
+    trans ; apply AList.erase_insert_cancel ; symm ; apply AList.erase_twice }
+  { rename_i ih ha hb
+    srw [3]AList.erase_erase [2]AList.erase_erase -ih
+    apply isubst_perm
+    trans
+    on_goal 2=> apply AList.erase_insert_swap ; aesop
+    apply AList.perm_erase
+    apply AList.erase_insert_swap ; aesop }
+
+lemma isubst_single x v t : isubst (List.mkAlist [x] [v]) t = subst x v t := by
+  have h := (isubst_insert ∅ x v t)
+  simp [List.mkAlist, toAList_cons]
+  srw AList.erase_empty isubst_empty at h
+  srw -h=> //
+
 lemma trm_apps1 :
   trm_app t1 t2 = trm_apps t1 [t2] := by rfl
 
 lemma trm_apps2 :
   trm_apps (trm_app t1 t2) ts = trm_apps t1 (t2::ts) := by rfl
 
+-- some useful things
+lemma trm_apps_app :
+  trm_apps t1 (ts ++ ts') = trm_apps (trm_apps t1 ts) ts' := by
+  elim: ts t1 ts'=> // t ts ih > /==
+  srw -!trm_apps2 ih
+
+lemma trm_funs_app :
+  trm_funs (xs ++ xs') t1 = trm_funs xs (trm_funs xs' t1) := by
+  elim: xs t1 xs'=> // x xs ih > /==
+  simp [trm_funs]=> //
+
+@[trans]
+lemma eval_like_trans {t1 t2 t3 : trm} : eval_like t1 t2 → eval_like t2 t3 → eval_like t1 t3 := by
+  srw !eval_like=> //
+
+-- NOTE: many symmetric cases; may eliminate them later
+lemma eval_like_trm_fun_val_fun x t : eval_like (trm_fun x t) (val_fun x t) := by
+  unfold eval_like=> s Q h ; cases h=> //
+
+lemma eval_like_val_fun_trm_fun x t : eval_like (val_fun x t) (trm_fun x t) := by
+  unfold eval_like=> s Q h ; cases h=> //
+
+lemma eval_like_val_funs_trm_funs xs t : xs ≠ [] → eval_like (val_funs xs t) (trm_funs xs t) := by
+  scase: xs=> // x xs _
+  simp [val_funs, trm_funs, eval_like_val_fun_trm_fun]
+
+lemma eval_like_trm_funs_val_funs xs t : xs ≠ [] → eval_like (trm_funs xs t) (val_funs xs t) := by
+  scase: xs=> // x xs _
+  simp [val_funs, trm_funs, eval_like_trm_fun_val_fun]
+
+-- not provable; consider t1 = binop v1
+-- lemma eval_like_trm_app_left t1 t1' t2 : eval_like t1 t1' → eval_like (trm_app t1 t2) (trm_app t1' t2) := by
+
+lemma eval_like_trm_app_left t1 t1' t2 (hsat : ∃ s Q, eval s t1 Q) : eval_like t1 t1' → eval_like (trm_app t1 t2) (trm_app t1' t2) := by
+  -- NOTE: many repeating cases; may eliminate them later
+  unfold eval_like=> hh s Q []
+  { move=> Q1 ? h2 h3
+    apply hh at h2 ; apply eval_app_arg1' ; apply h2=> // }
+  { move=> v1 _ hv1 Q2 h1 h2 h3
+    apply eval_app_arg1'
+    on_goal 2=> move=> ?? h ; apply h   -- omni is nice
+    apply hv1 ; apply eval.eval_val ; apply eval.eval_app_arg2=> // }
+  { move=> v1 _ hv1 > ? h ; subst_eqs
+    apply eval_app_arg1'
+    on_goal 2=> move=> ?? h ; apply h
+    apply hv1 ; apply eval.eval_val ; apply eval.eval_app_fun=> // }
+  { move=> v1 _ hv1 > ? h ; subst_eqs
+    apply eval_app_arg1'
+    on_goal 2=> move=> ?? h ; apply h
+    apply hv1 ; apply eval.eval_val ; apply eval.eval_app_fix=> // }
+  { move=> op _ hop > ??
+    apply eval_app_arg1'
+    on_goal 2=> move=> ?? h ; apply h
+    apply hop ; apply eval.eval_val ; apply eval.eval_unop=> // }
+  { move=> ?? [s [Q hsat]] ??? hbiop ?
+    -- unsat
+    cases hsat=> //
+    cases hbiop=> // }
+  { move=> p hp hread
+    apply eval_app_arg1'
+    on_goal 2=> move=> ?? h ; apply h
+    apply hh ; apply eval.eval_val ; apply eval.eval_get=> // }
+  { move=> ?? [s [Q hsat]] *
+    -- unsat
+    cases hsat=> // }
+
+lemma eval_like_trm_fun_val_fun_app_left (x : var) (t1 t2 : trm) :
+  eval_like (trm_app (trm_fun x t1) t2) (trm_app (val_fun x t1) t2) := by
+  apply eval_like_trm_app_left
+  { exists ∅, (fun _ _ ↦ True)=> // }
+  { apply eval_like_trm_fun_val_fun }
+
+lemma eval_like_val_fun_trm_fun_app_left (x : var) (t1 t2 : trm) :
+  eval_like (trm_app (val_fun x t1) t2) (trm_app (trm_fun x t1) t2) := by
+  apply eval_like_trm_app_left
+  { exists ∅, (fun _ _ ↦ True)=> // }
+  { apply eval_like_val_fun_trm_fun }
+
+lemma val_funs_snoc (xs : List var) (x : var) (h : xs ≠ []) (t : trm) :
+  val_funs (xs ++ [x]) t = val_funs xs (trm_fun x t) := by
+  scase: xs=> // x' xs > /==
+  simp [val_funs, trm_funs_app, trm_funs]
+
+-- missing lemmas about snoc
+lemma List.not_nil_snoc {α : Type u} (l : List α) : l ≠ [] → ∃ l' x, l = l' ++ [x] := by
+  induction l with
+  | nil => simp
+  | cons x' l ih =>
+    intros h; clear h
+    cases l with
+    | nil => exists [], x'
+    | cons a b =>
+      simp at ih
+      rcases ih with ⟨l, ⟨x, heq⟩⟩
+      rw [heq]; exists (x' :: l), x
+
+section funs_fixs_eval_like
+
+variable (xs : List var) (vs : List val) (t : trm) (v0 : trm)
+  (heqt : t = trm_apps v0 ts)
+  (hconv : trms_to_vals ts = vs)
+  (hform : var_funs xs vs.length)   -- NOTE: can be relaxed to `vs.length ≤ xs.length`
+
+include xs vs t v0 heqt hconv hform
+
+lemma eval_like_trm_apps_funs_pre (heqv0 : v0 = trm_funs xs t1) :
+  eval_like t (trm_apps (val_funs xs t1) ts) ∧  -- NOTE: this part do not require `xs.Nodup`, but anyway
+  eval_like (isubst (xs.mkAlist vs) t1) t := by
+  apply trms_to_vals_some_equiv at hconv ; subst_eqs
+  move: hform=> /== hnodup hlen hnotempty
+  move: hnodup vs hlen t1
+  induction xs using List.list_reverse_induction with
+  | base => sdone
+  | ind xs x ih =>
+    move=> { hnotempty } /(List.nodup_middle (l₂ := [])) /== hnotin hnodup vs hlen t1
+    by_cases hvs : vs = []
+    { subst vs ; simp [trm_apps]=> ⟨|//⟩ ; apply eval_like_trm_funs_val_funs=> // }
+    move: hvs=> /List.not_nil_snoc [vs [v ?]] /[tac subst_eqs]
+    simp at hlen ; simp [trm_apps_app, trm_apps]
+    by_cases hxs : xs = []
+    { subst xs ; simp [val_funs, trm_funs] at *
+      cases vs=> //= { hlen } ; simp [trm_apps]
+      apply And.intro
+      { apply eval_like_trm_fun_val_fun_app_left=> // }
+      -- single subst
+      srw isubst_single
+      trans
+      on_goal 2=> apply eval_like_val_fun_trm_fun_app_left
+      move=> ??? ; apply eval.eval_app_fun=> // }
+    specialize @ih hxs hnodup _ hlen (trm_fun x t1) ; rcases ih with ⟨ih1, ih2⟩
+    apply And.intro
+    { srw val_funs_snoc // trm_funs_app ; simp [trm_funs]
+      trans
+      on_goal 2=> apply eval_like_trm_app_left
+      on_goal 3=> apply ih1
+      on_goal 2=> exists ∅, (fun _ _ ↦ True) ; apply ih2=> //   -- that's why we want to prove things together
+      move=> ??=> // }
+    srw trm_funs_app ; simp [trm_funs, trm_apps]
+    -- ih
+    trans
+    on_goal 2=> apply eval_like_trm_app_left
+    on_goal 3=> apply ih2
+    on_goal 2=> exists ∅, (fun _ _ ↦ True) ; simp [isubst]=> //
+    clear ih1 ih2 ; simp [isubst]
+    -- trm_fun -> val_fun
+    trans
+    on_goal 2=> apply eval_like_val_fun_trm_fun_app_left
+    -- raw eval, then subst reasoning
+    move=> s Q h
+    apply eval.eval_app_fun=> //
+    srw -isubst_insert
+    rw [isubst_perm _ (List.mkAlist_snoc_to_cons xs vs x v hnotin hlen hnodup)] at h
+    apply h
+
+lemma eval_like_trm_apps_funs (heqv0 : v0 = trm_funs xs t1) :
+  eval_like (isubst (xs.mkAlist vs) t1) (trm_apps (val_funs xs t1) ts) := by
+  have ⟨h1, h2⟩ := eval_like_trm_apps_funs_pre xs vs t v0 heqt hconv hform heqv0
+  trans
+  apply h2
+  assumption
+
+variable (f : var) (hf : f ∉ xs)
+
+include f hf
+
+-- lemma eval_like_trm_apps_fixs_pre (heqv0 : v0 = trm_fixs f xs t1) :
+--   eval_like t (trm_apps (val_fixs f xs t1) ts) ∧
+--   eval_like (isubst (xs.mkAlist vs) t1) t := by
+
+end funs_fixs_eval_like
 
 lemma xwp_lemma_funs (xs : List _) (vs : List val) :
   t = trm_apps v0 ts ->
@@ -1144,7 +1442,11 @@ lemma xwp_lemma_funs (xs : List _) (vs : List val) :
   trms_to_vals ts = vs ->
   var_funs xs vs.length ->
   H ==> wpgen (isubst (xs.mkAlist vs) t1) Q ->
-  triple t H Q := by sorry
+  triple t H Q := by
+  move=> -> -> ?? h
+  srw -wp_equiv ; apply himpl_trans ; apply (wp_of_wpgen h)
+  apply wp_eval_like
+  apply eval_like_trm_apps_funs=> //
 
 lemma xwp_lemma_fixs (xs : List _) (v0 : val) (vs : List val) :
   t = trm_apps v0 ts ->
@@ -1153,12 +1455,12 @@ lemma xwp_lemma_fixs (xs : List _) (v0 : val) (vs : List val) :
   var_funs xs vs.length ->
   f ∉ xs ->
   H ==> wpgen (isubst ((f :: xs).mkAlist (v0 :: vs)) t1) Q ->
-  triple t H Q := by sorry
-
-lemma wp_of_wpgen :
-  H ==> wpgen t Q →
-  H ==> wp t Q := by sorry
-
+  triple t H Q := by
+  move=> -> -> ??? h
+  srw -wp_equiv ; apply himpl_trans ; apply (wp_of_wpgen h)
+  apply wp_eval_like
+  sorry
+  -- apply eval_like_trm_apps_funs=> //
 
 macro "xwp" : tactic =>
   `(tactic|
@@ -1317,14 +1619,23 @@ lemma xwhile_inv_basic_lemma (I : Bool -> α -> hProp) R
   (∀ b X, I b X ==> F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
   (∀ X, I true X ==> F2 (fun _ => ∃ʰ b X', ⌜R X' X⌝ ∗ I b X')) ->
   H ==> wpgen_while F1 F2 (fun _ => H' ∗ ∃ʰ a, I false a) := by
-  move=> wf sf1 sf2 hh hf1 hf2
-  sorry
-  -- apply xwhile_inv_lemma _ _ _ wf=> // > ls fs
-  -- xlet; xchange hf1; apply structural_imp sf1=> bv /=
-  -- xsimp; xchange mkstruct_erase; xif=> // ->
-  -- { xseq; xchange hf2; apply structural_imp sf2=> /= v /= {v}
-  --   sby xsimp=> > ?; xchange fs }
-  -- xval; xsimp
+  move=> wf sf1 sf2 hini hf1 hf2
+  unfold wpgen_while ; unfold_let ; xstruct ; xsimp=> [] sR hstep; rename_i wfR
+  -- frame H' out, using `structural`?
+  apply himpl_trans; rotate_left ; apply sR
+  srw hstar_comm
+  apply himpl_trans; rotate_left ; apply (mkstruct_frame)
+  xchange hini=> /[swap] a b ; xsimp ; xstruct
+  move: b ; apply WellFounded.induction wf a=> {}a ih b
+  -- step, if true then use IH, otherwise done
+  -- use structural_imp when necessary
+  xchange hstep
+  xlet ; xchange hf1
+  apply (structural_imp sf1) ; xsimp ; xsimp ; xstruct -- twice?
+  xif=> ? <;> subst_eqs
+  { xseq ; xchange hf2 ; apply (structural_imp sf2) ; xsimp ; xsimp=> b a' hdown
+    apply (ih a')=> // }
+  { xval ; xsimp }
 
 lemma xwhile_inv_basic_lemmaQ (I : Bool -> α -> hProp) R
   (F1 F2 : formula) :
@@ -1336,8 +1647,10 @@ lemma xwhile_inv_basic_lemmaQ (I : Bool -> α -> hProp) R
   (∀ X, I true X ==> F2 (fun _ => ∃ʰ b X', ⌜R X' X⌝ ∗ I b X')) ->
   ((fun _ => H' ∗ ∃ʰ a, I false a) ===> Q) ->
   H ==> wpgen_while F1 F2 Q := by
-  move=> *
-  sorry
+  move=> wf sf1 sf2 hini hf1 hf2 hh
+  -- xchange (xwhile_inv_basic_lemma I R F1 F2)=> //   -- not good
+  apply himpl_trans ; apply (xwhile_inv_basic_lemma I R F1 F2 wf sf1 sf2 hini hf1 hf2)
+  unfold wpgen_while ; unfold_let ; apply mkstruct_conseq=> //
 
 -- /- We can omit this as well -/
 -- lemma xwhile_inv_measure_lemma_down (Xbot : Int) (I : Bool -> Int -> hProp)
@@ -1362,7 +1675,17 @@ lemma xwhile_inv_measure_lemma_up (Xtop : Int) (I : Bool -> Int -> hProp)
   ((fun _ => H' ∗ ∃ʰ a, I false a) ===> Q) ->
   H ==> wpgen_while F1 F2 Q := by
   apply xwhile_inv_basic_lemmaQ
-  sorry -- wf?
+  constructor=> a
+  constructor=> y [] _
+  apply Int.le_induction_down
+  { constructor=> > [] ?? ; omega }
+  { move=> n hle [] ih
+    constructor=> y [] hlt hle'
+    by_cases h : n < y
+    { aesop }
+    { have : y = n := by omega
+      subst n
+      constructor ; assumption } }
 
 macro "xwhile" I:term:max R:term : tactic => do
   `(tactic| (
