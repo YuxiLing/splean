@@ -126,11 +126,23 @@ def hhlocal (s : Set α) (H : hhProp) := H ==> hlocal s
 
 @[simp]
 lemma hhlocal_bighstar  :
-  (hhlocal s (bighstar s' H)) = (s' ⊆ s) := by sorry
+  (hhlocal s (bighstar s' H)) = (s' ⊆ s) := by
+  unfold hhlocal bighstar bighstarDef
+  srw Set.subset_def
+  apply propext=> ⟨|⟩
+  { move=> h >
+    sorry }
+  sorry
 
+-- set_option pp.notation false
 @[simp↓]
 lemma hhlocal_hhadd [PartialCommMonoid val] :
-  (hhlocal s (H₁ + H₂)) = (hhlocal s H₁ ∧ hhlocal s H₂) := by sorry
+  (hhlocal s (H₁ + H₂)) = (hhlocal s H₁ ∧ hhlocal s H₂) := by
+  unfold hhlocal
+  apply propext=> ⟨|⟩
+  { unfold HAdd.hAdd instHAdd
+    sorry }
+  sorry
 
 open EmptyPCM in
 @[simp]
@@ -139,8 +151,16 @@ lemma hhlocal_hhstar  :
   simp [<-hhaddE]
 
 @[simp]
-lemma hhlocal_hhexists  :
-  (hhlocal s (hhexists H)) = ∀ x, hhlocal s (H x) := by sorry
+lemma hhlocal_hhexists :
+  (hhlocal s (hhexists H)) = ∀ x, hhlocal s (H x) := by
+  unfold hhlocal
+  apply propext=> ⟨|⟩
+  { move=> hex > ??
+    apply hex
+    unfold hhexists
+    exists x }
+  move=> h ?
+  sby unfold hhexists=> [>] /h
 
 
 /- **Prod** Rule -/
