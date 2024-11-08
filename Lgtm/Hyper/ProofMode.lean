@@ -165,14 +165,26 @@ lemma List.insertNth_getElem (l : List α) {_ : j <= l.length}
   (_ : j < (l.insertNth i x).length :=
     (by srw List.length_insertNth //) ) :
   (l.insertNth i x)[j] = if h : j < i then l[j]'(by omega) else if h' : j = i then x else l[j-1]'(by omega) := by
-  sorry
+  split <;> rename_i hij
+  { srw getElem_insertNth_of_lt=> // }
+  simp at hij ; split
+  { subst j ; srw getElem_insertNth_self=> // }
+  have ⟨k, heq⟩ : ∃ k, j = i + k + 1 := by exists (j - i - 1); omega
+  subst j ; srw getElem_insertNth_add_succ=> //
 
 lemma List.eraseIdx_getElem (l : List α) {_ : j + 1 < l.length}
   {_ : i < l.length}
   (_ : j < (l.eraseIdx i).length :=
     (by srw List.length_eraseIdx //) ) :
   (l.eraseIdx i)[j] = if h : j < i then l[j]'(by omega) else l[j+1]'(by omega) := by
-  sorry
+  srw List.eraseIdx_eq_take_drop_succ
+  have hlen1 : (take i l).length = i := by simp ; omega
+  have hlen2 : (drop (i+1) l).length = l.length - i - 1 := by simp ; omega
+  split <;> rename_i hij
+  { srw List.getElem_append_left // -List.getElem_take // }
+  { srw List.getElem_append_right // hlen1 // -List.getElem_drop
+    on_goal 1=> apply getElem_congr
+    all_goals omega }
 
 lemma yunfocus_lemma (idx : ℕ) (l : LabType) (shts : LGTM.SHTs (Labeled α)) {pi : idx-1 < shts.length}
   (Q' : hval (Labeled α) -> hval (Labeled α) -> hhProp (Labeled α)):
@@ -500,14 +512,14 @@ lemma ywp_lemma_fun (v1 v2 : hval α) (x : α -> var) (t : htrm α) H Q :
   (∀ i, v1 i = val_fun (x i) (t i)) →
   H ==> hwp s (fun i => subst (x i) (v2 i) (t i)) Q →
   htriple s (fun x => trm_app (v1 x) (v2 x)) H Q :=
-by sorry
+by move=> heq h ; srw -hwp_equiv ; ychange h ; apply hwp_app_fun=> //
 
 lemma ywp_lemma_fix : forall (v1 v2 : hval α) (f x : α -> var) (t : htrm α) H Q,
   (∀ i, v1 i = val_fix (f i) (x i) (t i)) ->
   f != x ->
   H ==> hwp s (fun i => subst (x i) (v2 i) $ subst (f i) (v1 i) $ (t i)) Q ->
   htriple s (fun i => trm_app (v1 i) (v2 i)) H Q :=
-by sorry
+by move=> > heq ?h ; srw -hwp_equiv ; ychange h ; apply hwp_app_fix=> //
 
 lemma ytriple_lemma t H (Q:hval α → hhProp α) :
   H ==> hmkstruct (hwpgen_app s t) Q →
@@ -609,7 +621,7 @@ elab "ytriple_if_needed" : tactic => do
 
 lemma yapp_simpl_lemma (F : hformula) :
   H ==> F Q ->
-  H ==> F Q ∗ (Q -∗ protect Q) := by sorry
+  H ==> F Q ∗ (Q -∗ protect Q) := by move=> hh; apply hhimpl_trans ; apply hh ; ysimp
 
 elab "ysimp_step_no_cancel" : tactic => do
   let ysimp <- YSimpRIni
@@ -719,15 +731,6 @@ def trms_vals (vs : List var) : List trm :=
 instance : Coe (List var) (List trm) where
   coe := trms_vals
 
--- lemma trms_vals_nil :
---   trms_vals .nil = .nil := by rfl
-@[simp]
-def trms_to_vals (ts:List trm) : Option (List val) := do
-  match ts with
-  | [] => return []
-  | (trm_val v) :: ts' => v :: (<- trms_to_vals ts')
-  | _ => failure
-
 /- ======================= WP Generator ======================= -/
 /- Below we define a function [wpgen t] recursively over [t] such that
    [wpgen t Q] entails [wp t Q].
@@ -743,21 +746,38 @@ open AList
 
 /- Definition of Multi-Substitution -/
 
+def heval_like (s : Set α) (ht ht' : htrm α) : Prop :=
+  ∀ hs hQ, heval s hs ht hQ → heval s hs ht' hQ
+
+lemma eval_like_to_heval_like (s : Set α) (ht ht' : htrm α) :
+  (∀ a ∈ s, eval_like (ht a) (ht' a)) → heval_like s ht ht' := by
+  move=> h hs hQ
+  srw !heval !heval_nonrel=> [hQ' [h1 h2]]
+  unfold bighstarDef at *
+  exists hQ'=> ⟨ ? /[dup] hin /h // | // ⟩
+
+lemma hwp_heval_like (s : Set α) (ht ht' : htrm α) (Q : hval α → hhProp α) :
+  heval_like s ht ht' → hwp s ht Q ==> hwp s ht' Q := by
+  sby move=> hEval ? /hEval //
 
 lemma ywp_lemma_funs (xs : α -> List var) (vs : α -> List val) (t t1 : htrm α)
   (ts : α -> List trm):
   (∀ i, t i = trm_apps (v0 i) (ts i)) ->
   (v0 = fun i => val_funs (xs i) (t1 i)) ->
-  (∀ i, trms_to_vals (ts i) = vs i) ->
+  (∀ i, Unary.trms_to_vals (ts i) = vs i) ->
   (∀ i, var_funs (xs i) (vs i).length) ->
   H ==> hwp s (fun i => Unary.isubst ((xs i).mkAlist (vs i)) $ t1 i) Q ->
-  htriple s t H Q := by sorry
+  htriple s t H Q := by
+  move=> ht hv0 hconv0 hform0 h ; subst v0
+  srw -hwp_equiv
+  ychange h ; apply hwp_heval_like ; apply eval_like_to_heval_like=> a ?
+  srw ht ; apply (@Unary.eval_like_trm_apps_funs (ts a) (xs a) (vs a) _ _ (by rfl) (hconv0 a) (hform0 a) _ (by rfl))
 
 lemma xwp_lemma_fixs (xs : α -> List var) (vs : α -> List val) (t t1 : htrm α)
   (ts : α -> List trm) (f : α -> var) :
   (∀ i, t i = trm_apps (v0 i) (ts i)) ->
   (v0 = fun i => val_fixs (f i) (xs i) (t1 i)) ->
-  (∀ i, trms_to_vals (ts i) = (vs i)) ->
+  (∀ i, Unary.trms_to_vals (ts i) = (vs i)) ->
   (∀ i, var_funs (xs i) (vs i).length) ->
   (∀ i, f i ∉ (xs i)) ->
   H ==> hwp s (fun i => Unary.isubst ((f i :: xs i).mkAlist (v0 i :: vs i)) $ t1 i) Q ->
@@ -766,7 +786,7 @@ lemma xwp_lemma_fixs (xs : α -> List var) (vs : α -> List val) (t t1 : htrm α
 
 lemma trm_apps3 :
   trm_apps (trm_apps t1 t2) ts = trm_apps t1 (t2++ts) := by
-  sorry
+  srw Unary.trm_apps_app
 
 macro "ywp" : tactic =>
   `(tactic|
@@ -856,13 +876,20 @@ lemma hhlocal_if (b : Prop) : hhlocal s (if b then P else Q) =
   by scase_if
 
 @[simp]
-lemma cdot_set_mem (n : ℕ) (s : Set α) : (x ∈ (n • s)) = (x ∈ s ∧ n > 0) := sorry
+lemma cdot_set_mem (n : ℕ) (s : Set α) : (x ∈ (n • s)) = (x ∈ s ∧ n > 0) := by
+  ext ; srw Finset.nsmul_eq_sum_const mem_union
+  scase: [n = 0]=> h
+  { have : 0 < n := by omega
+    aesop }
+  { subst n ; aesop }
 
 /- ================================================================= -/
 /- ====================== Tactics for Loops ======================== -/
 
 lemma labSet_iUnion (s : Set β) (sᵢ : β -> Set α) :
-  ⟪l, ⋃ i ∈ s, sᵢ i⟫ = ⋃ i ∈ s, ⟪l, sᵢ i⟫ := by sorry
+  ⟪l, ⋃ i ∈ s, sᵢ i⟫ = ⋃ i ∈ s, ⟪l, sᵢ i⟫ := by
+  move=> ! [l' x]
+  srw !Set.mem_iUnion /==
 
 instance RestrictToIndexNilUL (sᵢ : ℤ -> _) :
   RestrictToIndex z n [⟨⟪l, ⋃ i ∈ (Set.Ico z n), sᵢ i⟫, ht⟩] (fun i => [⟨⟪l, sᵢ i⟫, ht⟩]) := by
@@ -1339,7 +1366,8 @@ macro_rules
 
 @[simp]
 lemma nonempty_labSet :
-  ⟪n, s⟫.Nonempty = s.Nonempty := by sorry
+  ⟪n, s⟫.Nonempty = s.Nonempty := by
+  ext ; unfold labSet ; simp [Set.Nonempty] ; aesop
 
 /- ============ Tests for y-loops lemmas ============ -/
 section
