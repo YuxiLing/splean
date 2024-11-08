@@ -671,8 +671,22 @@ lemma searchSparseRLE_spec (left right : loc) (lf rf : ℤ -> ℝ) (tgt : ℝ)
 lemma left_right_monotone_rl (lf rf : ℤ -> ℝ) :
    (∀ i ∈ ⟦z, n⟧, lf i <= rf i) ->
    (∀ i ∈ ⟦z, n-1⟧, rf i <= lf (i + 1)) ->
-   ∀ᵉ (i ∈ ⟦z, n⟧) (j ∈ ⟦z, n⟧), i < j -> rf i < lf j := by sorry
-
+   ∀ᵉ (i ∈ ⟦z, n⟧) (j ∈ ⟦z, n⟧), i < j -> rf i ≤ lf j := by
+  move=> hin hout i iin j jin ij
+  simp at iin jin
+  move: iin=> [] iinl iinr
+  revert ij iinl
+  apply Int.le_induction_down (P := fun i => i < j → z ≤ i → rf i ≤ lf j) (m := n - 1) <;> try omega
+  move=> i' hi' ha hb hl
+  specialize hout (i' - 1) ; simp at hout
+  specialize hin i' ; simp at hin
+  by_cases h : i' = j
+  { subst i' ; apply hout <;> omega }
+  trans (lf i')
+  { apply hout <;> omega }
+  trans (rf i')
+  { apply hin <;> omega }
+  apply ha <;> omega
 
 lemma searchSparseRLE_spec' (left right : loc) (lf rf : ℤ -> ℝ) (tgt : ℝ)
    (z n : ℤ) (_ : z < n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
