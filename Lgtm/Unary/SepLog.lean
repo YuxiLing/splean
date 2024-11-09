@@ -1443,6 +1443,10 @@ lemma sP_post :
   scase: ev=> // ? ev; sapply
   apply sP_strongest; sby apply ev
 
+lemma sP_sat :
+  eval h t Q → ∃ v h', sP h t v h' := by
+  sby move=> /sP_post /eval_sat
+
 lemma sP_postExact :
   eval h t Q -> evalExact h t (sP h t) := by
   sorry

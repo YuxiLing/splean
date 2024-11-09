@@ -53,8 +53,42 @@ lemma hwp_frame (ht : htrm) (Q : hval -> hhProp) (H : hhProp) :
   apply heval_conseq; apply heval_frame=> //
   ysimp=> //
 
+open Classical
+
+noncomputable def get_sat_val (Q : val → hProp) : val :=
+  if ex : ∃ v h, Q v h then choose ex else val_unit
+
+noncomputable def get_sat_heap (Q : hProp) : heap :=
+  if ex : ∃ h, Q h then choose ex else ∅
+
+lemma get_sat_heap_of_val (Q : val → hProp) :
+  Q v h → ∃ h, Q (get_sat_val Q) h := by
+  move=> ?
+  have hex:(∃ v h, Q v h) := by exists v, h
+  unfold get_sat_val
+  srw (dif_pos hex)
+  sby apply choose_spec in hex
+
+lemma get_sat_exists (Q : val → hProp) :
+  Q v h → Q (get_sat_val Q) (get_sat_heap (Q (get_sat_val Q))) := by
+  move=> /[dup] ? /get_sat_heap_of_val
+  have hex:(∃ v h, Q v h) := by exists v, h
+  unfold get_sat_val
+  srw (dif_pos hex)=> hex'
+  unfold get_sat_heap
+  srw (dif_pos hex')
+  sby apply choose_spec in hex'
+
 lemma hSP_sat :
-  heval s hh ht hQ -> ∃ hh' hv, hSP s hh ht hh' hv := by sorry
+  heval s hh ht hQ -> ∃ hv hh', hSP s hh ht hv hh' := by
+  move=> [hQ'] [hevNR _]
+  exists fun a ↦ get_sat_val (sP (hh a) (ht a))
+  exists (fun a ↦ if a ∈ s then get_sat_heap ((sP (hh a) (ht a))
+    (get_sat_val (sP (hh a) (ht a)))) else hh a)
+  unfold hSP=> >
+  scase_if=> ha
+  move: (hevNR a ha)=> {ha hevNR} /sP_sat ![>]
+  sby apply get_sat_exists
 
 -- set_option maxHeartbeats 1000000 in
 lemma hwp_frame_in (ht : htrm) (Q : hval -> hhProp) (H : hhProp) :
