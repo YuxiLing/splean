@@ -270,33 +270,33 @@ lemma of_nat_nat n :
 lemma nat_abs_succ (n : Int) :
   n ≥ 0 → (n + 1).natAbs = n.natAbs + 1 := by omega
 
-lemma triple_array_fill (n : Int) L (p : loc) (i : Int) (v : val) :
-  n = L.length →
-  triple (trm_app val_array_fill p i n v)
-    (hseg L p i)
-    (fun _ ↦ hseg (make_list n.natAbs v) p i) := by
-  scase: n=> >
-  { elim: a L p i v=> > /== ih > ; xwp
-    { xapp triple_gt ; xwp
-      xif=> ? //
-      xwp ; xval
-      unfold make_list
-      have h : L = [] := by
-        apply List.eq_nil_of_length_eq_zero ; omega
-      srw h ; sdone }
-    move=> ? ; xwp
-    xapp triple_gt ; xwp
-    xif=> /== ; xwp
-    xapp triple_array_set_hseg=> //== ; any_goals omega
-    scase: L
-    { move=> /== ? ; omega }
-    move=> /== >? ; xwp
-    xapp triple_sub=> /== ; xwp
-    xapp triple_add ;  xtriple
-    srw nat_abs_succ //==
-    srw make_list ?hseg_cons
-    xapp ih ; xsimp }
-  sdone
+-- lemma triple_array_fill (n : Int) L (p : loc) (i : Int) (v : val) :
+--   n = L.length →
+--   triple (trm_app val_array_fill p i n v)
+--     (hseg L p i)
+--     (fun _ ↦ hseg (make_list n.natAbs v) p i) := by
+--   scase: n=> >
+--   { elim: a L p i v=> > /== ih > ; xwp
+--     { xapp triple_gt ; xwp
+--       xif=> ? //
+--       xwp ; xval
+--       unfold make_list
+--       have h : L = [] := by
+--         apply List.eq_nil_of_length_eq_zero ; omega
+--       srw h ; sdone }
+--     move=> ? ; xwp
+--     xapp triple_gt ; xwp
+--     xif=> /== ; xwp
+--     xapp triple_array_set_hseg=> //== ; any_goals omega
+--     scase: L
+--     { move=> /== ? ; omega }
+--     move=> /== >? ; xwp
+--     xapp triple_sub=> /== ; xwp
+--     xapp triple_add ;  xtriple
+--     srw nat_abs_succ //==
+--     srw make_list ?hseg_cons
+--     xapp ih ; xsimp }
+--   sdone
 
 lemma make_list_len (n : Int) (v : val) :
   (make_list n.natAbs v).length = n.natAbs := by
