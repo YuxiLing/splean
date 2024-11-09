@@ -131,27 +131,30 @@ lang_def Lang.bilinearInterp :=
     }; !ans
 
 lang_def body2 :=
-  fun cnt yleft yright yprt xleft xright xval z n yintl yintr xintl xintr ans =>
+  fun cnt yleft yright yprt xleft xright yval yintl yintr xintl xintr ans =>
     let i := !cnt in
-    let r := yright[i] in
-    let cnd := r >= intl in
+    let r := xright[i] in
+    let cnd := r > xintl in
     if cnd then
-      let ln := int_length yleft yright i yintl yintr in
+      let ln := int_length xleft xright i xintl xintr in
       let yz  := yprt[i] in
       let i' := i + 1 in
       let yn  := yprt[i'] in
-      ref ans' := 0 in
-      linearInterp' xleft xright xval yz yn xintl xintr ans'
-      let ans' := !ans' in
-      ans := ans' * v
+      let ans_old := !ans in
+      ans := ⟨0:ℝ⟩;
+      Lang.linearInterp' yleft yright yval yz yn yintl yintr ans;
+      let ans' := !ans in
+      let ans' := ans' * ln in
+      ans := ans';
+      ans += ans_old
     else ()
 
 lang_def Lang.bilinearInterp' :=
-  fun xleft xright yprt yleft yright yval ans =>
-    let N := len xleft in
-    ref cnt := ⟨0 : ℝ⟩ in
-    while (condition cnt yleft N) {
-      body2 cnt yleft yright yprt xleft xright xval z n yintl yintr xintl xintr ans;
+  fun xleft xright yprt yleft yright yval ans yintl yintr xintl xintr =>
+    let N := len xright in
+    ref cnt := 0 in
+    while (condition cnt xleft xintr N) {
+      body2 cnt yleft yright yprt xleft xright yval yintl yintr xintl xintr ans;
       incr cnt
     }
 
@@ -234,7 +237,7 @@ lemma linearInterp_spec (r : ℝ)  :
     ⌜v ⟨1,r⟩ = ∫ i, (v ⟨2,i⟩).toReal⌝ ∗
     arr⟨⋆⟩(xleft, x in N => x_left x) ∗
     arr⟨⋆⟩(xright, x in N => x_right x) ∗
-    arr⟨⋆⟩(xval, x in N => x_val x) } := by stop
+    arr⟨⋆⟩(xval, x in N => x_val x) } := by
   yfocus 2, ⋃ i ∈ ⟦z,n⟧, Set.Ico (x_left i) (x_right i)
   yapp get_spec_out=> //'; rotate_left
   { exact Set.disjoint_sdiff_left }
@@ -370,7 +373,8 @@ lemma condition_spec (intr : ℝ) :
     { ystep; yapp htriple_ltr; ysimp=> //' }
     ywp; yval; ysimp=> //'; funext=> //'
 
-
+macro_rules
+  | `(tactic| ssr_triv) => `(tactic| (repeat' apply And.intro); omega)
 
 set_option maxRecDepth 1500 in
 set_option maxHeartbeats 6400000 in
@@ -489,13 +493,13 @@ section Binary
 
 variable (xleft xright yprt yleft yright yval : loc)
 variable (x_left x_right y_left y_right : ℤ -> ℝ) (y_ptr : ℤ -> ℤ) (y_val : ℤ -> ℝ)
-variable (N : ℕ) (NG0 : N > 0)
+variable (N M : ℕ) (NG0 : N > 0)
 
 variable (x_lr : ∀ i ∈ ⟦0, N⟧, x_left i < x_right i)
 variable (x_rl : ∀ i ∈ ⟦0, N-1⟧, x_right i <= x_left (i + 1))
 
 variable (y_ptr_mon : StrictMonoOn y_ptr ⟦0, N+1⟧)
-variable (y_ptr_N : y_ptr N = N + 1) (y_ptr_0 : y_ptr 0 = 0)
+variable (y_ptr_N : y_ptr N = M) (y_ptr_0 : y_ptr 0 = 0)
 
 variable (y_lr : ∀ i ∈ ⟦0,N⟧, ∀ j ∈ ⟦y_ptr i, y_ptr (i + 1)⟧, y_left j <= y_right j)
 variable (y_rl : ∀ i ∈ ⟦0,N⟧, ∀ j ∈ ⟦y_ptr i, y_ptr (i + 1)-1⟧, y_right j <= y_left (j + 1))
@@ -536,22 +540,286 @@ def hharrayFunUnexpander : Lean.PrettyPrinter.Unexpander
 
 open MeasureTheory
 
+notation "⸨" x ", " y "⸩" => Set.Ico x y
+
+omit NG0 x_lr x_rl y_ptr_mon y_ptr_N y_ptr_0 y_lr y_rl in
+private lemma emp_int (_ : xintₗ < xintᵣ) :
+  x_right ↑j ≤ xintₗ ->
+  ⸨Max.max xintₗ (x_left ↑j), Min.min xintᵣ (x_right ↑j)⸩ = ∅ := by
+  move=> ?!? /== *; linarith
+
+omit NG0 x_lr x_rl y_ptr_mon y_ptr_N y_ptr_0 y_lr y_rl in
+private lemma emp_int' (_ : xintₗ < xintᵣ) :
+  xintᵣ <= x_left j ->
+  ⸨Max.max xintₗ (x_left ↑j), Min.min xintᵣ (x_right ↑j)⸩ = ∅ := by
+  move=> ?!? /== *; linarith
+
+
+omit NG0 x_lr x_rl y_ptr_mon y_ptr_N y_ptr_0 y_lr y_rl in
+@[simp]
+lemma emp_lab : ⟪l, (∅ : Set α)⟫ = ∅ := by move=> ! //
+
+omit NG0 x_lr x_rl y_ptr_mon y_ptr_N y_ptr_0 y_lr y_rl in
+@[hhlocalE]
+lemma hhlocal_if' (b : Prop) {d : Decidable b} : hhlocal s (if b then P else Q) =
+  if b then hhlocal s P else hhlocal s Q :=
+  by scase_if
+
+
+attribute [simp] hwp0
+
+#hint_yapp htriple_gtr
+#hint_yapp htriple_set
+
+omit NG0 x_lr x_rl y_ptr_mon y_ptr_N y_ptr_0 y_lr y_rl in
+set_option maxHeartbeats 6400000 in
+lemma body_out (r₁ r₂ : ℝ) (ind ans : loc) (j : ℤ) (yintₗ yintᵣ xintₗ xintᵣ : ℝ) :
+  x_right j <= xintₗ ->
+  0 ≤ j -> j < N ->
+    arr⟨⋆⟩(xright, x in N => x_right x) ∗
+    ind ~⟨i in ⟪1, {(r₁, r₂)}⟫⟩~> j  ==>
+      hwp ⟪1,{(r₁, r₂)}⟫ (fun _ =>[lang| body2 ind yleft yright yprt xleft xright yval yintₗ yintᵣ xintₗ xintᵣ ans])
+      (fun _ => ind ~⟪1, {(r₁, r₂)}⟫~> j ∗ arr⟨@Set.univ (ℝ×ℝ)ˡ⟩(xright, x in N => x_right x)) := by
+    move=> *
+    sdo 3 ystep
+    ywp; yifF=> /== * //'; ywp;yval; ysimp
+
+set_option maxHeartbeats 26400000 in
+lemma body_in_aux (r₂ : ℝ) (v : ℝ) (ind : loc) (j : ℤ) (yintₗ yintᵣ xintₗ xintᵣ : ℝ) (_ : xintₗ < xintᵣ)(_ : yintₗ < yintᵣ) :
+  0 ≤ j ->
+  j < ↑N ->
+  arr⟨⋆⟩(yleft , x in M => y_left x)  ∗
+  arr⟨⋆⟩(yright, x in M => y_right x) ∗
+  arr⟨⋆⟩(yval  , x in M => y_val x) ∗
+  ans ~⟨a in ⟪1, {r₂}⟫⟩~> val_real 0 ∗ ind ~⟨i in ⟪1, {r₂}⟫⟩~> j ==>
+  (NWP
+    [1| a in {r₂} =>
+      Lang.linearInterp' yleft yright yval ⟨y_ptr j⟩ ⟨y_ptr (j + 1)⟩ yintₗ yintᵣ ans;
+      let ans' := !ans in
+      let ans' := ans' * ⟨Min.min xintᵣ (x_right j) - Max.max xintₗ (x_left j)⟩ in
+      ans := ans';
+      ans += v]
+    [2| x in ⸨yintₗ, yintᵣ⸩ => Lang.get yleft yright yval ⟨x.val⟩ ⟨y_ptr j⟩ ⟨y_ptr (j + 1)⟩]
+    { x,
+      ans ~⟨x_1 in ⟪1, {r₂}⟫⟩~>
+            val_real (((Min.min xintᵣ (x_right j) - Max.max xintₗ (x_left j)) * ∫ (j_1 : ℝ) in ⸨yintₗ, yintᵣ⸩, (x ⟨2, j_1⟩).toReal) + v) ∗
+          ind ~⟨i in ⟪1, {r₂}⟫⟩~> j ∗
+    arr⟨⋆⟩(yleft , x in M => y_left x)  ∗
+    arr⟨⋆⟩(yright, x in M => y_right x) ∗
+    arr⟨⋆⟩(yval  , x in M => y_val x) }) := by
+    move=> ??
+    zapp linearInterp'_spec yleft yright yval _ _ M y_left y_right y_val
+    { apply y_lr=> //' }
+    { apply y_rl=> //' }
+    { apply y_ptr_mon=> /== //' }
+    { srw -y_ptr_0; srw StrictMonoOn.le_iff_le=> //' /== //' }
+    { srw /== -y_ptr_N; srw StrictMonoOn.le_iff_le=> //' /== //' }
+    { linarith }
+    save
+    sdo 3 ystep
+    yapp
+    save
+    ysimp=> /== //'
+    save
+    srw add_comm mul_comm //'
+
+
+set_option maxRecDepth 2000 in
+set_option maxHeartbeats 26400000 in
+lemma body_in (r₂ : ℝ) (v : ℝ) (ind : loc) (j : ℤ) (yintₗ yintᵣ xintₗ xintᵣ : ℝ) (_ : xintₗ < xintᵣ)(_ : yintₗ < yintᵣ) :
+  0 ≤ j ->
+ j < ↑N ->
+ x_left j < xintᵣ ->
+ xintₗ < x_right j ->
+
+    arr⟨⋆⟩(xleft , x in N => x_left x)  ∗
+    arr⟨⋆⟩(xright, x in N => x_right x) ∗
+
+    arr⟨⋆⟩(yprt  , x in N+1 => y_ptr x)   ∗
+    arr⟨⋆⟩(yleft , x in M => y_left x)  ∗
+    arr⟨⋆⟩(yright, x in M => y_right x) ∗
+
+    arr⟨⋆⟩(yval  , x in M => y_val x) ∗
+    ind ~⟪1, {r₂}⟫~> j ∗
+    ans ~⟨x in ⟪1, {r₂}⟫⟩~> v
+     ==>
+  (NWP
+    [1| x in {r₂} =>
+      body2 ind yleft yright yprt xleft xright yval yintₗ yintᵣ xintₗ xintᵣ ans]
+    [2| x in ⸨yintₗ, yintᵣ⸩ => Lang.get yleft yright yval ⟨x.val⟩ ⟨y_ptr j⟩ ⟨y_ptr (j + 1)⟩]
+    { hv,
+      ans ~⟨x in ⟪1, {r₂}⟫⟩~>
+            val_real (((ENNReal.ofReal (Min.min xintᵣ (x_right j) - Max.max xintₗ (x_left j))).toReal *
+                  ∫ (j_1 : ℝ) in ⸨yintₗ, yintᵣ⸩, (hv ⟨2, j_1⟩).toReal) + v) ∗
+      ind ~⟪1, {r₂}⟫~> j ∗
+      arr⟨⋆⟩(xleft , x in N => x_left x)  ∗
+    arr⟨⋆⟩(xright, x in N => x_right x) ∗
+
+    arr⟨⋆⟩(yprt  , x in N+1 => y_ptr x)   ∗
+    arr⟨⋆⟩(yleft , x in M => y_left x)  ∗
+    arr⟨⋆⟩(yright, x in M => y_right x) ∗
+
+    arr⟨⋆⟩(yval  , x in M => y_val x)}) := by
+    move=> *
+    srw ENNReal.toReal_ofReal /==; rotate_left
+    { move=> ⟨⟨|⟩|⟨|⟩⟩ //' <;> try linarith
+      apply le_of_lt; apply x_lr=> //' }
+    yin 1:
+      (sdo 3 ystep);
+      ywp; yifT=> //';
+      simp [OfNat.ofNat]; simp [One.one, Zero.zero]
+      (sdo 5 ystep)
+      simp [OfNat.ofNat]; simp [One.one, Zero.zero]
+      ystep
+    simp [OfNat.ofNat]; simp [One.one, Zero.zero]
+    zapp linearInterp'_spec
+    { apply y_lr=> //' }
+    { apply y_rl=> //' }
+    { apply y_ptr_mon=> /== //' }
+    { srw -y_ptr_0; srw StrictMonoOn.le_iff_le=> //' /== //' }
+    { srw /== -y_ptr_N; srw StrictMonoOn.le_iff_le=> //' /== //' }
+    { linarith }
+    (sdo 3 ystep); yapp; ysimp=> /== //'; srw add_comm mul_comm //'
+
+omit NG0 x_lr x_rl y_ptr_mon y_ptr_N y_ptr_0 y_lr y_rl in
+lemma left_right_monotone_rl' (lf rf : ℤ -> ℝ) :
+   (∀ i ∈ ⟦z, n⟧, lf i < rf i) ->
+   (∀ i ∈ ⟦z, n-1⟧, rf i <= lf (i + 1)) ->
+   ∀ᵉ (i ∈ ⟦z, n⟧) (j ∈ ⟦z, n⟧), i < j -> rf i < lf j := by
+   move=> H ?; apply Lang.left_right_monotone_rl=> //' ? /H /le_of_lt //'
+
+
+set_option maxRecDepth 2000 in
+set_option maxHeartbeats 26400000 in
+lemma bilinearInterp_spec (xintₗ xintᵣ yintₗ yinrᵣ : ℝ) (_ : xintₗ < xintᵣ) (_ : yintₗ < yintᵣ) (ans : loc)   :
+  { ans ~⟪1,{(r₁, r₂)}⟫~> val_real 0 ∗
+    arr⟨⋆⟩(xleft , x in N => x_left x)  ∗
+    arr⟨⋆⟩(xright, x in N => x_right x) ∗
+
+    arr⟨⋆⟩(yprt  , x in N+1 => y_ptr x)   ∗
+    arr⟨⋆⟩(yleft , x in M => y_left x)  ∗
+    arr⟨⋆⟩(yright, x in M => y_right x) ∗
+
+    arr⟨⋆⟩(yval  , x in M => y_val x) }
+  [1| x in {(r₁, r₂)}         => Lang.bilinearInterp' xleft xright yprt yleft yright yval ans yintₗ yintᵣ xintₗ xintᵣ]
+  [2| ij in ⸨xintₗ, xintᵣ⸩ ×ˢ ⸨yintₗ, yintᵣ⸩
+                              => Lang.get2 xleft xright yprt yleft yright yval ⟨ij.val.1⟩ ⟨ij.val.2⟩]
+  {Grid,
+    ans ~⟪1,{(r₁, r₂)}⟫~> val_real (∫ i in ⸨xintₗ, xintᵣ⸩, ∫ j in ⸨yintₗ, yintᵣ⸩, (Grid ⟨2,i,j⟩).toReal) ∗ ⊤ } := by
+    yfocus 2, (⋃ i ∈ ⟦0, N⟧, Set.Ico (x_left i) (x_right i)) ×ˢ ⋆
+    yapp get2_spec_out; rotate_left
+    { exact Set.disjoint_sdiff_left }
+    simp [fun_insert, OfNat.ofNat]; simp [Zero.zero]
+    srw biUnion_prod_const Set.inter_iUnion₂
+    simp [Set.prod_inter_prod, Set.Ico_inter]
+    yin 1: ystep; ywp; yref ind
+    simp [OfNat.ofNat]; simp [Zero.zero]
+    let op := fun (hv : hval (ℝ×ℝ)ˡ) i =>
+      ∫ i in ⸨max xintₗ $ x_left i, min xintᵣ $ x_right i⸩,
+        ∫ j in ⸨yintₗ, yintᵣ⸩, (hv ⟨2,i,j⟩).toReal
+    let P := fun (hv : hval (ℝ×ℝ)ˡ) i =>
+       IntegrableOn (fun i => ∫ j in ⸨yintₗ, yintᵣ⸩, (hv ⟨2,i,j⟩).toReal)
+         ⸨max xintₗ $ x_left i, min xintᵣ $ x_right i⸩
+    let cond (i : ℤ) := i < N ∧ x_left i < xintᵣ
+    ywhile+. 0, N with (b₀ := cond 0)
+      (Inv := fun (b : Bool) i =>
+        (if i < N ∧ x_left i < xintᵣ then
+          ind ~⟪1, {(r₁,r₂)}⟫~> i
+        else ∃ʰ (j : ℤ), (ind ~⟪1, {(r₁,r₂)}⟫~> j) ∗
+        ⌜0 <= j ∧ (j < N -> xintᵣ <= x_left j)⌝) ∗
+        ⌜0 <= i ∧ i <= N ∧ cond i = b⌝)
+      (Q := fun i hv => ans ~⟪1,{(r₁,r₂)}⟫~> op hv i ∗ ⌜P hv i⌝)
+      (H₀ := ans ~⟪1,{(r₁,r₂)}⟫~> val_real 0) <;> try simp [op, P]
+    -- {  move=> ?; scase_if; simp [hhlocalE]; srw hhlocal_hhexists; simp [hhlocalE] }
+    { move=> j > /== ?? eq; congr! 2
+      { congr! 2; apply setIntegral_congr
+        { exact measurableSet_Ico }
+        move=> /==* /=; apply setIntegral_congr₀=> /== ? /== *; srw eq=> /== //' }
+      apply integrableOn_congr_fun
+      { move=> /==* /=; apply setIntegral_congr₀=> /== ? /== *; srw eq=> /== //' }
+      exact measurableSet_Ico }
+    { move=> > ??
+      yin 2:
+        ystep=> /== ?? ??
+        ywp; yapp Lang.searchSRLE_hspec (i := j); rotate_left
+        { move=> ? /x_lr /le_of_lt //' }
+        { move=> ? /== //' }
+        ystep; ywp; yifF=> /== //'
+        sdo 3 ystep=> //'
+      srw if_pos //'
+      scase: [xintₗ < x_right j]=> /== L
+      {
+        srw emp_int //'
+        yfocus 2 => /==
+        srw ywp1; yseq_xlet_if_needed; sdo 3 ystep
+        ywp; yapp body_out=> //'; yapp
+        ysimp[decide (cond (j + 1))]=> /== //'
+        scase_if=> /== *; ysimp=> /== //'
+        ysimp=> /== //' ⟨|⟩ //'  }
+      ymerge 2 with (μ := fun x => ⟨Max.max xintₗ $ x_left j, x.2⟩)
+      { move=> ⟨⟨⟨|⟩|⟩|⟩ //' ⟨|⟩ //'; apply x_lr=> //' }
+      { move=> [] /== > ?????? <-/== ⟨⟨⟨|⟩|⟩|⟩ //' ⟨|⟩ //'; apply x_lr=> //' }
+      erw [(img_sep  (f := fun _ => max xintₗ (x_left j)) (g := id)), Set.Nonempty.image_const]=> /==; rotate_left
+      { move=> ⟨⟨|⟩|⟩ //' ⟨|⟩ //'; apply x_lr=> //' }
+      ysubst with (σ := Prod.snd)
+      { ysimp }
+      { scase; simp=> * ⟨|⟩ //' }
+      zapp body_in=> //'
+      yapp; ysimp[decide (cond (j + 1))]=> /== //' //
+      scase_if=> /== //' H; ysimp=> ⟨|⟩ //' }
+    { move=> > ? jN
+      srw LGTM.triple ywp1 cond; ypull
+      simp=> ?? /(_ (jN)) C;
+      shave ?: j + 1 < N → xintᵣ ≤ x_left (j + 1);
+      { move=> ?; apply le_trans C;
+        apply le_trans; apply le_of_lt;
+        apply x_lr=> //'; apply x_rl=> //' }
+      srw ?if_neg /== //'
+      ypull=> k /== ??
+      srw emp_int' //' /==
+      ysimp=> /== //' ⟨|⟩ //' }
+    { move=> > ??; scase_if=> L /==
+      { yapp; srw cond=> /==  _ _ ?; ysimp=> /== //'
+        funext; scase: b=> /== //' }
+      srw -hwp_equiv; ypull=> k /== ?? _ _ cndE;
+      yapp; ysimp=> /== //'; funext
+      scase: b L; srw cond /== //' => H ? /(_ H) ?;
+      exfalso; linarith }
+    { move=> b; srw cond /==; ysimp=> //' }
+    { ysimp=> /== //'
+      scase_if=> /== xn; ysimp=> //' }
+    ypull=> j /== *; ysimp=>/== ? _ _
+    srw -integral_finset_biUnion //'
+    { simp [<-Set.Ico_inter, <-Set.inter_iUnion₂]=> //'
+      srw -setIntegral_indicator
+      { simp [Finset.mem_Ico, Set.indicator]
+        congr!; scase_if=> /== ?
+        right; rfl }
+      apply Finset.measurableSet_biUnion=> *
+      exact measurableSet_Ico }
+    move=> x /== ?? y ?? ?
+    scase: [x < y]
+    { move=> ?; shave: y < x; omega
+      move=> /= /(left_right_monotone_rl' _ _ _ _ x_lr x_rl) L
+      left; right; right; right; apply le_of_lt; apply L <;> simp [Finset.mem_Ico]=> //' }
+    move=> /= /(left_right_monotone_rl' _ _ _ _ x_lr x_rl) L
+    right; right; left; right; apply le_of_lt; apply L <;> simp [Finset.mem_Ico]=> //'
 
 set_option maxRecDepth 2000 in
 set_option maxHeartbeats 6400000 in
-lemma bilinearInterp_spec  :
+lemma bilinearInterp_spec_entire  :
   { arr⟨⋆⟩(xleft , x in N => x_left x)  ∗
     arr⟨⋆⟩(xright, x in N => x_right x) ∗
 
     arr⟨⋆⟩(yprt  , x in N+1 => y_ptr x)   ∗
-    arr⟨⋆⟩(yleft , x in N+1 => y_left x)  ∗
-    arr⟨⋆⟩(yright, x in N+1 => y_right x) ∗
+    arr⟨⋆⟩(yleft , x in M => y_left x)  ∗
+    arr⟨⋆⟩(yright, x in M => y_right x) ∗
 
-    arr⟨⋆⟩(yval  , x in N+1 => y_val x) }
+    arr⟨⋆⟩(yval  , x in M => y_val x) }
   [1| x in {(r₁, r₂)}         => Lang.bilinearInterp xleft xright yprt yleft yright yval]
   [2| ij in @Set.univ (ℝ × ℝ) => Lang.get2 xleft xright yprt yleft yright yval ⟨ij.val.1⟩ ⟨ij.val.2⟩]
   {Grid,
-    ⌜Grid ⟨1,r₁,r₂⟩ = ∫ (i : ℝ) (j : ℝ), (Grid ⟨2,i,j⟩).toReal⌝ ∗ ⊤ } := by stop
+    ⌜Grid ⟨1,r₁,r₂⟩ = ∫ (i : ℝ) (j : ℝ), (Grid ⟨2,i,j⟩).toReal⌝ ∗ ⊤ } := by
     yfocus 2, (⋃ i ∈ ⟦0, N⟧, Set.Ico (x_left i) (x_right i)) ×ˢ ⋆
     yapp get2_spec_out; rotate_left
     { exact Set.disjoint_sdiff_left }
@@ -578,27 +846,27 @@ lemma bilinearInterp_spec  :
         ystep
         ywp; yapp Lang.searchSRLE_hspec (i := i); rotate_left
         { move=> ? /x_lr /le_of_lt //' }
-        { simp [Finset.mem_Ico]=> // }
+        -- { simp [Finset.mem_Ico]=> // }
         { move=> ? /== // }
         ystep; ywp; yifF=> /== //'
         sdo 3 ystep=> //'
       ymerge 2 with (μ := fun x => ⟨x_left i, x.2⟩)
-      { apply x_lr; simp [Finset.mem_Ico]=> // }
-      { move=> [] /== > ?? <- ⟨//'|⟩; apply x_lr; simp [Finset.mem_Ico]=> // }
+      { apply x_lr; simp [Finset.mem_Ico]=> //' }
+      { move=> [] /== > ?? <- ⟨//'|⟩; apply x_lr; simp [Finset.mem_Ico]=> //' }
       erw [(img_sep (f := fun _ => x_left i) (g := id)), Set.Nonempty.image_const]=> /==; rotate_left
-      { apply x_lr; simp [Finset.mem_Ico]=> // }
+      { apply x_lr; simp [Finset.mem_Ico]=> //' }
       ysubst with (σ := Prod.snd)
       { ysimp }
       { scase; simp }
       zapp linearInterp_spec
-      { apply y_lr; simp [Finset.mem_Ico]=> // }
-      { apply y_rl; simp [Finset.mem_Ico]=> // }
-      { apply y_ptr_mon=> /== // }
+      { apply y_lr; simp [Finset.mem_Ico]=> //' }
+      { apply y_rl; simp [Finset.mem_Ico]=> //' }
+      { apply y_ptr_mon=> /== //' }
       { srw -y_ptr_0; srw StrictMonoOn.le_iff_le=> //' /== //' }
       { srw /== -y_ptr_N; srw StrictMonoOn.le_iff_le=> //' /== //' }
       move=> ->; ystep; yapp; ysimp
       move=> ? _; srw mul_comm ENNReal.toReal_ofReal;
-      specialize x_lr i ?_; simp [Finset.mem_Ico]=> //
+      specialize x_lr i ?_; simp [Finset.mem_Ico]=> //'
       linarith }
     { ysimp }
     yapp=> ?; ysimp=> /==
