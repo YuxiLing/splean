@@ -658,7 +658,7 @@ lemma boxCountQuery'_spec :
       ({y_ind j} ×ˢ {i | (x ⟨2, i, id⟩).toBool = true} ∩ Box y_box x_box)
       ({i | (x ⟨2, i, id⟩).toBool = true} ∩ Set.Ico (x_box 0) (x_box 1))
   { move=> j x ?? > ?; exists Prod.snd=> ⟨[]?? /== //|⟨?/== *| /== > ⟩⟩
-    { exists (y_ind j) <;> simp [Box]=> // }
+    { exists (y_ind j) }
     simp [Box]=> // }
   shave seq₀ : ∀ j (x : hval (ℝ×ℝ×ℤ)ˡ),
     ¬ (y_box 0 ≤ y_ind j ∧ y_ind j < y_box 1) ->
@@ -720,7 +720,7 @@ lemma boxCountQuery'_spec :
     { apply y_prt_mon=> /== //' }
     { srw -y_ptr0; apply y_prt_mon=> /== //' }
     { srw -y_ptrM; apply y_prt_mon=> /== //' }
-    { apply StrictMonoOn.injOn; apply x_ind_mon=> /== //' }
+    -- { apply StrictMonoOn.injOn; apply x_ind_mon=> /== //' }
     ysimp[decide (cond (j + 1))]=> /== //'
     scase_if=> //' /== ?; ysimp=> ⟨|⟩ //' }
   { move=> > ? jM
@@ -732,7 +732,7 @@ lemma boxCountQuery'_spec :
     { apply y_prt_mon=> /== //' }
     { srw -y_ptr0; apply y_prt_mon=> /== //' }
     { srw -y_ptrM; apply y_prt_mon=> /== //' }
-    { apply StrictMonoOn.injOn; apply x_ind_mon=> /== //' }
+    -- { apply StrictMonoOn.injOn; apply x_ind_mon=> /== //' }
     srw ?if_neg //' /==
     { ypull=> k /== ??
       ysimp=> //'
