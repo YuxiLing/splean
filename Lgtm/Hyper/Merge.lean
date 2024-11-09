@@ -39,7 +39,8 @@ lemma heval_imp_hevalExact :
 
 lemma hevalExactNR_imp_hevalNR :
   hevalExact_nonrel s hh ht hQ ->
-  heval_nonrel s hh ht hQ := by sorry
+  heval_nonrel s hh ht hQ := by
+  sby unfold hevalExact_nonrel heval_nonrel=> hex > /hex /exact_imp_eval
 
 lemma hevalExactNR_validSubst (hh' : hheap α) (hv : hval α) :
   hevalExact_nonrel (ssubst σ s s) hh ht hQ ->
