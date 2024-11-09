@@ -116,6 +116,12 @@ lemma and_hspec (a b : α -> Bool) :
     hwp s (fun i => trm_app val_and (a i) (b i)) (fun v => ⌜v = fun i => val_bool (a i && b i)⌝) := by
   apply htriple_prod_val_eq_emp => ??; apply and_spec
 
+@[yapp]
+lemma or_hspec (a b : α -> Bool) :
+  emp ==>
+    hwp s (fun i => trm_app val_or (a i) (b i)) (fun v => ⌜v = fun i => val_bool (a i || b i)⌝) := by
+  apply htriple_prod_val_eq_emp => ??; apply or_spec
+
 lemma searchIdx_hspec (l : ℕ) (f : ℤ -> ℝ) (s : Set ℝ)
   (z n : ℤ) (_ : z < n) (_ : 0 <= z) (N : ℕ) (_ : n < N) :
   MonotoneOn f ⟦z, n+1⟧ ->
