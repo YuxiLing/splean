@@ -502,12 +502,12 @@ lemma ywp_lemma_fun (v1 v2 : hval α) (x : α -> var) (t : htrm α) H Q :
   htriple s (fun x => trm_app (v1 x) (v2 x)) H Q :=
 by sorry
 
-lemma ywp_lemma_fix : forall (v1 v2 : hval α) (f x : α -> var) (t : htrm α) H Q,
-  (∀ i, v1 i = val_fix (f i) (x i) (t i)) ->
-  f != x ->
-  H ==> hwp s (fun i => subst (x i) (v2 i) $ subst (f i) (v1 i) $ (t i)) Q ->
-  htriple s (fun i => trm_app (v1 i) (v2 i)) H Q :=
-by sorry
+-- lemma ywp_lemma_fix : forall (v1 v2 : hval α) (f x : α -> var) (t : htrm α) H Q,
+--   (∀ i, v1 i = val_fix (f i) (x i) (t i)) ->
+--   f != x ->
+--   H ==> hwp s (fun i => subst (x i) (v2 i) $ subst (f i) (v1 i) $ (t i)) Q ->
+--   htriple s (fun i => trm_app (v1 i) (v2 i)) H Q :=
+-- by admit
 
 lemma ytriple_lemma t H (Q:hval α → hhProp α) :
   H ==> hmkstruct (hwpgen_app s t) Q →
@@ -635,8 +635,9 @@ section yapp
 macro "ywp" : tactic =>
   `(tactic|
     (intros
-     first | apply ywp_lemma_fix; rfl
-           | apply ywp_lemma_fun; rfl))
+     first
+        -- | apply ywp_lemma_fix; rfl
+        | apply ywp_lemma_fun; rfl))
 
 macro "yapp_simp" : tactic => do
   `(tactic|
@@ -753,15 +754,15 @@ lemma ywp_lemma_funs (xs : α -> List var) (vs : α -> List val) (t t1 : htrm α
   H ==> hwp s (fun i => Unary.isubst ((xs i).mkAlist (vs i)) $ t1 i) Q ->
   htriple s t H Q := by sorry
 
-lemma xwp_lemma_fixs (xs : α -> List var) (vs : α -> List val) (t t1 : htrm α)
-  (ts : α -> List trm) (f : α -> var) :
-  (∀ i, t i = trm_apps (v0 i) (ts i)) ->
-  (v0 = fun i => val_fixs (f i) (xs i) (t1 i)) ->
-  (∀ i, trms_to_vals (ts i) = (vs i)) ->
-  (∀ i, var_funs (xs i) (vs i).length) ->
-  (∀ i, f i ∉ (xs i)) ->
-  H ==> hwp s (fun i => Unary.isubst ((f i :: xs i).mkAlist (v0 i :: vs i)) $ t1 i) Q ->
-  htriple s t H Q := by sorry
+-- lemma xwp_lemma_fixs (xs : α -> List var) (vs : α -> List val) (t t1 : htrm α)
+--   (ts : α -> List trm) (f : α -> var) :
+--   (∀ i, t i = trm_apps (v0 i) (ts i)) ->
+--   (v0 = fun i => val_fixs (f i) (xs i) (t1 i)) ->
+--   (∀ i, trms_to_vals (ts i) = (vs i)) ->
+--   (∀ i, var_funs (xs i) (vs i).length) ->
+--   (∀ i, f i ∉ (xs i)) ->
+--   H ==> hwp s (fun i => Unary.isubst ((f i :: xs i).mkAlist (v0 i :: vs i)) $ t1 i) Q ->
+--   htriple s t H Q := by admit
 
 
 lemma trm_apps3 :
@@ -774,14 +775,16 @@ macro "ywp" : tactic =>
      try simp_rw [Unary.trm_apps1]
      try simp_rw [Unary.trm_apps2]
      try simp_rw [trm_apps3]
-     try (first | (
-      apply ywp_lemma_fixs;
-      { move=> ?; rfl }
-      { intros; rfl }
-      { sdone }
-      { sdone }
-      sdone)=> //'
-                | (
+     try (first
+      -- |
+      -- (
+      -- apply ywp_lemma_fixs;
+      -- { move=> ?; rfl }
+      -- { intros; rfl }
+      -- { sdone }
+      -- { sdone }
+      -- sdone)=> //'
+      | (
       apply ywp_lemma_funs;
       { move=> ?; rfl }
       { rfl }
@@ -801,13 +804,14 @@ macro "yunfold" : tactic =>
      try simp_rw [Unary.trm_apps1]
      try simp_rw [Unary.trm_apps2]
      try simp_rw [trm_apps3]
-     try (first | (
-      apply ywp_lemma_fixs;
-      { move=> ?; rfl }
-      { intros; rfl }
-      { sdone }
-      { sdone }
-      sdone)=> //'
+     try (first
+    --  | (
+    --   apply ywp_lemma_fixs;
+    --   { move=> ?; rfl }
+    --   { intros; rfl }
+    --   { sdone }
+    --   { sdone }
+    --   sdone)=> //'
                 | (
       apply ywp_lemma_funs;
       { move=> ?; rfl }
@@ -893,13 +897,13 @@ instance RestrictToIndexNilU'' (sᵢ : ℤ -> _) :
 set_option maxHeartbeats 1600000 in
 lemma GenInstArr_eqSum (hv : hval α) (f : Int -> val)
   (op : hval α -> Int -> val) [PartialCommMonoid val]:
-  (∀ i, PartialCommMonoid.valid (f i)) →
-  (∀ i, PartialCommMonoid.valid (op hv i)) →
+  (∀ i, PartialCommMonoid.valid (f i + op hv i)) →
+  -- (∀ i, PartialCommMonoid.valid ()) →
   hharrayFun s (fun i ↦ f i + op hv i) n x =
     hharrayFun s (fun x ↦ f x) n x +
-    ∑ i ∈ ⟦(0 : ℤ) , n⟧, (x j + 1 + i.natAbs ~⟨j in s⟩~> op hv i) := by
-  move=> ??; srw hharrayFun_hhadd_sum //'
-  srw ?hharrayFun ?harrayFun; congr! 4=> ! [] /== //
+    ∑ i ∈ ⟦(0 : ℤ) , n⟧, (x j + 1 + i.natAbs ~⟨j in s⟩~> op hv i) := by sorry
+  -- move=> ??; srw hharrayFun_hhadd_sum //'
+  -- srw ?hharrayFun ?harrayFun; congr! 4=> ! [] /== //
 
 lemma GenInstArr_eqGen (s : Set α) (x : α -> loc) (hv : Int -> hval α) (f : Int -> val) (n : ℕ)
   (op : hval α -> Int -> val) [PartialCommMonoid val] :
@@ -1514,7 +1518,7 @@ macro "unify_hterm" σ:term : tactic =>  `(tactic| (
   rewrite [List.forall₂_cons]; rotate_left
   refine ⟨?_, ?_⟩; rotate_right
   dsimp; constructor
-  { move=> ?? ⟨|⟩; exact Eq.refl _
+  { move=> ⟨|⟩; exact Eq.refl _=> ??
     try rw [feq (σ := $σ)]=> //
     exact Eq.refl _ }
 ))
@@ -1566,8 +1570,9 @@ macro "ysubst" "with" "(" "σ" ":=" σ:term ")" : tactic =>
       , -- subst triple
       (simp [Function.comp]=> /=
        move=> $inj:ident
-       simp (disch := solve | exact $inj | sby simp) [substE]
-       srw LGTM.wp_sht_eq; rotate_left
+       simp (disch := solve | exact $inj | sby simp) only [substE]
+       try simp
+       srw LGTM.wp_sht_eq; hide_mvars; rotate_left
        { repeat (unify_hterm $σ; hide_mvars)
          auto }
        clear $inj
