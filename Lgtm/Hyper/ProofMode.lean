@@ -773,15 +773,15 @@ lemma ywp_lemma_funs (xs : α -> List var) (vs : α -> List val) (t t1 : htrm α
   ychange h ; apply hwp_heval_like ; apply eval_like_to_heval_like=> a ?
   srw ht ; apply (@Unary.eval_like_trm_apps_funs (ts a) (xs a) (vs a) _ _ (by rfl) (hconv0 a) (hform0 a) _ (by rfl))
 
-lemma xwp_lemma_fixs (xs : α -> List var) (vs : α -> List val) (t t1 : htrm α)
-  (ts : α -> List trm) (f : α -> var) :
-  (∀ i, t i = trm_apps (v0 i) (ts i)) ->
-  (v0 = fun i => val_fixs (f i) (xs i) (t1 i)) ->
-  (∀ i, Unary.trms_to_vals (ts i) = (vs i)) ->
-  (∀ i, var_funs (xs i) (vs i).length) ->
-  (∀ i, f i ∉ (xs i)) ->
-  H ==> hwp s (fun i => Unary.isubst ((f i :: xs i).mkAlist (v0 i :: vs i)) $ t1 i) Q ->
-  htriple s t H Q := by sorry
+-- lemma xwp_lemma_fixs (xs : α -> List var) (vs : α -> List val) (t t1 : htrm α)
+--   (ts : α -> List trm) (f : α -> var) :
+--   (∀ i, t i = trm_apps (v0 i) (ts i)) ->
+--   (v0 = fun i => val_fixs (f i) (xs i) (t1 i)) ->
+--   (∀ i, Unary.trms_to_vals (ts i) = (vs i)) ->
+--   (∀ i, var_funs (xs i) (vs i).length) ->
+--   (∀ i, f i ∉ (xs i)) ->
+--   H ==> hwp s (fun i => Unary.isubst ((f i :: xs i).mkAlist (v0 i :: vs i)) $ t1 i) Q ->
+--   htriple s t H Q := by admit
 
 
 lemma trm_apps3 :
@@ -794,13 +794,14 @@ macro "ywp" : tactic =>
      try simp_rw [Unary.trm_apps1]
      try simp_rw [Unary.trm_apps2]
      try simp_rw [trm_apps3]
-     try (first | (
-      apply ywp_lemma_fixs;
-      { move=> ?; rfl }
-      { intros; rfl }
-      { sdone }
-      { sdone }
-      sdone)=> //'
+     try (first
+      -- | (
+      -- apply ywp_lemma_fixs;
+      -- { move=> ?; rfl }
+      -- { intros; rfl }
+      -- { sdone }
+      -- { sdone }
+      -- sdone)=> //'
                 | (
       apply ywp_lemma_funs;
       { move=> ?; rfl }
@@ -821,13 +822,14 @@ macro "yunfold" : tactic =>
      try simp_rw [Unary.trm_apps1]
      try simp_rw [Unary.trm_apps2]
      try simp_rw [trm_apps3]
-     try (first | (
-      apply ywp_lemma_fixs;
-      { move=> ?; rfl }
-      { intros; rfl }
-      { sdone }
-      { sdone }
-      sdone)=> //'
+     try (first
+      -- | (
+      -- apply ywp_lemma_fixs;
+      -- { move=> ?; rfl }
+      -- { intros; rfl }
+      -- { sdone }
+      -- { sdone }
+      -- sdone)=> //'
                 | (
       apply ywp_lemma_funs;
       { move=> ?; rfl }

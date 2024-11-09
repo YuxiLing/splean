@@ -735,7 +735,7 @@ example :
   unfold evalExact_ref_nonpositive
   exists (fun v s ↦ v = 0 ∧ s = ∅)=> ⟨//| ⟩
   move=> > /= [->->] > ? ; simp [subst]
-  sorry
+  admit
 
 lemma evalExact_post_eq :
   Q = Q' →

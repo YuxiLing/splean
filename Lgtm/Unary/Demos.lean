@@ -120,5 +120,5 @@ lemma triple_mulp (p q : loc) (m n : Int) :
   move=> ? /=; xsimp=> a /== * -- here we need to do [xsimp] before [xapp]
                                -- to introduce variable [a], which is needed
                                -- to instantiate the `ans`
-  sby xapp; sorry
+  sby xapp; admit
   --xsimp --same xsimp bug as in [triple_mysucc]

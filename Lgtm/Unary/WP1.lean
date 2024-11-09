@@ -1448,18 +1448,18 @@ lemma xwp_lemma_funs (xs : List _) (vs : List val) :
   apply wp_eval_like
   apply eval_like_trm_apps_funs=> //
 
-lemma xwp_lemma_fixs (xs : List _) (v0 : val) (vs : List val) :
-  t = trm_apps v0 ts ->
-  v0 = val_fixs f xs t1 ->
-  trms_to_vals ts = vs ->
-  var_funs xs vs.length ->
-  f ∉ xs ->
-  H ==> wpgen (isubst ((f :: xs).mkAlist (v0 :: vs)) t1) Q ->
-  triple t H Q := by
-  move=> -> -> ??? h
-  srw -wp_equiv ; apply himpl_trans ; apply (wp_of_wpgen h)
-  apply wp_eval_like
-  sorry
+-- lemma xwp_lemma_fixs (xs : List _) (v0 : val) (vs : List val) :
+--   t = trm_apps v0 ts ->
+--   v0 = val_fixs f xs t1 ->
+--   trms_to_vals ts = vs ->
+--   var_funs xs vs.length ->
+--   f ∉ xs ->
+--   H ==> wpgen (isubst ((f :: xs).mkAlist (v0 :: vs)) t1) Q ->
+--   triple t H Q := by
+--   move=> -> -> ??? h
+--   srw -wp_equiv ; apply himpl_trans ; apply (wp_of_wpgen h)
+--   apply wp_eval_like
+--   admit
   -- apply eval_like_trm_apps_funs=> //
 
 macro "xwp" : tactic =>
@@ -1467,7 +1467,8 @@ macro "xwp" : tactic =>
     (intros
      try srw trm_apps1
      srw ?trm_apps2
-     first | (apply xwp_lemma_fixs; rfl; rfl; sdone; sdone; sdone)=> //
+     first
+           -- | (apply xwp_lemma_fixs; rfl; rfl; sdone; sdone; sdone)=> //
            | (apply xwp_lemma_funs; rfl; rfl; rfl; sdone)=> //
            | apply wp_of_wpgen
      all_goals try simp [wpgen, subst, isubst, subst, trm_apps, AList.lookup, List.dlookup]))
