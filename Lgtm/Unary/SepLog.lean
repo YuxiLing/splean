@@ -350,6 +350,9 @@ lemma evalExact_det :
   move=> > /evalExact_sat ![>] /[swap] _ /[swap] _ /[swap] /[apply]
   sby move=> ih > /ih /[apply]
 
+local instance : HWand (hProp) (heap → Prop) hProp where
+  hWand := hwand
+
 lemma eval_imp_exact :
   eval s t Q → ∃ Q', evalExact s t Q' := by
   elim=> >
@@ -394,10 +397,14 @@ lemma eval_imp_exact :
   { move=> /evalExact_post hpost hev [Q₁'] /[dup] /hpost {}hpost
     move=> /[dup] /evalExact_det hdet /[dup] ? /evalExact_sat ![>] /[dup] /hdet {}hdet
     move=> /hpost /[swap] /[apply]
-    scase: (finite_state w_1)=> p /[swap] /[apply] [Q'] ?
-    exists (fun v' s' ↦ Q' v' (s'.insert p w)) ; apply evalExact.ref
+    scase: (finite_state w_1)=> p /[swap] /[apply] [Q'] hex
+    exists (fun v' ↦ (∃ʰ u, p ~~> u) -∗ Q' v')
+    apply evalExact.ref
     { sdone }
-    move=> > /hpost /hev {}hev p_1
+    move=> > /hdet [<-<-] p'
+    -- exists (fun v' s' ↦ Q' v' (s'.insert p w)) ; apply evalExact.ref
+    -- { sdone }
+    -- move=> > /hpost /hev {}hev p_1
     sorry }
   { move=> *
     exists (fun v' s' ↦ v' = read_state p s_1 ∧ s' = s_1)
