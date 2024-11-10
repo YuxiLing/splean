@@ -152,7 +152,24 @@ instance : HPropExact hempty := ⟨by move=> ?? ->->⟩
 instance [inst₁ : HPropExact H₁] [inst₂ : HPropExact H₂] : HPropExact (H₁ ∗ H₂) := ⟨
   by move=> > ![>] /inst₁.isExact ex₁ /inst₂.isExact ex₂ ? -> ![>] /ex₁->/ex₂ //⟩
 
-instance : HPropExact (harrayFun N p f) := ⟨sorry⟩
+lemma hseg_exact :
+  hseg L p n h1 → hseg L p n h2 → h1 = h2 := by
+  elim: L p n h1 h2
+  { move=> >
+    sby unfold hseg=> [] [] }
+  move=> > ih >
+  unfold hseg hcell
+  move=> ![>] ![>] /hsingl_inv -> /hpure_inv [_] -> /== _ -> /ih {}ih _ ->
+  sby move=> ![>] ![>] /hsingl_inv -> /hpure_inv [_] -> /== _ -> /ih {ih} ->
+
+lemma harray_exact :
+  harray L p h1 → harray L p h2 → h1 = h2 := by
+  unfold harray hheader
+  move=> ![>] /hsingl_inv -> /hseg_exact harr _ ->
+  sby move=> ![>] /hsingl_inv -> /harr
+
+instance : HPropExact (harrayFun f N p) := ⟨
+  by sby unfold harrayFun=> /harray_exact /[apply]⟩
 
 -- lemma htriple_extend_univ' (Q : hval α -> hhProp α) (H' H'' : hProp) :
 --   himpl H' H'' ->
