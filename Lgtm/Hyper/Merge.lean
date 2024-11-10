@@ -35,11 +35,23 @@ def hevalExact (s : Set α) (hh : hheap α) (ht : htrm α) (hQ : hval α -> hhPr
 
 lemma heval_imp_hevalExact :
   heval s hh ht hQ ->
-  hevalExact s hh ht hQ := by sorry
+  hevalExact s hh ht hQ := by
+  move=> [hQ'] [hev₁ hev₂]
+  exists (fun a ↦ sP' (hh a) (ht a))=> ⟨|⟩
+  { simp [hevalExact_nonrel]=> > ha
+    apply evalExact_sP'
+    sby move: (hev₁ a) ha=> /[apply] /eval_imp_exact [>] /evalExact_sP' }
+  move=> >
+  apply hhimpl_trans_r
+  apply (hev₂ hv)=> /=
+  apply bighstarDef_himpl=> > ha hh'
+  specialize (hev₁ a ha)
+  sby apply sP'_strongest in hev₁=> /[apply]
 
 lemma hevalExactNR_imp_hevalNR :
   hevalExact_nonrel s hh ht hQ ->
-  heval_nonrel s hh ht hQ := by sorry
+  heval_nonrel s hh ht hQ := by
+  sby unfold hevalExact_nonrel heval_nonrel=> hex > /hex /exact_imp_eval
 
 lemma hevalExactNR_validSubst (hh' : hheap α) (hv : hval α) :
   hevalExact_nonrel (ssubst σ s s) hh ht hQ ->
@@ -140,7 +152,24 @@ instance : HPropExact hempty := ⟨by move=> ?? ->->⟩
 instance [inst₁ : HPropExact H₁] [inst₂ : HPropExact H₂] : HPropExact (H₁ ∗ H₂) := ⟨
   by move=> > ![>] /inst₁.isExact ex₁ /inst₂.isExact ex₂ ? -> ![>] /ex₁->/ex₂ //⟩
 
-instance : HPropExact (harrayFun N p f) := ⟨sorry⟩
+lemma hseg_exact :
+  hseg L p n h1 → hseg L p n h2 → h1 = h2 := by
+  elim: L p n h1 h2
+  { move=> >
+    sby unfold hseg=> [] [] }
+  move=> > ih >
+  unfold hseg hcell
+  move=> ![>] ![>] /hsingl_inv -> /hpure_inv [_] -> /== _ -> /ih {}ih _ ->
+  sby move=> ![>] ![>] /hsingl_inv -> /hpure_inv [_] -> /== _ -> /ih {ih} ->
+
+lemma harray_exact :
+  harray L p h1 → harray L p h2 → h1 = h2 := by
+  unfold harray hheader
+  move=> ![>] /hsingl_inv -> /hseg_exact harr _ ->
+  sby move=> ![>] /hsingl_inv -> /harr
+
+instance : HPropExact (harrayFun f N p) := ⟨
+  by sby unfold harrayFun=> /harray_exact /[apply]⟩
 
 -- lemma htriple_extend_univ' (Q : hval α -> hhProp α) (H' H'' : hProp) :
 --   himpl H' H'' ->

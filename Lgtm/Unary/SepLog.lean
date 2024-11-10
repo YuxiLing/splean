@@ -111,8 +111,8 @@ lemma eval_sat :
   { move=> ?? ![>?]; sapply=> // }
   { move=> ?? ![>?]; sapply=> // }
   { scase=> >
-    any_goals move=> pp; (sdo 2 econstructor); apply pp=> //
-    move=> ? pp; sdo 2 econstructor; apply pp=> //}
+    any_goals move=> pp; (sdo 2 econstructor); apply pp=> // }
+    -- move=> ? pp; sdo 2 econstructor; apply pp=> //}
   { scase=> >
     any_goals move=> pp; (sdo 2 econstructor); apply pp=> //
     any_goals move=> ? pp; (sdo 2 econstructor); apply pp=> // }
@@ -296,12 +296,12 @@ lemma evalExact_det :
   { sby move=> > _ ih > /ih /[apply] }
   { unfold purepost=> > ; scase: op=> > //
     { sby move=> [>] }
-    { sby move=> [] > }
-    sorry } -- can't have val_rand
+    { sby move=> [] > } }
+    -- sorry } -- can't have val_rand
   { unfold purepost=> > ; scase: op=> // >
     scase: a=> //
     any_goals (sby move=> [] >) }
-  { move=> > hev₁ hev₂ ih1 ih2 >
+  { move=> > hev₁ hev₂ _ ih2 >
     scase: (finite_state s_1)=> p ?
     have hev:(evalExact s_1 (trm_ref x t1 t2) Q_1) := by
       { sby apply evalExact.ref }
@@ -350,6 +350,9 @@ lemma evalExact_det :
   move=> > /evalExact_sat ![>] /[swap] _ /[swap] _ /[swap] /[apply]
   sby move=> ih > /ih /[apply]
 
+local instance : HWand (hProp) (heap → Prop) hProp where
+  hWand := hwand
+
 lemma eval_imp_exact :
   eval s t Q → ∃ Q', evalExact s t Q' := by
   elim=> >
@@ -394,10 +397,14 @@ lemma eval_imp_exact :
   { move=> /evalExact_post hpost hev [Q₁'] /[dup] /hpost {}hpost
     move=> /[dup] /evalExact_det hdet /[dup] ? /evalExact_sat ![>] /[dup] /hdet {}hdet
     move=> /hpost /[swap] /[apply]
-    scase: (finite_state w_1)=> p /[swap] /[apply] [Q'] ?
-    exists (fun v' s' ↦ Q' v' (s'.insert p w)) ; apply evalExact.ref
+    scase: (finite_state w_1)=> p /[swap] /[apply] [Q'] hex
+    exists (fun v' ↦ (∃ʰ u, p ~~> u) -∗ Q' v')
+    apply evalExact.ref
     { sdone }
-    move=> > /hpost /hev {}hev p_1
+    move=> > /hdet [<-<-] p'
+    -- exists (fun v' s' ↦ Q' v' (s'.insert p w)) ; apply evalExact.ref
+    -- { sdone }
+    -- move=> > /hpost /hev {}hev p_1
     sorry }
   { move=> *
     exists (fun v' s' ↦ v' = read_state p s_1 ∧ s' = s_1)
@@ -977,14 +984,14 @@ lemma triple_divr r1 r2 :
     (fun r ↦ ⌜r = val_real (r1 / r2)⌝) :=
 by move=> ?; sby apply triple_binop
 
-lemma triple_rand n :
-  n > 0 →
-  triple (trm_app val_rand (val_int n))
-    emp
-    (fun r ↦ ⌜exists n1, r = val_int n1 ∧ 0 <= n1 ∧ n1 < n⌝) :=
-by
-  move=> ?
-  sby apply triple_unop
+-- lemma triple_rand n :
+--   n > 0 →
+--   triple (trm_app val_rand (val_int n))
+--     emp
+--     (fun r ↦ ⌜exists n1, r = val_int n1 ∧ 0 <= n1 ∧ n1 < n⌝) :=
+-- by
+--   move=> ?
+--   sby apply triple_unop
 
 lemma triple_neg (b1 : Bool) :
   triple (trm_app val_neg b1)
@@ -1438,6 +1445,10 @@ lemma sP_post :
   xsimp=> ev; srw hwand_hpure_l=> //
   scase: ev=> // ? ev; sapply
   apply sP_strongest; sby apply ev
+
+lemma sP_sat :
+  eval h t Q → ∃ v h', sP h t v h' := by
+  sby move=> /sP_post /eval_sat
 
 lemma sP_postExact :
   eval h t Q -> evalExact h t (sP h t) := by
