@@ -35,7 +35,18 @@ def hevalExact (s : Set α) (hh : hheap α) (ht : htrm α) (hQ : hval α -> hhPr
 
 lemma heval_imp_hevalExact :
   heval s hh ht hQ ->
-  hevalExact s hh ht hQ := by sorry
+  hevalExact s hh ht hQ := by
+  move=> [hQ'] [hev₁ hev₂]
+  exists (fun a ↦ sP' (hh a) (ht a))=> ⟨|⟩
+  { simp [hevalExact_nonrel]=> > ha
+    apply evalExact_sP'
+    sby move: (hev₁ a) ha=> /[apply] /eval_imp_exact [>] /evalExact_sP' }
+  move=> >
+  apply hhimpl_trans_r
+  apply (hev₂ hv)=> /=
+  apply bighstarDef_himpl=> > ha hh'
+  specialize (hev₁ a ha)
+  sby apply sP'_strongest in hev₁=> /[apply]
 
 lemma hevalExactNR_imp_hevalNR :
   hevalExact_nonrel s hh ht hQ ->
