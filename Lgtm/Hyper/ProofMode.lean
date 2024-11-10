@@ -897,13 +897,13 @@ instance RestrictToIndexNilU'' (sᵢ : ℤ -> _) :
 set_option maxHeartbeats 1600000 in
 lemma GenInstArr_eqSum (hv : hval α) (f : Int -> val)
   (op : hval α -> Int -> val) [PartialCommMonoid val]:
-  (∀ i, PartialCommMonoid.valid (f i + op hv i)) →
-  -- (∀ i, PartialCommMonoid.valid ()) →
+  (∀ i, PartialCommMonoid.valid (f i)) →
+  (∀ i, PartialCommMonoid.valid (op hv i)) →
   hharrayFun s (fun i ↦ f i + op hv i) n x =
     hharrayFun s (fun x ↦ f x) n x +
-    ∑ i ∈ ⟦(0 : ℤ) , n⟧, (x j + 1 + i.natAbs ~⟨j in s⟩~> op hv i) := by sorry
-  -- move=> ??; srw hharrayFun_hhadd_sum //'
-  -- srw ?hharrayFun ?harrayFun; congr! 4=> ! [] /== //
+    ∑ i ∈ ⟦(0 : ℤ) , n⟧, (x j + 1 + i.natAbs ~⟨j in s⟩~> op hv i) := by
+  move=> ??; srw hharrayFun_hhadd_sum //'
+  srw ?hharrayFun ?harrayFun; congr! 4=> ! [] /== //
 
 lemma GenInstArr_eqGen (s : Set α) (x : α -> loc) (hv : Int -> hval α) (f : Int -> val) (n : ℕ)
   (op : hval α -> Int -> val) [PartialCommMonoid val] :
