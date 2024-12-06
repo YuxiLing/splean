@@ -1612,46 +1612,60 @@ lemma structural_imp : structural F ->
   apply h
 
 lemma xwhile_inv_basic_lemma (I : Bool -> α -> hProp) R
-  (F1 F2 : formula) :
+  -- (F1 F2 : formula)
+  :
   WellFounded R ->
-  structural F1 ->
-  structural F2 ->
+  -- structural F1 ->
+  -- structural F2 ->
   (H ==> H' ∗ ∃ʰ b a, I b a) ->
-  (∀ b X, I b X ==> F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
-  (∀ X, I true X ==> F2 (fun _ => ∃ʰ b X', ⌜R X' X⌝ ∗ I b X')) ->
-  H ==> wpgen_while F1 F2 (fun _ => H' ∗ ∃ʰ a, I false a) := by
-  move=> wf sf1 sf2 hini hf1 hf2
-  unfold wpgen_while ; unfold_let ; xstruct ; xsimp=> [] sR hstep; rename_i wfR
+  (∀ b X, I b X ==> wp F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
+  (∀ X, I true X ==> wp F2 (fun _ => ∃ʰ b X', ⌜R X' X⌝ ∗ I b X')) ->
+  H ==> wp (trm_while F1 F2) (fun _ => H' ∗ ∃ʰ a, I false a) := by
+  move=> wf hini hf1 hf2
+  xchange hini=> b sR
+  move: b
+  apply WellFounded.induction wf sR=> X ih []
+  -- apply eval.eval_while
+  -- unfold wpgen_while ; unfold_let ; xstruct ; xsimp=> [] sR hstep; rename_i wfR
   -- frame H' out, using `structural`?
-  apply himpl_trans; rotate_left ; apply sR
-  srw hstar_comm
-  apply himpl_trans; rotate_left ; apply (mkstruct_frame)
-  xchange hini=> /[swap] a b ; xsimp ; xstruct
-  move: b ; apply WellFounded.induction wf a=> {}a ih b
-  -- step, if true then use IH, otherwise done
-  -- use structural_imp when necessary
-  xchange hstep
-  xlet ; xchange hf1
-  apply (structural_imp sf1) ; xsimp ; xsimp ; xstruct -- twice?
-  xif=> ? <;> subst_eqs
-  { xseq ; xchange hf2 ; apply (structural_imp sf2) ; xsimp ; xsimp=> b a' hdown
-    apply (ih a')=> // }
-  { xval ; xsimp }
+  { xchange hf1
+    apply himpl_trans;  rotate_left
+    { srw hstar_comm; apply wp_frame }
+    xsimp
+    apply himpl_trans; rotate_left
+    { move=> ? H
+      apply eval.eval_while; apply H
+      move=> > // }
+    apply wp_conseq=> ? /=; xpull
+    xwp; xif=> // _; xwp; xval; xsimp }
+  -- move: sR
+  -- apply himpl_trans;  rotate_left
+  -- { srw hstar_comm; apply wp_frame }
+  -- xsimp
+  apply himpl_trans; rotate_left
+  { move=> ? H
+    apply eval.eval_while; apply H
+    move=> > // }
+  xchange hf1
+  apply himpl_trans; apply wp_frame
 
-lemma xwhile_inv_basic_lemmaQ (I : Bool -> α -> hProp) R
-  (F1 F2 : formula) :
+  apply wp_conseq=> ? /==; srw qstarE /=; xpull
+  xwp; xif=> // _
+  xwp; xseq; xapp hf2=> // ?? /ih;
+  srw [2]hstar_comm //; sapply
+
+lemma xwhile_inv_basic_lemmaQ (I : Bool -> α -> hProp) R:
   WellFounded R ->
-  structural F1 ->
-  structural F2 ->
   (H ==> H' ∗ ∃ʰ b a, I b a) ->
-  (∀ b X, I b X ==> F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
-  (∀ X, I true X ==> F2 (fun _ => ∃ʰ b X', ⌜R X' X⌝ ∗ I b X')) ->
+  (∀ b X, I b X ==> wp F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
+  (∀ X, I true X ==> wp F2 (fun _ => ∃ʰ b X', ⌜R X' X⌝ ∗ I b X')) ->
   ((fun _ => H' ∗ ∃ʰ a, I false a) ===> Q) ->
-  H ==> wpgen_while F1 F2 Q := by
-  move=> wf sf1 sf2 hini hf1 hf2 hh
+  H ==> wp (trm_while F1 F2) Q := by
+  move=> wf hini hf1 hf2 hh
   -- xchange (xwhile_inv_basic_lemma I R F1 F2)=> //   -- not good
-  apply himpl_trans ; apply (xwhile_inv_basic_lemma I R F1 F2 wf sf1 sf2 hini hf1 hf2)
-  unfold wpgen_while ; unfold_let ; apply mkstruct_conseq=> //
+  apply himpl_trans ; apply (xwhile_inv_basic_lemma I R wf hini hf1 hf2)
+  apply wp_conseq=> //
+-- /- We can omit this a
 
 -- /- We can omit this as well -/
 -- lemma xwhile_inv_measure_lemma_down (Xbot : Int) (I : Bool -> Int -> hProp)
@@ -1666,15 +1680,12 @@ lemma xwhile_inv_basic_lemmaQ (I : Bool -> α -> hProp) R
 --   apply xwhile_inv_basic_lemmaQ
 --   admit -- wf?
 
-lemma xwhile_inv_measure_lemma_up (Xtop : Int) (I : Bool -> Int -> hProp)
-  (F1 F2 : formula) :
-  structural F1 ->
-  structural F2 ->
+lemma xwhile_inv_measure_lemma_up (Xtop : Int) (I : Bool -> Int -> hProp) :
   (H ==> H' ∗ ∃ʰ b a, I b a) ->
-  (∀ b X, I b X ==> F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
-  (∀ X, I true X ==> F2 (fun _ => ∃ʰ b X', ⌜X < X' ∧ X' <= Xtop⌝ ∗ I b X')) ->
+  (∀ b X, I b X ==> wp F1 (fun bv => I b X ∗ ⌜bv = b⌝)) ->
+  (∀ X, I true X ==> wp F2 (fun _ => ∃ʰ b X', ⌜X < X' ∧ X' <= Xtop⌝ ∗ I b X')) ->
   ((fun _ => H' ∗ ∃ʰ a, I false a) ===> Q) ->
-  H ==> wpgen_while F1 F2 Q := by
+  H ==> wp (trm_while F1 F2) Q := by
   apply xwhile_inv_basic_lemmaQ
   constructor=> a
   constructor=> y [] _
@@ -1710,8 +1721,9 @@ macro "xwhile_up" I:term:max Xtop:term : tactic => do
     xseq_xlet_if_needed_xwp
     xstruct_if_needed
     eapply xwhile_inv_measure_lemma_up $Xtop $I <;> try simp only [wp_equiv]
-    ⟨try apply wp_structural,
-     try apply wp_structural,
+    ⟨
+    --  try apply wp_structural,
+    --  try apply wp_structural,
      skip,
      skip,
      skip,

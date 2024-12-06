@@ -163,7 +163,7 @@ lemma findIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
   target ∈ f '' ⟦z, n⟧ ->
   { arr(arr, x in N => f x) }
   [ findIdx arr target z n ]
-  { v, ⌜ v = f.invFunOn ⟦z, n⟧ target ⌝ ∗ arr(arr, x in N => f x) } := by stop
+  { v, ⌜ v = f.invFunOn ⟦z, n⟧ target ⌝ ∗ arr(arr, x in N => f x) } := by
   move=> inj fin
   -- xwp; xapp triple_arrayFun_length
   xwp; xref;
@@ -218,7 +218,7 @@ lemma findIdx_spec_out (arr : loc) (f : Int -> ℝ) (target : ℝ)
   target ∉ f '' ⟦z, n⟧ ->
   { arr(arr, x in N => f x) }
   [ findIdx arr target z n ]
-  { v, ⌜ v = val_int n ⌝ ∗ arr(arr, x in N => f x) } := by stop
+  { v, ⌜ v = val_int n ⌝ ∗ arr(arr, x in N => f x) } := by
   move=> ? img
   xwp; xref
   let cond (i : ℤ) := (i < n ∧ target != f i)
@@ -286,7 +286,7 @@ lemma find2Idx_spec' (arr₁ arr₂ : loc) (f₁ f₂ : Int -> ℝ) (tgt₁ tgt�
   [ find2Idx arr₁ arr₂ tgt₁ tgt₂ z n ]
   { v, ⌜to_int v ∈ ⟦z, n⟧ ∧ f₁ v = tgt₁ ∧ f₂ v = tgt₂⌝ ∗
       arr(arr₁, x in N => f₁ x) ∗
-      arr(arr₂, x in N => f₂ x) } := by stop
+      arr(arr₂, x in N => f₂ x) } := by
   move=> fin
   xwp; xref;
   let cond := fun i : ℤ => (i < n ∧ ¬ (f₁ i = tgt₁ ∧ f₂ i = tgt₂))
@@ -347,7 +347,7 @@ lemma find2Idx_spec_out (arr₁ arr₂ : loc) (f₁ f₂ : Int -> ℝ) (tgt₁ t
   [ find2Idx arr₁ arr₂ tgt₁ tgt₂ z n ]
   { v, ⌜v = n⌝ ∗
       arr(arr₁, x in N => f₁ x) ∗
-      arr(arr₂, x in N => f₂ x) } := by stop
+      arr(arr₂, x in N => f₂ x) } := by
   move=> fin
   xwp; xref;
   let cond := fun i : ℤ => (i < n ∧ ¬ (f₁ i = tgt₁ ∧ f₂ i = tgt₂))
@@ -395,7 +395,7 @@ lemma find2Idx_specZ (arr₁ arr₂ : loc) (f₁ : Int -> ℝ) (f₂ : ℤ -> �
   [ find2Idx arr₁ arr₂ tgt₁ tgt₂ z n ]
   { v, ⌜to_int v ∈ ⟦z, n⟧ ∧ f₁ v = tgt₁ ∧ f₂ v = tgt₂⌝ ∗
       arr(arr₁, x in N => f₁ x) ∗
-      arr(arr₂, x in N => f₂ x) } := by stop
+      arr(arr₂, x in N => f₂ x) } := by
   move=> fin
   xwp; xref;
   let cond := fun i : ℤ => (i < n ∧ ¬ (f₁ i = tgt₁ ∧ f₂ i = tgt₂))
@@ -454,7 +454,7 @@ lemma find2Idx_spec_outZ (arr₁ arr₂ : loc) (f₁ : Int -> ℝ) (f₂ : ℤ -
   [ find2Idx arr₁ arr₂ tgt₁ tgt₂ z n ]
   { v, ⌜v = n⌝ ∗
       arr(arr₁, x in N => f₁ x) ∗
-      arr(arr₂, x in N => f₂ x) } := by stop
+      arr(arr₂, x in N => f₂ x) } := by
   move=> fin
   xwp; xref;
   let cond := fun i : ℤ => (i < n ∧ ¬ (f₁ i = tgt₁ ∧ f₂ i = tgt₂))
@@ -499,7 +499,7 @@ lemma find2Idx_spec_term (arr₁ arr₂ : loc) (f₁ : Int -> ℝ) (f₂ : ℤ -
   [ find2Idx arr₁ arr₂ tgt₁ tgt₂ z n ]
   { v,
       arr(arr₁, x in N => f₁ x) ∗
-      arr(arr₂, x in N => f₂ x) } := by stop
+      arr(arr₂, x in N => f₂ x) } := by
   scase: [(tgt₁, tgt₂) ∈ (fun i => (f₁ i, f₂ i)) '' ⟦z, n⟧]=> ?
   { xapp find2Idx_spec_outZ }
   xapp find2Idx_specZ
@@ -534,7 +534,7 @@ lemma searchIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
   { arr(arr, x in N => f x) }
   [ searchIdx arr target z n ]
   { v, ⌜
-    to_int v ∈ ⟦z, n-1⟧ ∧ f v <= target ∧ target < f (v + 1) ⌝ ∗ arr(arr, x in N => f x) } := by stop
+    to_int v ∈ ⟦z, n-1⟧ ∧ f v <= target ∧ target < f (v + 1) ⌝ ∗ arr(arr, x in N => f x) } := by
   move=> mon tgt
   xwp; xapp <;> try omega
   xwp; xapp triple_ltr
@@ -588,7 +588,7 @@ lemma searchIdx_spec' (arr : loc) (f : ℤ -> ℝ) (target : ℝ)
   f i <= target ∧ target < f (i + 1) ->
   { arr(arr, x in N => f x) }
   [ searchIdx arr target z n ]
-  { v, ⌜ v = i ⌝ ∗ arr(arr, x in N => f x) } := by stop
+  { v, ⌜ v = i ⌝ ∗ arr(arr, x in N => f x) } := by
   move=> mon /== ?? tg gt *; xapp searchIdx_spec=> /==;
   scase: x <;> simp [to_int] <;> try omega
   { move=> // j ????
@@ -627,7 +627,7 @@ lemma searchSparseRLE_spec (left right : loc) (lf rf : ℤ -> ℝ) (tgt : ℝ)
    tgt ∈ Set.Ico (lf i) (rf i) ->
    { arr(left, x in N => lf x) ∗ arr(right, x in N => rf x) }
    [ searchSRLE left right tgt z n ]
-   { v, ⌜ to_int v ∈ ⟦z,n⟧ ∧ tgt ∈ Set.Ico (lf v) (rf v)⌝ ∗ arr(left, x in N => lf x) ∗ arr(right, x in N => rf x) } := by stop
+   { v, ⌜ to_int v ∈ ⟦z,n⟧ ∧ tgt ∈ Set.Ico (lf v) (rf v)⌝ ∗ arr(left, x in N => lf x) ∗ arr(right, x in N => rf x) } := by
     move=> lr rl iin tgtin
     xwp; xref
     let cond (i : ℤ) := (z <= i ∧ i < n ∧ tgt ∉ Set.Ico (lf i) (rf i))
@@ -721,7 +721,7 @@ lemma searchSparseRLE_spec_out (left right : loc) (lf rf : ℤ -> ℝ) (tgt : �
    tgt ∉ ⋃ i ∈ ⟦z,n⟧, Set.Ico (lf i) (rf i) ->
    { arr(left, x in N => lf x) ∗ arr(right, x in N => rf x) }
    [ searchSRLE left right tgt z n ]
-   { v, ⌜v = n⌝ ∗ arr(left, x in N => lf x) ∗ arr(right, x in N => rf x) } := by stop
+   { v, ⌜v = n⌝ ∗ arr(left, x in N => lf x) ∗ arr(right, x in N => rf x) } := by
     move=> lr rl tgtin
     xwp; xref
     let cond (i : ℤ) := (z <= i ∧ i < n ∧ tgt ∉ Set.Ico (lf i) (rf i))
