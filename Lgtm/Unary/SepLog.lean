@@ -492,7 +492,16 @@ by
     move=> ? /Pp ?; exists s, h2 }
   { move=> > ? Pp *; apply eval.eval_binop=> //
     move=> ? /Pp ?; exists s, h2 }
-  { sorry }
+  { move=> > ? ih dj ih' ?
+    constructor; apply dj=> //
+    move=> > ![] s1 ? ? -> dj' -> p /== ??
+    rw [@Finmap.insert_union]
+    apply eval_conseq; apply ih'=> //
+    { sby apply disjoint_update_not_r s1 h2 p v1 dj' }
+    move=> v s /= ![] h ? /== ? -> ? ->
+    rw [remove_not_in_r h h2 p]=> //
+    exists (h.erase p), h2=> ⟨|⟩//⟨|⟩//⟨|⟩//
+    sby apply erase_disjoint h h2 p }
   { move=> > *; apply eval.eval_get
     simp; aesop; exists s, h2=> ⟨|⟩//
     sby rw [in_read_union_l s h2 p] }
@@ -500,9 +509,20 @@ by
     exists (Finmap.insert p v' s), h2=> ⟨|⟩// ⟨|⟩// ⟨|⟩
     { apply disjoint_insert_l s h2 p v'=> // }
     rw [@Finmap.insert_union] }
-  { sorry }
-  { sorry }
-  { sorry }
+  { move=> *; apply eval.eval_alloc_arg=> //
+    move=> > ![] ??? -> ? ->; aesop }
+  { move=> > ? ih ih' dj
+    apply eval.eval_alloc=> // > ?? dj';
+    srw -Finmap.union_assoc; apply eval_conseq; apply ih'=> //
+    { move: dj'; sby rw [@Finmap.disjoint_union_left] }
+    { move: dj'; srw ?Finmap.disjoint_union_left /===> ? ? ⟨|⟩//
+      sby apply (Finmap.Disjoint.symm h2 sb) }
+    move=> > /= ? /= ![] s ? /= ? -> ? ->
+    exists (s \ sb), h2=> ⟨|⟩//⟨|⟩//⟨|⟩
+    { sby apply disjoint_disjoint_diff s h2 sb }
+    apply union_diff_disjoint_r=> //
+    move: dj'; sby rw [@Finmap.disjoint_union_left] }
+  move=> *; constructor=> // ?? ![] ??? -> ? ->; aesop
 
 -- previous free proof
 
