@@ -273,159 +273,8 @@ lemma evalExact_WellAlloc :
   move: hQ1=> /[swap] /[apply] /[apply]
   sby srw heq=> {}heq > /heq
 
-lemma evalExact_det :
-  evalExact s t Q →
-  Q v₁ s₁ →
-  Q v₂ s₂ →
-  v₁ = v₂ ∧ s₁ = s₂ := by
-  move=> heval
-  elim: heval v₁ v₂ s₁ s₂
-  { sdone }
-  { sdone }
-  { sdone }
-  { move=> > _ /evalExact_sat ![>] /[swap] _ /[swap] _ /[swap] /[apply] ih
-    sby move=> > /ih /[apply] }
-  { move=> > _ /evalExact_sat ![>] /[swap] _ /[swap] _ /[swap] /[apply] ih
-    sby move=> > /ih /[apply] }
-  { sby move=> > ?? ih > /ih /[apply] }
-  { sby move=> > ?? ih > /ih /[apply] }
-  { move=> > /evalExact_sat ![>] /[swap] _ /[swap] _ /[swap] /[apply] ih
-    sby move=> > /ih /[apply] }
-  { move=> > /evalExact_sat ![>] /[swap] _ /[swap] _ /[swap] /[apply] ih
-    sby move=> > /ih /[apply] }
-  { sby move=> > _ ih > /ih /[apply] }
-  { unfold purepost=> > ; scase: op=> > //
-    { sby move=> [>] }
-    { sby move=> [] > } }
-    -- sorry } -- can't have val_rand
-  { unfold purepost=> > ; scase: op=> // >
-    scase: a=> //
-    any_goals (sby move=> [] >) }
-  { move=> > hev₁ hev₂ _ ih2 >
-    scase: (finite_state s_1)=> p ?
-    have hev:(evalExact s_1 (trm_ref x t1 t2) Q_1) := by
-      { sby apply evalExact.ref }
-    move: hev hev₁=> /evalExact_WellAlloc hev
-    move=> /[dup] /evalExact_sat ![>] /[dup] /ih2 {}ih2  /evalExact_WellAlloc  /[apply] heq
-    have eqn:(p ∉ w_1) := by
-      { unfold Not=> /Finmap.mem_keys ; sby srw heq }
-    apply ih2 in eqn=> {}ih2 {heq}
-    move=> /[dup] /hev heq₁
-    have hs₁:(p ∉ s₁) := by
-      { unfold Not=> /Finmap.mem_keys ; sby srw heq₁ }
-    srw [1](insert_delete_id s₁ p) ; rotate_left ; apply hs₁=> {heq₁}
-    apply w=> /ih2 {}ih2 /[dup] /hev heq₂ {hev}
-    have hs₂:(p ∉ s₂) := by
-      { unfold Not=> /Finmap.mem_keys ; sby srw heq₂ }
-    srw [1](insert_delete_id s₂ p) ; rotate_left ; apply hs₂=> {heq₂}
-    apply w=> /ih2 ? ⟨//|⟩
-    sby apply (@insert_same_eq p w s₁ s₂) }
-  { sdone }
-  { sdone }
-  { move=> > _ /evalExact_sat ![>] /[swap] _ /[swap] _ /[swap] /[apply] ih
-    sby move=> > /ih /[apply] }
-  { move=> > ?
-    scase: (finite_state' n.natAbs sa)=> p [hp hsb] /== hev ih >
-    have hev':(evalExact sa (trm_alloc x n t2) Q_1) := by
-      { sby apply evalExact.alloc }
-    move: hev' hp hsb=> {hev} /evalExact_WellAlloc hwa /ih
-    move=> /[swap] /[dup] hsb /[swap] /[apply] {}ih
-    move=> /[dup] /hwa heq₁
-    have hdis₁:(s₁.Disjoint (conseq (make_list n.natAbs val_uninit) p)) := by
-      { unfold Finmap.Disjoint ; srw -Finmap.mem_keys heq₁ Finmap.mem_keys
-        apply hsb }
-    srw -[1](diff_disjoint_eq s₁ (conseq (make_list n.natAbs val_uninit) p)
-      (conseq (make_list n.natAbs val_uninit) p))
-    rotate_left ; apply hdis₁ ; rfl
-    move=> /ih {}ih {heq₁} /[dup] /hwa {hwa} heq₂
-    have hdis₂: (s₂.Disjoint (conseq (make_list n.natAbs val_uninit) p)) := by
-      { unfold Finmap.Disjoint ; srw -Finmap.mem_keys heq₂ Finmap.mem_keys
-        apply hsb }
-    srw -[1](diff_disjoint_eq s₂ (conseq (make_list n.natAbs val_uninit) p)
-      (conseq (make_list n.natAbs val_uninit) p))
-    rotate_left ; apply hdis₂ ; rfl
-    move=> {hsb heq₂} /ih {ih} [??] ⟨//|⟩
-    sby apply union_same_eq_r }
-  { sby move=> > _ ih > /ih /[apply] }
-  move=> > /evalExact_sat ![>] /[swap] _ /[swap] _ /[swap] /[apply]
-  sby move=> ih > /ih /[apply]
-
 local instance : HWand (hProp) (heap → Prop) hProp where
   hWand := hwand
-
-lemma eval_imp_exact :
-  eval s t Q → ∃ Q', evalExact s t Q' := by
-  elim=> >
-  { sby move=> * ; exists (fun v' s' ↦ v' = v ∧ s' = s_1) }
-  { sby move=> * ; exists (fun v' s' ↦ v' = (val_fun x t1) ∧ s' = s_1) }
-  { sby move=> * ; exists (fun v' s' ↦ v' = (val_fix f x t1) ∧ s' = s_1) }
-  { move=> ? /evalExact_post hpost ? [Q1'] /[dup] /hpost {}hpost
-    move=> /[dup] /evalExact_det hdet /[dup] ? /evalExact_sat ![>] /[dup] /hdet {}hdet
-    move=> /hpost /[swap] /[apply] [Q'] ?
-    exists Q' ; apply evalExact.app_arg1=> //
-    sby move=> > /hdet [] }
-  { move=> ? /evalExact_post hpost ? [Q1'] /[dup] /hpost {}hpost
-    move=> /[dup] /evalExact_det hdet /[dup] ? /evalExact_sat ![>] /[dup] /hdet {}hdet
-    move=> /hpost /[swap] /[apply] [Q'] ?
-    exists Q' ; apply evalExact.app_arg2=> //
-    sby move=> > /hdet [] }
-  { move=> [] ? [Q'] ?
-    exists Q'
-    sby apply evalExact.app_fun }
-  { move=> [] ? [Q'] ?
-    exists Q'
-    sby apply evalExact.app_fix }
-  { move=> /evalExact_post hpost ? [Q1'] /[dup] /hpost {}hpost
-    move=> /[dup] /evalExact_det hdet /[dup] ? /evalExact_sat ![>] /[dup] /hdet {}hdet
-    move=> /hpost /[swap] /[apply] [Q'] ?
-    exists Q' ; apply evalExact.seq=> //
-    sby move=> > /hdet [] }
-  { move=> /evalExact_post hpost ? [Q1'] /[dup] /hpost {}hpost
-    move=> /[dup] /evalExact_det hdet /[dup] ? /evalExact_sat ![>] /[dup] /hdet {}hdet
-    move=> /hpost /[swap] /[apply] [Q'] ?
-    exists Q' ; apply evalExact.let=> //
-    sby move=> > /hdet [] }
-  { move=> ? [Q'] ?
-    exists Q'
-    sby constructor }
-  { move=> ??
-    exists (purepost s_1 P)
-    sby apply evalExact.unop }
-  { move=> ??
-    exists (purepost s_1 P)
-    sby apply evalExact.binop }
-  { move=> /evalExact_post hpost hev [Q₁'] /[dup] /hpost {}hpost
-    move=> /[dup] /evalExact_det hdet /[dup] ? /evalExact_sat ![>] /[dup] /hdet {}hdet
-    move=> /hpost /[swap] /[apply]
-    scase: (finite_state w_1)=> p /[swap] /[apply] [Q'] hex
-    exists (fun v' ↦ (∃ʰ u, p ~~> u) -∗ Q' v')
-    apply evalExact.ref
-    { sdone }
-    move=> > /hdet [<-<-] p'
-    -- exists (fun v' s' ↦ Q' v' (s'.insert p w)) ; apply evalExact.ref
-    -- { sdone }
-    -- move=> > /hpost /hev {}hev p_1
-    sorry }
-  { move=> *
-    exists (fun v' s' ↦ v' = read_state p s_1 ∧ s' = s_1)
-    sby apply evalExact.get }
-  { move=> *
-    exists (fun v'' s' ↦ v'' = val_unit ∧ s' = s_1.insert p v')
-    sby apply evalExact.set }
-  { move=> ? /evalExact_post hpost ? [Q1'] /[dup] /hpost {}hpost
-    move=> /[dup] /evalExact_det hdet /[dup] ? /evalExact_sat ![>] /[dup] /hdet {}hdet
-    move=> /hpost /[swap] /[apply] [Q'] ?
-    exists Q' ; apply evalExact.alloc_arg=> //
-    sby move=> > /hdet [] }
-  { move=> ? /== hev ih
-    sorry }
-  { move=> ? [Q'] ?
-    sby exists Q' }
-  move=> /evalExact_post hpost ? [Q1'] /[dup] /hpost {}hpost
-  move=> /[dup] /evalExact_det hdet /[dup] ? /evalExact_sat ![>] /[dup] /hdet {}hdet
-  move=> /hpost /[swap] /[apply] [Q'] ?
-  exists Q' ; apply evalExact.while=> //
-  sby move=> > /hdet []
 
 
 /- ----------------------------- Frame Rule ----------------------------- -/
@@ -628,13 +477,32 @@ lemma eval_frame (h1 h2 : state) t (Q : val -> hProp) :
   Finmap.Disjoint h1 h2 →
   eval (h1 ∪ h2) t (Q ∗ (tohProp (fun h ↦ h = h2))) :=
 by
-  unfold ofhProp tohProp
-  move=> /[dup] hev /eval_imp_exact [Q'] /[dup] hex /evalExact_frame /[apply]
-  move=> /exact_imp_eval /eval_conseq ; sapply=> ?
-  srw ?qstarE
-  apply himpl_frame_l
-  apply evalExact_post
-  sby apply hev
+  unfold ofhProp tohProp; elim=> //
+  { move=> > ?? ih ih' *; apply eval.eval_app_arg1=> //
+    move=> > ![] ?? ? -> ? ->; aesop }
+  { move=> *; apply eval.eval_app_arg2=> //
+    move=> > ![] ?? ? -> ? ->; aesop }
+  { move=> *; apply eval.eval_app_fun=> // }
+  { move=> *; apply eval.eval_app_fix=> // }
+  { move=> *; apply eval.eval_seq=> //
+    move=> > ![] ?? ? -> ? ->; aesop }
+  { move=> *; apply eval.eval_let=> //
+    move=> > ![] ?? ? -> ? ->; aesop }
+  { move=> > ? Pp *; apply eval.eval_unop=> //
+    move=> ? /Pp ?; exists s, h2 }
+  { move=> > ? Pp *; apply eval.eval_binop=> //
+    move=> ? /Pp ?; exists s, h2 }
+  { sorry }
+  { move=> > *; apply eval.eval_get
+    simp; aesop; exists s, h2=> ⟨|⟩//
+    sby rw [in_read_union_l s h2 p] }
+  { move=> > *; apply eval.eval_set=> //
+    exists (Finmap.insert p v' s), h2=> ⟨|⟩// ⟨|⟩// ⟨|⟩
+    { apply disjoint_insert_l s h2 p v'=> // }
+    rw [@Finmap.insert_union] }
+  { sorry }
+  { sorry }
+  { sorry }
 
 -- previous free proof
 
@@ -1317,13 +1185,13 @@ lemma evalExact_sP' :
   srw (dif_pos hex)
   apply choose_spec
 
-lemma sP'_post :
-  eval h t Q → eval h t (sP' h t) := by
-  sby move=> /eval_imp_exact=> [>] /evalExact_sP' /exact_imp_eval
+-- lemma sP'_post :
+--   eval h t Q → eval h t (sP' h t) := by
+--   sby move=> /eval_imp_exact=> [>] /evalExact_sP' /exact_imp_eval
 
-lemma sP'_post_exact :
-  eval h t Q → evalExact h t (sP' h t) := by
-  sby move=> /eval_imp_exact [>] /evalExact_sP'
+-- lemma sP'_post_exact :
+--   eval h t Q → evalExact h t (sP' h t) := by
+--   sby move=> /eval_imp_exact [>] /evalExact_sP'
 
 lemma hpure_intr :
   (P -> H s) -> (⌜P⌝ -∗ H) s := by
@@ -1346,110 +1214,4 @@ lemma sP_strongest :
   eval h t Q -> sP h t ===> Q := by
   move=> ev v; unfold sP;
   apply himpl_hforall_l _ Q
-  srw hwand_hpure_l=> //
-
-set_option maxHeartbeats 800000 in
-lemma sP_post :
-  eval h t Q -> eval h t (sP h t) := by
-  elim=> >
-  { move=> ?; constructor=> Q; apply hpure_intr=> []// }
-  { move=> ?; constructor=> Q; apply hpure_intr=> []// }
-  { move=> ?; constructor=> Q; apply hpure_intr=> []// }
-  { move=> ? evv ev' ih ih'; apply eval.eval_app_arg1=> //
-    move=> > ?; apply eval_conseq=> //
-    apply ih'
-    { apply sP_strongest; apply evv=> // }
-    move=> v; dsimp [sP]; apply himpl_hforall=> Q/=
-    xsimp=> ev; srw hwand_hpure_l=> //
-    scase: ev=> //
-    { move=> ?? /sP_strongest himp; sapply
-      sby apply himp }
-    { scase=> // [] // ?? []// }
-    move=> >? []// }
-  { move=> ? ev₁; intro ih ih' sp
-    apply eval.eval_app_arg2=> // > sp'
-    apply eval_conseq=> //
-    apply sp
-    { apply sP_strongest; apply ev₁=> // }
-    move=> v; dsimp [sP]; apply himpl_hforall=> Q/=
-    xsimp=> ev; srw hwand_hpure_l=> //
-    scase: ev=> // ??/sP_strongest himp; sapply=> //
-    sby apply himp }
-  { move=> -> ? ih; apply eval.eval_app_fun=> //
-    apply eval_conseq=> //
-    move=> v; dsimp [sP]; apply himpl_hforall=> Q/=
-    xsimp=> ev; srw hwand_hpure_l=> //
-    scase: ev=> // }
-  { move=> -> ? ih; apply eval.eval_app_fix=> //
-    apply eval_conseq=> //
-    move=> v; dsimp [sP]; apply himpl_hforall=> Q/=
-    xsimp=> ev; srw hwand_hpure_l=> //
-    scase: ev=> // }
-  { move=> ev₁ _ sp ih₂; constructor; apply sp
-    move=> > ?
-    apply eval_conseq=> //; apply ih₂
-    { apply sP_strongest; apply ev₁=> // }
-    move=> v; dsimp [sP]; apply himpl_hforall=> Q/=
-    xsimp=> ev; srw hwand_hpure_l=> //
-    scase: ev=> // ? ev₁; sapply
-    apply sP_strongest; apply ev₁=> // }
-  { move=> ev₁ _ sp ih₂; constructor; apply sp
-    move=> > ?
-    apply eval_conseq=> //; apply ih₂
-    { apply sP_strongest; apply ev₁=> // }
-    move=> v; dsimp [sP]; apply himpl_hforall=> Q/=
-    xsimp=> ev; srw hwand_hpure_l=> //
-    scase: ev=> // ? ev₁; sapply
-    apply sP_strongest; apply ev₁=> // }
-  { move=> ev sp; constructor
-    apply eval_conseq=> // v
-    dsimp [sP]; apply himpl_hforall=> Q/=
-    xsimp=> ev; srw hwand_hpure_l=> //
-    scase: ev=> // }
-  { move=> eop pp; apply eval.eval_unop=> // ? ??
-    apply hpure_intr=> []//??; sapply
-    scase: eop
-    { move=> ? [] //== }
-    { move=> ? [] // }
-    move=> ? [] // }
-  { move=> eop pp; apply eval.eval_binop=> // ? ??
-    apply hpure_intr=> []//?
-    { move=> ? [] // [] // }
-    move=> eop'; sapply; scase: eop
-    any_goals (try scase: eop'=> //)
-    any_goals (try move=> ?? [] //)
-    move=> ???->? []// }
-  { sorry
-    -- move=> ->?; apply eval.eval_ref=> // ???
-    -- apply hpure_intr=> []//
-     }
-  { move=> ??; apply eval.eval_get=> // ?
-    apply hpure_intr=> []// }
-  { move=> ->??; apply eval.eval_set=> // ?
-    apply hpure_intr=> []// ?? []// }
-  -- { move=> ??; apply eval.eval_free=> // ?
-  --   apply hpure_intr=> []// }
-  -- { move=> ??; apply eval.eval_alloc=> // *?
-  --   apply hpure_intr=> []// }
-  { sorry }
-  { sorry }
-  { move=> ev₁ ev₂; constructor
-    apply eval_conseq=> // v
-    dsimp [sP]; apply himpl_hforall=> Q/=
-    xsimp=> ev; srw hwand_hpure_l=> //
-    sby scase: ev }
-  move=> ev₁ ev₂ evsP ih ⟨|//|⟩ > ?
-  apply eval_conseq=> //; apply ih
-  { apply sP_strongest; apply ev₁=> // }
-  move=> v; dsimp [sP]; apply himpl_hforall=> Q/=
-  xsimp=> ev; srw hwand_hpure_l=> //
-  scase: ev=> // ? ev; sapply
-  apply sP_strongest; sby apply ev
-
-lemma sP_sat :
-  eval h t Q → ∃ v h', sP h t v h' := by
-  sby move=> /sP_post /eval_sat
-
-lemma sP_postExact :
-  eval h t Q -> evalExact h t (sP h t) := by
-  sorry
+  srw hwand_hpure_l=> //;
