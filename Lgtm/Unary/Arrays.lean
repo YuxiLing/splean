@@ -14,11 +14,11 @@ open Unary
 /- Syntax for array operations -/
 
 -- set_option pp.notation false
-#check [lang|
-  let arr := mkarr 5 1 in
-  arr[4] := 2 ;
-  arr[3]
-  ]
+-- #check [lang|
+--   let arr := mkarr 5 1 in
+--   arr[4] := 2 ;
+--   arr[3]
+--   ]
 
 /- ==================== Properties of Arrays ==================== -/
 
@@ -36,14 +36,13 @@ lemma triple_abs (i : Int) :
   triple [lang| val_abs i]
     emp
     (fun r ↦ ⌜r = val_int i.natAbs⌝) := by
-  xwp
-  xapp triple_lt ; xwp
-  xapp triple_sub ; xwp
-  xapp triple_mul ; xwp
+  xstep triple_lt
+  xstep triple_sub
+  xstep triple_mul
   xif=> /== ?
-  { xwp ; xval ; xsimp
+  { xval ; xsimp
     congr!; omega }
-  xwp ; xval ; xsimp
+  xval ; xsimp
   sby srw nonneg_eq_abs
 
 
@@ -83,7 +82,7 @@ lemma list_nil_length (A : Type) :
 lemma ofnat_plusone (n : Nat) :
   Int.ofNat (n + 1) = (Int.ofNat n) + 1 := by sdone
 
-#check List.append_of_mem
+
 lemma list_middle_inv (A : Type) (n : Nat) (l : List A) :
   n < l.length →
   exists (x : A) (l1 l2 : List A),

@@ -1770,6 +1770,16 @@ macro "xfor" I:term : tactic => do
     ⟩⟩
     ))
 
+
+syntax "xstep" (colGt term)? : tactic
+
+macro_rules
+  | `(tactic| xstep $(t)? ) => `(tactic| (xwp; xapp $(t)?))
+
+macro "xif" : tactic => `(tactic| (xwp; xif))
+macro "xval" : tactic => `(tactic| (xwp; xval))
+macro "xref" : tactic => `(tactic| (xwp; xref))
+
 -- macro "xwhile_down" I:term:max colGt Xbot:term ? : tactic => do
 --   let Xbot <-
 --     match Xbot with

@@ -1,1 +1,24 @@
-# lean-lgtm
+# Unary Separation Loigc Framework in Lean
+
+This project presents Separation Logic for simple heap-manipulating programs verification. Inspired by [CFML](https://softwarefoundations.cis.upenn.edu/slf-current/index.html)
+
+# File Content
+
+1. `Unary/HProp.lean`: facts about heap-propositions 
+2. `Unary/XSimp.lean`: implementation of an `xsimp` tactic for heap entailment simplification
+3. `Unary/SepLog.lean`: Separation logic formalization
+4. `Unary/WP1.lean`: Weakest-Precondition formalization
+5. `Experiments/Misc.lean`: Some case studies
+
+# Essential tactics
+
+1. `xsimp`: simplifies heap entailments. For instance, `xsimp` turns `H1 ∗ H ∗ H2 ==> H3 ∗ H ∗ H4` into `H1 ∗ H2 ==> H3 ∗ H4`
+2. `xstep`: does one step of symbolic execution. This tactic can have an optional argument `triple_lemma` of type `... -> { P }[ c ]{ Q }`. In this case, it will try advance the top-most instruction according to `triple_lemma`
+3. `xapp triple_lemma`: applies `triple_lemma` of type `... -> { P }[ c ]{ Q }`. If first argument is omitted, `xapp` will try to find a correspondent lemma in `@[xapp]` hint database
+4. `xif`/`xval`/`xref`: tactics for `if`, `return` and `ref` statements
+5. `xfor`/`xwhile`: tactics for `for` and `while` loops
+
+# Limitations 
+1. `xsimp` tactic can be slow for big heap entailments
+2. We only support `for` and `while` loops. Recursion is not supported (yet)
+3. We only support programs written in an SSA-normal form
