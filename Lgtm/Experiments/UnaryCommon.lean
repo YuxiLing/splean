@@ -153,9 +153,6 @@ instance : Coe val ℤ := ⟨to_int⟩
 
 attribute [simp] is_true
 
-/- IN THIS FILES PROOFS ARE COMMENTED OUT AS THEY TAKE A LOT OF TIME  -/
-/- TODO: UNCOMMENT FOR A RELEASE -/
-
 set_option maxHeartbeats 1600000
 lemma findIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
   (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :

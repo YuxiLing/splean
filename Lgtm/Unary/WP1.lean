@@ -1699,15 +1699,39 @@ lemma xwhile_inv_measure_lemma_up (Xtop : Int) (I : Bool -> Int -> hProp) :
       subst n
       constructor ; assumption } }
 
+lemma xfor_lemma (z n : ℤ) (x : var) (I : ℤ -> hProp) :
+  z <= n ->
+  (H ==> H' ∗ I z) ->
+  (∀ i, z <= i -> i < n -> I i ==> wp (subst x i F1) (fun _ => I (i + 1))) ->
+  ((fun _ => I n ∗ H') ===> Q) ->
+  H ==> wp (trm_for x z n F1) Q := by
+  move=> ? hini hstep hfin
+  xchange hini
+  apply himpl_trans_r; apply wp_conseq_frame=> //
+  xsimp
+  move: z hfin {hini}=> z; apply Int.le_induction_down
+  { move=> ?? ??
+    constructor=> /==;constructor; aesop }
+  move=> j ? ih step hfin
+  move=> ??;
+  constructor=> /==; srw if_pos; rotate_left; omega
+  constructor
+  { apply step <;> try omega
+    sdone }
+  move=> _ > ?; apply ih=> // *
+  apply step <;> omega
+
+
 macro "xwhile" I:term:max R:term : tactic => do
   `(tactic| (
     xwp
     xseq_xlet_if_needed_xwp
     xstruct_if_needed
     eapply xwhile_inv_basic_lemmaQ $I $R <;> try simp only [wp_equiv]
-    ⟨try assumption,
-     try apply wp_structural,
-     try apply wp_structural,
+    ⟨
+    -- try assumption,
+    --  try apply wp_structural,
+    --  try apply wp_structural,
      skip,
      skip,
      skip,
@@ -1729,6 +1753,21 @@ macro "xwhile_up" I:term:max Xtop:term : tactic => do
      skip,
      skip,
      skip⟩
+    ))
+
+macro "xfor" I:term : tactic => do
+  `(tactic| (
+    xwp
+    xseq_xlet_if_needed_xwp
+    xstruct_if_needed
+    eapply xfor_inv_lemma _ _ _ $I <;> try simp only [wp_equiv]
+    ⟨
+    ⟨
+      try omega,
+      skip,
+      skip,
+      skip
+    ⟩⟩
     ))
 
 -- macro "xwhile_down" I:term:max colGt Xbot:term ? : tactic => do
