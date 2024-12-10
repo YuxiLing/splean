@@ -1,7 +1,7 @@
 import Lean
 import Mathlib.Data.Finmap
 
-import Lgtm.Common.Util
+import SPLean.Common.Util
 
 -- abbrev LabType := ℕ
 local macro "LabType" : term => `(ℕ)

@@ -2,8 +2,8 @@
 import Mathlib.Data.Finmap
 import Mathlib.Data.Real.Basic
 
-import Lgtm.Common.Util
-import Lgtm.Common.Heap
+import SPLean.Common.Util
+import SPLean.Common.Heap
 
 
 open Classical
@@ -432,7 +432,7 @@ def make_list {A} (n : Nat) (v : A) : List A :=
 def test1 : Finmap (fun _ : ℕ ↦ ℕ) := Finmap.singleton 0 1
 def test2 : Finmap (fun _ : ℕ ↦ ℕ) := Finmap.singleton 1 2
 
-#reduce test1 \ test2
+-- #reduce test1 \ test2
 -- { entries := Quot.mk List.Perm [⟨0, 1⟩], nodupKeys := ⋯ }
 
 

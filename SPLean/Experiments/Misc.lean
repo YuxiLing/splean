@@ -1,9 +1,9 @@
 import Mathlib.Data.Int.Interval
 import Mathlib.Tactic
 
-import Lgtm.Unary.WP1
-import Lgtm.Unary.Lang
-import Lgtm.Unary.ArraysFun
+import SPLean.Unary.WP1
+import SPLean.Unary.Lang
+import SPLean.Unary.ArraysFun
 
 section find_index
 

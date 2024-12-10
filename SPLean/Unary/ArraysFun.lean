@@ -1,10 +1,10 @@
-import Lgtm.Unary.XSimp
-import Lgtm.Unary.XChange
-import Lgtm.Common.Util
-import Lgtm.Unary.SepLog
-import Lgtm.Unary.WP1
-import Lgtm.Unary.Lang
-import Lgtm.Unary.Arrays
+import SPLean.Unary.XSimp
+import SPLean.Unary.XChange
+import SPLean.Common.Util
+import SPLean.Unary.SepLog
+import SPLean.Unary.WP1
+import SPLean.Unary.Lang
+import SPLean.Unary.Arrays
 
 open Classical
 

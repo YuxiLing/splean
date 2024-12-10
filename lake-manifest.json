@@ -81,5 +81,5 @@
    "inputRev": "v4.11.0",
    "inherited": false,
    "configFile": "lakefile.lean"}],
- "name": "lgtm",
+ "name": "SPLean",
  "lakeDir": ".lake"}

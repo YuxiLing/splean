@@ -2,8 +2,8 @@ import Mathlib.Data.Finmap
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Multiset.Nodup
 
-import Lgtm.Common.Util
-import Lgtm.Unary.Lang
+import SPLean.Common.Util
+import SPLean.Unary.Lang
 
 
 /- ========= Useful Lemmas about disjointness and state operations ========= -/

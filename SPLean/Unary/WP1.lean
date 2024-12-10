@@ -4,14 +4,14 @@ import Lean
 import Mathlib.Data.Finmap
 import Mathlib.Data.List.Indexes
 
-import Lgtm.Common.State
-import Lgtm.Common.Util
+import SPLean.Common.State
+import SPLean.Common.Util
 
-import Lgtm.Unary.HProp
-import Lgtm.Unary.XSimp
-import Lgtm.Unary.XChange
-import Lgtm.Unary.SepLog
-import Lgtm.Unary.WPUtil
+import SPLean.Unary.HProp
+import SPLean.Unary.XSimp
+import SPLean.Unary.XChange
+import SPLean.Unary.SepLog
+import SPLean.Unary.WPUtil
 
 open trm val prim
 
@@ -1486,14 +1486,23 @@ local instance : HAdd ℕ ℤ val := ⟨fun x y => ((x : Int) + y)⟩
 
 syntax ppGroup("{ " term " }") ppSpace ppGroup("[" lang "]") ppSpace ppGroup("{ " Lean.Parser.Term.funBinder ", " term " }") : term
 syntax ppGroup("{ " term " }") ppSpace ppGroup("[" lang "]") ppSpace ppGroup("{ " term " }") : term
+syntax "WP" ppSpace ppGroup("[" lang "]") ppSpace ppGroup("{ " Lean.Parser.Term.funBinder ", " term " }") : term
+syntax "WP" ppSpace ppGroup("[" lang "]") ppSpace ppGroup("{ " term " }") : term
 
 macro_rules
   | `({ $P }[$t:lang]{$v, $Q}) => `(triple [lang| $t] $P (fun $v => $Q))
-  | `({ $P }[$t:lang]{$Q}) => `(triple [lang| $t] $P (fun _ => $Q))
+  | `({ $P }[$t:lang]{$Q})     => `(triple [lang| $t] $P (fun _ => $Q))
+  | `(WP[$t:lang]{$v, $Q})     => `(wp [lang| $t] (fun $v => $Q))
+  | `(WP[$t:lang]{$Q})         => `(wp [lang| $t] (fun _ => $Q))
 
 @[app_unexpander triple] def unexpandTriple : Lean.PrettyPrinter.Unexpander
   | `($(_) [lang| $t] $P fun $v ↦ $Q) => `({ $P }[$t:lang]{$v, $Q})
   | _ => throw ( )
+
+@[app_unexpander wp] def unexpandWP : Lean.PrettyPrinter.Unexpander
+  | `($(_) [lang| $t] fun $v ↦ $Q) => `(WP[$t:lang]{$v, $Q})
+  | _ => throw ( )
+
 
 elab "xsimpr" : tactic => do
   xsimp_step_r (<- XSimpRIni)
@@ -1755,19 +1764,21 @@ macro "xwhile_up" I:term:max Xtop:term : tactic => do
      skip⟩
     ))
 
+
+
 macro "xfor" I:term : tactic => do
   `(tactic| (
     xwp
     xseq_xlet_if_needed_xwp
     xstruct_if_needed
-    eapply xfor_inv_lemma _ _ _ $I <;> try simp only [wp_equiv]
-    ⟨
+    eapply xfor_lemma _ _ _ $I <;> try simp only [wp_equiv]
     ⟨
       try omega,
-      skip,
+      try xsimp,
+      try simp [subst],
       skip,
       skip
-    ⟩⟩
+    ⟩
     ))
 
 

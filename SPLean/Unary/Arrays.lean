@@ -1,11 +1,11 @@
-import Lgtm.Common.State
+import SPLean.Common.State
 
-import Lgtm.Unary.XSimp
-import Lgtm.Unary.XChange
-import Lgtm.Common.Util
-import Lgtm.Unary.SepLog
-import Lgtm.Unary.WP1
-import Lgtm.Unary.Lang
+import SPLean.Unary.XSimp
+import SPLean.Unary.XChange
+import SPLean.Common.Util
+import SPLean.Unary.SepLog
+import SPLean.Unary.WP1
+import SPLean.Unary.Lang
 
 
 open val trm prim

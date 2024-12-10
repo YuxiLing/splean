@@ -1,8 +1,8 @@
 import Lean.Elab.Tactic
 import Qq
 
-import Lgtm.Unary.HProp
-import Lgtm.Common.Util
+import SPLean.Unary.HProp
+import SPLean.Common.Util
 
 
 -- open hprop_scope
@@ -689,7 +689,7 @@ def xsimp_apply_intro_names (lem : Name) (xs : Syntax) : TacticM Unit :=
           {| apply $lem; intro $x:ident |}
         | _ => throwError "xsimp_l_exists: @ unreachable 1"
   | _ => throwError "xsimp_l_exists: @ unreachable 3"
-
+/- H₁ ∗ ... ∗ ==> H₁ -∗ ....  -/
 macro "simpNums" : tactic =>
   `(tactic| (try simp only [foo, foo', foo''] at *
              try simp only [foo'''] at *

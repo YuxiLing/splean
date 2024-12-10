@@ -3,10 +3,10 @@ import Mathlib.Data.Finmap
 
 import Mathlib.Algebra.BigOperators.Group.Finset
 
-import Lgtm.Common.Heap
+import SPLean.Common.Heap
 
-import Lgtm.Common.Util
-import Lgtm.Unary.Lang
+import SPLean.Common.Util
+import SPLean.Unary.Lang
 
 
 open Classical

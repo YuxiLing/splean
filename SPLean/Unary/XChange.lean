@@ -1,8 +1,8 @@
 import Lean.Elab.Tactic
 
-import Lgtm.Unary.HProp
-import Lgtm.Common.Util
-import Lgtm.Unary.XSimp
+import SPLean.Unary.HProp
+import SPLean.Common.Util
+import SPLean.Unary.XSimp
 
 open Lean Lean.Expr Lean.Meta Qq
 open Lean Elab Command Term Meta Tactic

@@ -3,11 +3,11 @@ import Mathlib.Data.Finmap
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Multiset.Nodup
 
-import Lgtm.Common.State
+import SPLean.Common.State
 
-import Lgtm.Common.Util
-import Lgtm.Unary.HProp
-import Lgtm.Unary.XSimp
+import SPLean.Common.Util
+import SPLean.Unary.HProp
+import SPLean.Unary.XSimp
 
 open trm val prim
 
