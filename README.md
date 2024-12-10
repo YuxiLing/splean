@@ -1,6 +1,6 @@
-# Unary Separation Loigc Framework in Lean
+# SPLean: *S*eparation Logic *P*roofs in *Lean*
 
-This project presents Separation Logic for simple heap-manipulating programs verification. Inspired by [CFML](https://softwarefoundations.cis.upenn.edu/slf-current/index.html)
+This project provides a Separation Logic framework for simple heap-manipulating programs verification. Inspired by [CFML](https://softwarefoundations.cis.upenn.edu/slf-current/index.html)
 
 # File Content
 
@@ -21,4 +21,4 @@ This project presents Separation Logic for simple heap-manipulating programs ver
 # Limitations 
 1. `xsimp` tactic can be slow for big heap entailments
 2. We only support `for` and `while` loops. Recursion is not supported (yet)
-3. We only support programs written in an SSA-normal form
+3. We only support programs in an SSA-normal form
