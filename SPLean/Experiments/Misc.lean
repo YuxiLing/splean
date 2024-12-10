@@ -1,13 +1,13 @@
 import Mathlib.Data.Int.Interval
 import Mathlib.Tactic
 
-import SPLean.Unary.WP1
-import SPLean.Unary.Lang
-import SPLean.Unary.ArraysFun
+import SPLean.Theories.WP1
+import SPLean.Theories.Lang
+import SPLean.Theories.ArraysFun
 
 section find_index
 
-open Unary prim val trm
+open Theories prim val trm
 
 
 
@@ -33,7 +33,7 @@ lang_def incr :=
 
 set_option pp.all true in #print incr
 
-/- We can extend the syntax of our languge on the fly with a new unary operation [incr] -/
+/- We can extend the syntax of our languge on the fly with a new Theories operation [incr] -/
 syntax "++" : uop
 macro_rules
   | `([lang| ++ $a:lang]) => `(trm.trm_app incr [lang| $a])

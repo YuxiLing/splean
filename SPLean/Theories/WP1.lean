@@ -7,15 +7,15 @@ import Mathlib.Data.List.Indexes
 import SPLean.Common.State
 import SPLean.Common.Util
 
-import SPLean.Unary.HProp
-import SPLean.Unary.XSimp
-import SPLean.Unary.XChange
-import SPLean.Unary.SepLog
-import SPLean.Unary.WPUtil
+import SPLean.Theories.HProp
+import SPLean.Theories.XSimp
+import SPLean.Theories.XChange
+import SPLean.Theories.SepLog
+import SPLean.Theories.WPUtil
 
 open trm val prim
 
-namespace Unary
+namespace Theories
 
 local instance : Coe val trm where
   coe v := trm.trm_val v
@@ -686,7 +686,7 @@ lemma triple_for_raw (x:var) (n1 n2: Int) t3 H (Q:val->hProp) :
 
 -- set_option pp.notation false
 
-/- This is a hard proof, but we can omit it here as we don't use for loops in Unary logic -/
+/- This is a hard proof, but we can omit it here as we don't use for loops in Theories logic -/
 -- lemma wpgen_for_sound x v1 v2 F1 :
 --   (forall v, formula_sound (subst x v t1) (F1 v)) →
 --   formula_sound (trm_for x v1 v2 t1) (wpgen_for v1 v2 F1) := by
@@ -1473,9 +1473,9 @@ macro "xwp" : tactic =>
            | apply wp_of_wpgen
      all_goals try simp [wpgen, subst, isubst, subst, trm_apps, AList.lookup, List.dlookup]))
 
-end Unary
+end Theories
 
-open Unary
+open Theories
 
 macro "lang_def" n:ident ":=" l:lang : command => do
   `(def $n:ident : val := [lang| $l])

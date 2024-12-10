@@ -1,16 +1,16 @@
-import SPLean.Unary.XSimp
-import SPLean.Unary.XChange
+import SPLean.Theories.XSimp
+import SPLean.Theories.XChange
 import SPLean.Common.Util
-import SPLean.Unary.SepLog
-import SPLean.Unary.WP1
-import SPLean.Unary.Lang
-import SPLean.Unary.Arrays
+import SPLean.Theories.SepLog
+import SPLean.Theories.WP1
+import SPLean.Theories.Lang
+import SPLean.Theories.Arrays
 
 open Classical
 
 /- ============== Definitions for Arrays represented ans funtions ============== -/
 
-open trm val Unary
+open trm val Theories
 
 def harrayFun (f : ℤ -> val) (n : ℕ) (p : loc) : hProp :=
   harray (@List.ofFn _ n (f ·)) p

@@ -6,7 +6,7 @@ import Mathlib.Algebra.BigOperators.Group.Finset
 import SPLean.Common.Heap
 
 import SPLean.Common.Util
-import SPLean.Unary.Lang
+import SPLean.Theories.Lang
 
 
 open Classical

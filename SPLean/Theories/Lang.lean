@@ -183,7 +183,7 @@ inductive step : state → trm → state → trm → Prop where
       v1 = trm_val v1' →
       step s (trm_let x v1 t2) s (subst x v1' t2)
 
-  -- Unary Operations
+  -- Theories Operations
   | step_neg : forall s b,
       step s (trm_app val_neg (val_bool b)) s (val_bool (¬ b))
   | step_opp : forall s n,
@@ -279,7 +279,7 @@ def notstuck (s : state) (t : trm) : Prop :=
 
 /- ========== Big-step Semantics for Primitive Operations ========== -/
 
-/- Big-step relation for unary operators -/
+/- Big-step relation for Theories operators -/
 inductive evalunop : prim → val → (val → Prop) → Prop where
   | evalunop_neg : forall b1,
       evalunop val_neg (val_bool b1) (fun v => v = val_bool (¬ b1))

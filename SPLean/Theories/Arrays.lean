@@ -1,15 +1,15 @@
 import SPLean.Common.State
 
-import SPLean.Unary.XSimp
-import SPLean.Unary.XChange
+import SPLean.Theories.XSimp
+import SPLean.Theories.XChange
 import SPLean.Common.Util
-import SPLean.Unary.SepLog
-import SPLean.Unary.WP1
-import SPLean.Unary.Lang
+import SPLean.Theories.SepLog
+import SPLean.Theories.WP1
+import SPLean.Theories.Lang
 
 
 open val trm prim
-open Unary
+open Theories
 
 /- Syntax for array operations -/
 

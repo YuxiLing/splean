@@ -1,7 +1,7 @@
 import Lean.Elab.Tactic
 import Qq
 
-import SPLean.Unary.HProp
+import SPLean.Theories.HProp
 import SPLean.Common.Util
 
 

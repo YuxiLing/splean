@@ -6,8 +6,8 @@ import Mathlib.Data.Multiset.Nodup
 import SPLean.Common.State
 
 import SPLean.Common.Util
-import SPLean.Unary.HProp
-import SPLean.Unary.XSimp
+import SPLean.Theories.HProp
+import SPLean.Theories.XSimp
 
 open trm val prim
 

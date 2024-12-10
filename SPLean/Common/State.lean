@@ -3,7 +3,7 @@ import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Multiset.Nodup
 
 import SPLean.Common.Util
-import SPLean.Unary.Lang
+import SPLean.Theories.Lang
 
 
 /- ========= Useful Lemmas about disjointness and state operations ========= -/
