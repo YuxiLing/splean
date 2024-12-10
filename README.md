@@ -4,10 +4,10 @@ This project provides a Separation Logic framework for simple heap-manipulating 
 
 # File Content
 
-1. `Unary/HProp.lean`: facts about heap-propositions 
-2. `Unary/XSimp.lean`: implementation of an `xsimp` tactic for heap entailment simplification
-3. `Unary/SepLog.lean`: Separation logic formalization
-4. `Unary/WP1.lean`: Weakest-Precondition formalization
+1. `Theories/HProp.lean`: facts about heap-propositions 
+2. `Theories/XSimp.lean`: implementation of an `xsimp` tactic for heap entailment simplification
+3. `Theories/SepLog.lean`: Separation logic formalization
+4. `Theories/WP1.lean`: Weakest-Precondition formalization
 5. `Experiments/Misc.lean`: Some case studies
 
 # Essential tactics
