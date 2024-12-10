@@ -2,6 +2,14 @@
 
 This project provides a Separation Logic framework for simple heap-manipulating programs verification. Inspired by [CFML](https://softwarefoundations.cis.upenn.edu/slf-current/index.html)
 
+# Building SPLean
+
+To build this project tun 
+
+```
+lake exe cache get; lake build
+```
+
 # File Content
 
 1. `Theories/HProp.lean`: facts about heap-propositions 
