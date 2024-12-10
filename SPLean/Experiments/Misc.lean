@@ -137,7 +137,7 @@ lemma findIdx_spec' (arr : loc) (f : Int -> ℝ)
   i ∈ ⟦z, n⟧ ->
   { arr(arr, x in N => f x) }
   [ findIdx arr ⟨f i⟩ z n ]
-  { v, ⌜ v = val.val_int i ⌝ ∗ arr(arr, x in N => f x) } := by
+  { v, ⌜ v = i ⌝ ∗ arr(arr, x in N => f x) } := by
   move=> inj iin
   xapp findIdx_spec; xsimp=> /=
   rw [Function.invFunOn_app_eq f inj iin]
