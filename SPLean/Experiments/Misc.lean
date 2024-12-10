@@ -9,106 +9,69 @@ section find_index
 
 open Unary prim val trm
 
-/- [find_index] Implementation -/
-
-lang_def val_or :=
-  fun a b =>
-    if a then true else b
-
-syntax " || " : bop
-
-macro_rules
-  | `([lang| $a:lang || $b:lang]) => `(trm.trm_app val_or [lang| $a] [lang| $b])
-
-@[app_unexpander val_or] def unexpandOr : Lean.PrettyPrinter.Unexpander := fun _ => `([bop| ||])
-
-lang_def val_and :=
-  fun a b =>
-    if a then b else false
-
-syntax " && " : bop
-
-macro_rules
-  | `([lang| $a:lang && $b:lang]) => `(trm.trm_app val_and [lang| $a] [lang| $b])
-
-@[app_unexpander val_or] def unexpandAnd : Lean.PrettyPrinter.Unexpander := fun _ => `([bop| &&])
 
 
--- @[app_unexpander trm_app] def unexpandApp : Lean.PrettyPrinter.Unexpander := fun x => do
+/- First we put simple triple lemmas into our hint data base
+   Those lemmas tell how to symbolically advance basic language instructions -/
 
-
-@[xapp]
-lemma or_spec (a b : Bool) :
-  { emp }
-  [ a || b ]
-  { v, ⌜v = (a || b)⌝ } := by
-  xif=> -><;> xval <;> xsimp
-
-@[xapp]
-lemma and_spec (a b : Bool) :
-  { emp }
-  [ a && b ]
-  { v, ⌜v = (a && b)⌝ } := by
-  xif=> -><;> xval <;> xsimp
-
-lang_def val_or_eq :=
-  fun p b =>
-    let v := !p in
-    let v := v || b in
-    p := v
-
-syntax " ||= " : bop
-
-macro_rules
-  | `([lang| $a:lang ||= $b:lang]) => `(trm.trm_app val_or_eq [lang| $a] [lang| $b])
-
-@[app_unexpander val_or_eq] def unexpandOrEq : Lean.PrettyPrinter.Unexpander := fun _ => `([bop| ||=])
-
-@[xapp]
-lemma or_eq_spec (a b : Bool) (p : loc) :
-  { p ~~> a }
-  [ p ||= b ]
-  { v, p ~~> (b || a) } := by
-  xwp; xapp; xwp; xapp; xwp; xapp
-  xsimp; srw Bool.or_comm
-
-lang_def val_add_eq :=
-  fun p b =>
-    let v := !p in
-    let v := v + b in
-    p := v
-
-syntax " += " : bop
-
-macro_rules
-  | `([lang| $a:lang += $b:lang]) => `(trm.trm_app val_add_eq [lang| $a] [lang| $b])
-
-@[app_unexpander val_add_eq] def unexpandAddEq : Lean.PrettyPrinter.Unexpander := fun _ => `([bop| +=])
-
-@[xapp]
-lemma add_eq_spec (a b : ℝ) (p : loc) :
-  { p ~~> a }
-  [ p += b ]
-  { v, p ~~> (b + a) } := by
-  xstep; xstep triple_addr; xstep
-  xsimp; srw add_comm
+#hint_xapp triple_get
+#hint_xapp triple_lt
+#hint_xapp triple_sub
+#hint_xapp triple_neq
+#hint_xapp triple_arrayFun_length
+#hint_xapp triple_harrayFun_get
 
 
 namespace Lang
+
+/- This is DSL term declaration. For now we only support reasoning about terms in SSA-normal form -/
 lang_def incr :=
   fun p =>
     let x := !p in
     let x := x + 1 in
     p := x
 
+set_option pp.all true in #print incr
+
+/- We can extend the syntax of our languge on the fly with a new unary operation [incr] -/
+syntax " ++ " : uop
+macro_rules
+  | `([lang| ++ $a:lang]) => `(trm.trm_app incr [lang| $a])
+@[app_unexpander incr] def unexpandIncr : Lean.PrettyPrinter.Unexpander := fun _ => `([uop| ++])
+
+#hint_xapp triple_add -- add a triple lemma for pure addition to a hint database
+
+@[xapp]
 lemma incr_spec (p : loc) (n : Int) :
   { p ~~> n }
-  [ incr p ]
-  { p ~~> val.val_int (n + 1) } := by
-  sdo 3 xstep
+  [ ++p ]
+  { p ~~> n + 1 } := by
+  xstep triple_get -- Tactic for a one step of symbolic execution;
+                   -- You can pass a specific triple lemma to guide the symbolic execution
+  xstep            -- Or you can let the tactic choose the lemma for a current pgrogram from [xapp] hint database
+  xstep
 
-/- find_index: returns the index of the last occurence of `target` in
-   `arr` or `-1` if `target` is not an element of `arr` -/
+lang_def add_pointer :=
+  fun p q =>
+    let m := !q in
+    for i in [0:m] {
+      ++p
+    }; !p
+
+lemma add_pointer_spec (p q : loc) (n m : Int) (_ : m >= 0) :
+  { p ~~> n ∗ q ~~> m }
+  [ add_pointer p q ]
+  { v, ⌜v = n+m⌝ ∗ ⊤  } := by
+    xstep
+    -- Tactic for a [for]-loop. This tactic should be supplied with a loop invariant [I].
+    -- In this case [I] only captures a piece of the state, relevant to the loop body.
+    -- The rest of the state would be framed automatically
+    xfor (p ~~> n + ·)
+    { move=>*; xapp; xsimp; omega }
+    move=> ? /=; xapp; xsimp
+
+/- find_index: returns the index of the first occurence of `target` in
+   `arr` or `size(arr)` if `target` is not an element of `arr` -/
 lang_def findIdx :=
   fun arr target Z N =>
     ref ind := Z in
@@ -119,35 +82,9 @@ lang_def findIdx :=
         let arrind := arr[ind] in
         arrind != target
       else false) {
-        incr ind
+        ++ind
     };
-    let res := !ind in
-    res
-
-abbrev to_real (v : val) : ℝ :=
-  match v with
-  | val_real n => n
-  | _ => 0
-
-abbrev to_int (v : val) : ℤ :=
-  match v with
-  | val_int n => n
-  | _ => -1
-
-instance : Coe ℝ val := ⟨val_real⟩
-instance : Coe val ℝ := ⟨to_real⟩
-instance : Coe val ℤ := ⟨to_int⟩
-
--- #hint_xapp triple_arrayFun_length ????
--- #hint_xapp triple_ref
-#hint_xapp triple_get
-#hint_xapp triple_lt
-#hint_xapp triple_sub
-#hint_xapp triple_neq
--- #hint_xapp triple_free
-#hint_xapp incr_spec
-#hint_xapp triple_arrayFun_length
-#hint_xapp triple_harrayFun_get
+    !ind
 
 attribute [simp] is_true
 
@@ -156,11 +93,10 @@ lemma findIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
   (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
   Set.InjOn f ⟦z, n⟧ ->
   target ∈ f '' ⟦z, n⟧ ->
-  { arr(arr, x in N => f x) }
+  { arr(arr, i in N => f i) }
   [ findIdx arr target z n ]
-  { v, ⌜ v = f.invFunOn ⟦z, n⟧ target ⌝ ∗ arr(arr, x in N => f x) } := by
+  { v, ⌜ v = f.invFunOn ⟦z, n⟧ target ⌝ ∗ arr(arr, i in N => f i) } := by
   move=> inj fin
-  -- xwp; xapp triple_arrayFun_length
   xref;
   let cond := fun i : ℤ => (i < n ∧ f.invFunOn ⟦z, n⟧ target != i)
   xwhile_up (fun b i =>
@@ -192,8 +128,7 @@ lemma findIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
     { omega }
     srw cond /== }
   move=> hv /=; xsimp=> i ?; srw cond=> /== fE
-  sdo 2 xstep
-  xval; xsimp[val_int i]
+  xapp; xsimp[val_int i]
   srw fE //; scase: [i = n]=> [|?] //; omega
 
 lemma findIdx_spec' (arr : loc) (f : Int -> ℝ)
@@ -202,7 +137,7 @@ lemma findIdx_spec' (arr : loc) (f : Int -> ℝ)
   i ∈ ⟦z, n⟧ ->
   { arr(arr, x in N => f x) }
   [ findIdx arr ⟨f i⟩ z n ]
-  { v, ⌜ v = val_int i ⌝ ∗ arr(arr, x in N => f x) } := by
+  { v, ⌜ v = val.val_int i ⌝ ∗ arr(arr, x in N => f x) } := by
   move=> inj iin
   xapp findIdx_spec; xsimp=> /=
   rw [Function.invFunOn_app_eq f inj iin]
