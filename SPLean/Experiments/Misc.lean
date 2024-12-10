@@ -34,14 +34,14 @@ lang_def incr :=
 set_option pp.all true in #print incr
 
 /- We can extend the syntax of our languge on the fly with a new unary operation [incr] -/
-syntax " ++ " : uop
+syntax "++" : uop
 macro_rules
   | `([lang| ++ $a:lang]) => `(trm.trm_app incr [lang| $a])
 @[app_unexpander incr] def unexpandIncr : Lean.PrettyPrinter.Unexpander := fun _ => `([uop| ++])
 
 #hint_xapp triple_add -- add a triple lemma for pure addition to a hint database
 
-@[xapp]
+@[xapp] -- Another way to add a triple lemma to a hint database
 lemma incr_spec (p : loc) (n : Int) :
   { p ~~> n }
   [ ++p ]
@@ -67,7 +67,10 @@ lemma add_pointer_spec (p q : loc) (n m : Int) (_ : m >= 0) :
     -- In this case [I] only captures a piece of the state, relevant to the loop body.
     -- The rest of the state would be framed automatically
     xfor (p ~~> n + ·)
-    { move=>*; xapp; xsimp; omega }
+    { move=>*;
+      xapp; -- Here rather than symbolically executing the top-most instruction in [incr], we
+            -- Apply its specification lemma directly via [xapp] tactic
+      xsimp; omega }
     move=> ? /=; xapp; xsimp
 
 /- find_index: returns the index of the first occurence of `target` in
