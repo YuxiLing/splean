@@ -1039,6 +1039,8 @@ macro "xapp_nosubst" e:term ? : tactic =>
      eapply xapp_lemma; xapp_pick $(e)?
      rotate_right; xapp_simp; hide_mvars=>//))
 
+set_option linter.unreachableTactic false in
+set_option linter.unusedTactic false in
 macro "xapp" : tactic =>
   `(tactic|
     (xapp_nosubst;
@@ -1048,6 +1050,8 @@ macro "xapp" : tactic =>
        | all_goals try srw wp_equiv
          all_goals try subst_vars))
 
+set_option linter.unreachableTactic false in
+set_option linter.unusedTactic false in
 elab "xapp" colGt e:term ? : tactic => do
   {|
     (xapp_nosubst $(e)?;
@@ -1232,7 +1236,9 @@ lemma isubst_insert (al : ctx) x v t :
   all_goals (try srw (fun t => isubst_perm t (AList.erase_twice x al)))
   all_goals (try srw (fun v t => isubst_perm t (AList.erase_insert_cancel x v al)))
   all_goals (try solve
-    | srw (fun x' hneq v t => isubst_perm t (AList.erase_insert_swap x x' v al hneq)) <;> aesop ; -- `aesop` does autorewrite here
+    | srw (fun x' hneq v t => isubst_perm t (AList.erase_insert_swap x x' v al hneq)) <;>
+      (try solve | aesop) ; -- `aesop` does autorewrite here
+      (try simp [*])
       apply congrArg ; srw AList.erase_erase)
   all_goals (try apply isubst_perm)
   { rename_i x' ; by_cases h : x' = x
@@ -1559,7 +1565,8 @@ lemma wp_structural : structural (wp t) := by
 -- #hint_xapp triple_ref
 -- #hint_xapp triple_free
 
-
+set_option linter.unreachableTactic false in
+set_option linter.unusedTactic false in
 elab "xseq_xlet_if_needed_xwp" : tactic => do
   match <- getGoalStxAll with
   | `($_ ==> mkstruct $f $_) =>
@@ -1809,3 +1816,4 @@ macro "xref" : tactic => `(tactic| (xwp; xref))
 --      skip,
 --      skip⟩
 --     ))
+set_option linter.style.longFile 2000

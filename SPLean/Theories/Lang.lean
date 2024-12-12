@@ -730,12 +730,12 @@ def val.is_loc : val -> Prop
   | val_loc _ => True
   | _ => False
 
-example :
-  evalExact_ref_nonpositive ∅ "x" (trm_val (val_int 0)) (trm_var "x") fun v h => v.is_loc ∧ h = ∅ := by
-  unfold evalExact_ref_nonpositive
-  exists (fun v s ↦ v = 0 ∧ s = ∅)=> ⟨//| ⟩
-  move=> > /= [->->] > ? ; simp [subst]
-  admit
+-- example :
+--   evalExact_ref_nonpositive ∅ "x" (trm_val (val_int 0)) (trm_var "x") fun v h => v.is_loc ∧ h = ∅ := by
+--   unfold evalExact_ref_nonpositive
+--   exists (fun v s ↦ v = 0 ∧ s = ∅)=> ⟨//| ⟩
+--   move=> > /= [->->] > ? ; simp [subst]
+--   admit
 
 lemma evalExact_post_eq :
   Q = Q' →
@@ -1076,7 +1076,7 @@ macro_rules
     | t => `([lang| ⟨$t⟩])
   | _ => throw ( )
 instance : Coe ℝ val := ⟨val_real⟩
-#check fun (i : ℤ -> ℤ) => [lang| ⟨i 0 : ℤ⟩]
+-- #check fun (i : ℤ -> ℤ) => [lang| ⟨i 0 : ℤ⟩]
 
 @[app_unexpander trm_app] def unexpandApp : Lean.PrettyPrinter.Unexpander := fun x => do
   -- dbg_trace x
@@ -1258,86 +1258,86 @@ instance : Coe ℝ val := ⟨val_real⟩
   | _ => throw ( )
 
 -- set_option pp.notation false
-#check [lang| x[3] ]
-#check [lang| x[7](0)]
-#check [lang| x[3] := 5; mkarr 5 5]
+-- #check [lang| x[3] ]
+-- #check [lang| x[7](0)]
+-- #check [lang| x[3] := 5; mkarr 5 5]
 
-#check fun (p : loc)  => [lang|
-  fix f y z =>
-    if F y z
-    then
-      let y := ⟨1 + 1⟩in
-      let y := 1 + 1 in
-      let y := ⟨0 + 1⟩ in
-      let z := !p in
-      y + z
-    else
-      let y := 1 + 1 in
-      let z := 1 in
-      y + z]
+-- #check fun (p : loc)  => [lang|
+--   fix f y z =>
+--     if F y z
+--     then
+--       let y := ⟨1 + 1⟩in
+--       let y := 1 + 1 in
+--       let y := ⟨0 + 1⟩ in
+--       let z := !p in
+--       y + z
+--     else
+--       let y := 1 + 1 in
+--       let z := 1 in
+--       y + z]
 
-#check [lang| x; let x := !x in let y:= () in x]
-#check [lang|x y; z]
-#check [lang|!x; y]
-instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
-#check fun n : ℤ => (([lang| ()]).trm_seq (trm_val ((n + 1))))
+-- #check [lang| x; let x := !x in let y:= () in x]
+-- #check [lang|x y; z]
+-- #check [lang|!x; y]
+-- instance : HAdd ℤ ℕ val := ⟨fun x y => val_int (x + (y : Int))⟩
+-- #check fun n : ℤ => (([lang| ()]).trm_seq (trm_val ((n + 1))))
 
-#check fun (p : loc)  => [lang|
-  fix f y z =>
-    if F y z
-    then
-      for i in [z : y] {
-        ref z := i in
-        ref x := i in
-        !z
-      }
-    else
-      for i in [z : y] {
-        ref z := i in
-        ref x := i in
-        i := ⟨true⟩;
-        i := i +1;
-        !z
-      }; !z]
+-- #check fun (p : loc)  => [lang|
+--   fix f y z =>
+--     if F y z
+--     then
+--       for i in [z : y] {
+--         ref z := i in
+--         ref x := i in
+--         !z
+--       }
+--     else
+--       for i in [z : y] {
+--         ref z := i in
+--         ref x := i in
+--         i := ⟨true⟩;
+--         i := i +1;
+--         !z
+--       }; !z]
 
 
-#print val_array_make
+-- -- #print val_array_make
 
--- set_option pp.notation false
-#check fun (p : loc)  => [lang|
-  fix f y z =>
-    if F y z
-    then
-      let y := ⟨1 + 1 : ℝ⟩in
-      let y := 1 + 1 in
-      let z := !p in
-      y + z
-    else
-      let y := 1 + 1 in
-      let z := 1 in
-      while (i < z) {
-        i := i + 1;
-        i := i + 1;
-        i}
-      ]
-#check [lang| 1 ++ 2]
-#check [lang| let x := 6 in alloc(x) as y in ()]
+-- -- -- set_option pp.notation false
+-- -- #check fun (p : loc)  => [lang|
+-- --   fix f y z =>
+-- --     if F y z
+-- --     then
+-- --       let y := ⟨1 + 1 : ℝ⟩in
+-- --       let y := 1 + 1 in
+-- --       let z := !p in
+-- --       y + z
+-- --     else
+-- --       let y := 1 + 1 in
+-- --       let z := 1 in
+-- --       while (i < z) {
+-- --         i := i + 1;
+-- --         i := i + 1;
+-- --         i}
+-- --       ]
+-- -- #check [lang| 1 ++ 2]
+-- -- #check [lang| let x := 6 in alloc(x) as y in ()]
 
-#check fun (x : ℤ -> ℝ) => [lang| ⟨x 0 : ℝ⟩]
+-- -- #check fun (x : ℤ -> ℝ) => [lang| ⟨x 0 : ℝ⟩]
 
-#check fun (p : loc)  => [lang|
-  fix f y z =>
-    if F y z
-    then
-      let y := ⟨1 + 1⟩in
-      let y := 1 + 1 in
-      let z := !p in
-      y + z
-    else
-      let y := 1 + 1 in
-      let z := 1 in
-      while (i < z) {
-        i := i + 1;
-        i := i + 1;
-        i}
-      ]
+-- -- #check fun (p : loc)  => [lang|
+-- --   fix f y z =>
+-- --     if F y z
+-- --     then
+-- --       let y := ⟨1 + 1⟩in
+-- --       let y := 1 + 1 in
+-- --       let z := !p in
+-- --       y + z
+-- --     else
+-- --       let y := 1 + 1 in
+-- --       let z := 1 in
+-- --       while (i < z) {
+-- --         i := i + 1;
+-- --         i := i + 1;
+-- --         i}
+-- --       ]

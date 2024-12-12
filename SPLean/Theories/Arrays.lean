@@ -104,7 +104,7 @@ lemma nth_app_r {A : Type} (_ : Inhabited A) n (l1 l2 : List A) :
   { sdone }
   sby move=> > ? []
 
-#check List.getElem_of_append
+-- #check List.getElem_of_append
 lemma nth_middle (A : Type) (IA : Inhabited A) (n : Nat)
   (l1 l2 : List A) (x : A) :
   n = l1.length → (l1 ++ x :: l2)[n]! = x := by
@@ -123,7 +123,7 @@ lemma update_app_r {A : Type} (l1 l2 : List A) n v :
   move=> > ? >
   sby cases n
 
-#check List.concat_eq_append
+-- #check List.concat_eq_append
 lemma update_middle (A : Type) (_ : Inhabited A) (n : Nat)
   (l1 l2 : List A) (x v : A) :
   n = l1.length → (l1 ++ x :: l2).set n v = (l1.concat v) ++ l2 := by

@@ -31,7 +31,7 @@ lang_def incr :=
     let x := x + 1 in
     p := x
 
-set_option pp.all true in #print incr
+-- set_option pp.all true in #print incr
 
 /- We can extend the syntax of our languge on the fly with a new Theories operation [incr] -/
 syntax "++" : uop
@@ -45,7 +45,7 @@ macro_rules
 lemma incr_spec (p : loc) (n : Int) :
   { p ~~> n }
   [ ++p ]
-  { p ~~> n + 1 } := by
+  { p ~~> val_int (n + 1) } := by
   xstep triple_get -- Tactic for a one step of symbolic execution;
                    -- You can pass a specific triple lemma to guide the symbolic execution
   xstep            -- Or you can let the tactic choose the lemma for a current pgrogram from [xapp] hint database
@@ -66,7 +66,7 @@ lemma add_pointer_spec (p q : loc) (n m : Int) (_ : m >= 0) :
     -- Tactic for a [for]-loop. This tactic should be supplied with a loop invariant [I].
     -- In this case [I] only captures a piece of the state, relevant to the loop body.
     -- The rest of the state would be framed automatically
-    xfor (p ~~> n + ·)
+    xfor (fun i => p ~~> n + i)
     { move=>*;
       xapp; -- Here rather than symbolically executing the top-most instruction in [incr], we
             -- Apply its specification lemma directly via [xapp] tactic
@@ -92,7 +92,7 @@ lang_def findIdx :=
 attribute [simp] is_true
 
 set_option maxHeartbeats 1600000
-lemma findIdx_spec (arr : loc) (f : Int -> ℝ) (target : ℝ)
+lemma findIdx_spec (arr : loc) (f : ℤ -> ℝ) (target : ℝ)
   (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
   Set.InjOn f ⟦z, n⟧ ->
   target ∈ f '' ⟦z, n⟧ ->

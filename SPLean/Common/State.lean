@@ -460,7 +460,7 @@ def intersect (s1 s2 : state) := s1 \ (s1 \ s2)
 
 def st1 : state := (Finmap.singleton 0 1).insert 1 1
 def st2 : state := ((Finmap.singleton 0 2).insert 2 2).insert 1 2
-#reduce intersect st1 st2
+-- #reduce intersect st1 st2
 
 lemma insert_eq_union_singleton (s : state) :
   p ∉ s →

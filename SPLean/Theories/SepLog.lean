@@ -478,7 +478,7 @@ lemma eval_frame (h1 h2 : state) t (Q : val -> hProp) :
   eval (h1 ∪ h2) t (Q ∗ (tohProp (fun h ↦ h = h2))) :=
 by
   unfold ofhProp tohProp; elim=> //
-  { move=> > ?? ih ih' *; apply eval.eval_app_arg1=> //
+  { move=> > ?? _ ih' *; apply eval.eval_app_arg1=> //
     move=> > ![] ?? ? -> ? ->; aesop }
   { move=> *; apply eval.eval_app_arg2=> //
     move=> > ![] ?? ? -> ? ->; aesop }
@@ -492,7 +492,7 @@ by
     move=> ? /Pp ?; exists s, h2 }
   { move=> > ? Pp *; apply eval.eval_binop=> //
     move=> ? /Pp ?; exists s, h2 }
-  { move=> > ? ih dj ih' ?
+  { move=> > ? _ dj ih' ?
     constructor; apply dj=> //
     move=> > ![] s1 ? ? -> dj' -> p /== ??
     rw [@Finmap.insert_union]
@@ -1092,7 +1092,7 @@ lemma triple_ptr_add_nonneg (p : loc) (n : Int) :
 
 /- Semantics of Low-Level Block Allocation -/
 
-#check eval.eval_alloc
+-- #check eval.eval_alloc
 /- eval.eval_alloc {x : var} {t2 : trm} (sa : state) (n : ℤ) (Q : val → state → Prop) :
   n ≥ 0 →
     (∀ (p : loc) (sb : state),
@@ -1124,7 +1124,7 @@ lemma triple_alloc_arg :
   unfold triple=> ? hs ? > /hs ?
   sby apply eval.eval_alloc_arg
 
-#check triple_ref
+-- #check triple_ref
 
 lemma int_eq_sub (l m n : ℤ) :
   l + m = n → l = n - m := by omega

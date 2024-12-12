@@ -987,14 +987,14 @@ local elab "pickl" i:num : tactic =>
   let l := hstar_pick_lemma i.getNat true
   {|apply $l|}
 
-example :
-  (forall H, H1 ∗ H2 ∗ H3 ∗ H4 = H -> H = Hresult -> True) -> True := by
-  intro M
-  dup 2 <;> eapply M
-  { pick 3 }
-  { admit }
-  { pickl 4 }
-  { admit }
+-- example :
+--   (forall H, H1 ∗ H2 ∗ H3 ∗ H4 = H -> H = Hresult -> True) -> True := by
+--   intro M
+--   dup 2 <;> eapply M
+--   { pick 3 }
+--   { admit }
+--   { pickl 4 }
+--   { admit }
 
 /- `xsimp_pick` -/
 
@@ -1013,21 +1013,21 @@ local elab "xsimp_pick_applied" h:term : tactic => do
   xsimp_pick_applied h xsimp.hla
 
 
-example (Q : Bool -> _):
-  (forall HX HY,
-    XSimp ((H1 ∗ H2 ∗ H3 ∗ Q true ∗ (⌜P⌝ -∗ HX) ∗ HY ∗ emp), Hlw, Hlt)
-           (Hra, Hrg, Hrt)
-  -> True) -> True := by
-  move=> M
-  eapply M
-  xsimp_pick 2
-  xsimp_pick_same H3
-  xsimp_pick_applied Q
-  xsimp_pick_same H2
-  xsimp_pick_same H3
-  xsimp_pick_same ⌜True⌝
-  xsimp_pick_same (⌜P⌝ -∗ H1)
-  admit
+-- example (Q : Bool -> _):
+--   (forall HX HY,
+--     XSimp ((H1 ∗ H2 ∗ H3 ∗ Q true ∗ (⌜P⌝ -∗ HX) ∗ HY ∗ emp), Hlw, Hlt)
+--            (Hra, Hrg, Hrt)
+--   -> True) -> True := by
+--   move=> M
+--   eapply M
+--   xsimp_pick 2
+--   xsimp_pick_same H3
+--   xsimp_pick_applied Q
+--   xsimp_pick_same H2
+--   xsimp_pick_same H3
+--   xsimp_pick_same ⌜True⌝
+--   xsimp_pick_same (⌜P⌝ -∗ H1)
+--   admit
 
 /- `xsimp/xpull` -/
 
@@ -1039,29 +1039,29 @@ local elab "xsimpl" : tactic => do
 local elab "xsimpr" : tactic => do
   xsimp_step_r (<- XSimpRIni)
 
-example :
-  (H1 ∗ emp ∗ (H2 ∗ (∃ʰ (y:Int) (z : Int) (n:Int), ⌜y = y + z + n⌝)) ∗ H3) ==> H :=
-  by
-    dup 2
-    { xpull0; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1;
-      admit }
-    { xpull; admit }
+-- example :
+--   (H1 ∗ emp ∗ (H2 ∗ (∃ʰ (y:Int) (z : Int) (n:Int), ⌜y = y + z + n⌝)) ∗ H3) ==> H :=
+--   by
+--     dup 2
+--     { xpull0; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1; xsimp1;
+--       admit }
+--     { xpull; admit }
 
-example :
-  H1 ∗ H2 ∗ H3 ∗ H4 ==> H4 ∗ H3 ∗ H5 ∗ H2 :=
-  by
-    dup 3
-    { xpull; admit }
-    { xsimp0
-      xsimp1
-      xsimp1
-      xsimp1
-      xsimp1
-      xsimp1
-      xsimp1
-      xsimp1
-      xsimp1; xsimp1; admit }
-    xsimp; admit
+-- example :
+--   H1 ∗ H2 ∗ H3 ∗ H4 ==> H4 ∗ H3 ∗ H5 ∗ H2 :=
+--   by
+--     dup 3
+--     { xpull; admit }
+--     { xsimp0
+--       xsimp1
+--       xsimp1
+--       xsimp1
+--       xsimp1
+--       xsimp1
+--       xsimp1
+--       xsimp1
+--       xsimp1; xsimp1; admit }
+--     xsimp; admit
 
 -- /--
 -- warning: declaration uses
@@ -1143,57 +1143,57 @@ example :
   (H1 ∗ H2 ∗ ((H1 ∗ H3) -∗ (H4 -∗ H5))) ∗ (H2 -∗ H3) ∗ H4 ==> H5 :=
   by xsimp
 
-example :
-  (emp -∗ H1) ∗ H2 ==> H3 :=
-  by xsimp; admit
+-- example :
+--   (emp -∗ H1) ∗ H2 ==> H3 :=
+--   by xsimp; admit
 
-example :
-  ((H0 ∗ emp) -∗ emp -∗ H1) ∗ H2 ==> H3 := by
-  xsimp; admit
+-- example :
+--   ((H0 ∗ emp) -∗ emp -∗ H1) ∗ H2 ==> H3 := by
+--   xsimp; admit
 
-example (v2 : Int) :
-  H0 ∗ H1 ∗ p1 ~~> v1 ∗ p2 ~~> val.val_int (v2 * 1) ==> H2 ∗ p2 ~~> v2 ∗ H3 := by
-  xsimp
-  any_goals admit
+-- example (v2 : Int) :
+--   H0 ∗ H1 ∗ p1 ~~> v1 ∗ p2 ~~> val.val_int (v2 * 1) ==> H2 ∗ p2 ~~> v2 ∗ H3 := by
+--   xsimp
+--   any_goals admit
 
-example:
-  v = v' →
-  H1 ∗ p ~~> v ==> H1 ∗ p ~~> v' := by
-  move=> ?
-  xsimp
+-- example:
+--   v = v' →
+--   H1 ∗ p ~~> v ==> H1 ∗ p ~~> v' := by
+--   move=> ?
+--   xsimp
 
-example:
-  H1 ∗ p1 ~~> v1 ∗ H2 ∗ p2 ~~> v2 ∗ H3 ==> H1 ∗ H2 ∗  p1 ~~> v1' ∗ p2 ~~> v2' := by
-  xsimp
-  all_goals admit
+-- example:
+--   H1 ∗ p1 ~~> v1 ∗ H2 ∗ p2 ~~> v2 ∗ H3 ==> H1 ∗ H2 ∗  p1 ~~> v1' ∗ p2 ~~> v2' := by
+--   xsimp
+--   all_goals admit
 
-example :
-  H1 ∗ 2 ~~> v ==> (1 + 1) ~~> v ∗ H1 := by
-  xsimp
+-- example :
+--   H1 ∗ 2 ~~> v ==> (1 + 1) ~~> v ∗ H1 := by
+--   xsimp
 
-example :
-  x ~~> 1 ==> y ~~> 2 ∗ x ~~> 1 := by
-  xsimp; admit
+-- example :
+--   x ~~> 1 ==> y ~~> 2 ∗ x ~~> 1 := by
+--   xsimp; admit
 
 
 
-set_option trace.xsimp true
+-- set_option trace.xsimp true
 
-example :
-  H1 ∗ H2 ∗ ((H1 ∗ H3) -∗ (H4 -∗ H5)) ∗ H4 ==> ((H2 -∗ H3) -∗ H5) := by
-  xsimp
+-- example :
+--   H1 ∗ H2 ∗ ((H1 ∗ H3) -∗ (H4 -∗ H5)) ∗ H4 ==> ((H2 -∗ H3) -∗ H5) := by
+--   xsimp
 
-local elab "put_hints" ls:hints : tactic => do
-  match ls with
-  | `(hints| [ $[$hs],* ]) =>
-    hintExt.setSSR hs.toList
-  | _ => throwError "xsimp: unreachable"
+-- local elab "put_hints" ls:hints : tactic => do
+--   match ls with
+--   | `(hints| [ $[$hs],* ]) =>
+--     hintExt.setSSR hs.toList
+--   | _ => throwError "xsimp: unreachable"
 
-example (Q : Int -> Bool -> _) :
-  Q 4 true ==> Q 3 false ->
-  H1 ∗ Q 4 true ==> ∃ʰ x b, Q x b ∗ H1 := by
-  move=> ?
-  xsimp
+-- example (Q : Int -> Bool -> _) :
+--   Q 4 true ==> Q 3 false ->
+--   H1 ∗ Q 4 true ==> ∃ʰ x b, Q x b ∗ H1 := by
+--   move=> ?
+--   xsimp
 
 -- example :
 --   emp ==> (∃ʰ x, x ~~> 1) ∗ (∃ʰ x, x ~~> 2) := by

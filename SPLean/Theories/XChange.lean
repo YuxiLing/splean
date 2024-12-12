@@ -76,13 +76,13 @@ macro "xchanges" l:term : tactic =>
 
 -- set_option trace.xchange true
 
-example :
-  H1 ==> H2 ∗ H3 ->
-  H1 ∗ H4 ==> (H5 -∗ H6) := by
-  intro M
-  dup 2
-  { xchange M; admit }
-  xchanges M; admit
+-- example :
+--   H1 ==> H2 ∗ H3 ->
+--   H1 ∗ H4 ==> (H5 -∗ H6) := by
+--   intro M
+--   dup 2
+--   { xchange M; admit }
+--   xchanges M; admit
 
 example (Q : α -> hProp) :
   H1 ==> (∃ʰ x, Q x ∗ (H2 -∗ H3)) ->
