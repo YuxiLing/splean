@@ -1,5 +1,5 @@
 import Mathlib.Data.Int.Interval
-import Mathlib.Tactic
+import Mathlib.Tactic.Common
 
 import SPLean.Theories.WP1
 import SPLean.Theories.Lang
