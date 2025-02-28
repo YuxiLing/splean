@@ -1,8 +1,6 @@
 -- import Ssreflect.Lang
 import Mathlib.Data.Finmap
 
-import Mathlib.Algebra.BigOperators.Group.Finset
-
 import SPLean.Common.Heap
 
 import SPLean.Common.Util
@@ -844,19 +842,19 @@ lemma hadd_single (v v' : Int) :
   apply hadd_single_gen=> //
 
 lemma sum_single (v : β -> Int) (fs : Finset β) :
-  (p ~~> 0) + ∑ i in fs, (p ~~> v i) = p ~~> val.val_int (∑ i in fs, v i) := by
+  (p ~~> 0) + ∑ i ∈ fs, (p ~~> v i) = p ~~> val.val_int (∑ i ∈ fs, v i) := by
   induction fs using Finset.induction_on=> //==
   rename_i ih; srw ?Finset.sum_insert // add_left_comm ih hadd_single //
 
 lemma sum_single' (v : β -> Int) (fs : Finset β) (x : ℤ) :
-  (p ~~> x) + ∑ i in fs, (p ~~> v i) = p ~~> val.val_int (x + ∑ i in fs, v i) := by
+  (p ~~> x) + ∑ i ∈ fs, (p ~~> v i) = p ~~> val.val_int (x + ∑ i ∈ fs, v i) := by
   induction fs using Finset.induction_on=> //==
   rename_i ih; srw ?Finset.sum_insert // add_left_comm ih hadd_single //
   congr!; simp [instHAdd]; simp [Add.add]; omega
 
 lemma sum_single'' (v : β -> Int) (fs : Finset β)  :
   fs.Nonempty ->
-  ∑ i in fs, (p ~~> v i) = p ~~> val.val_int (∑ i in fs, v i) := by
+  ∑ i ∈ fs, (p ~~> v i) = p ~~> val.val_int (∑ i ∈ fs, v i) := by
   induction fs using Finset.induction_on=> //==
   rename_i s _ ih; srw ?Finset.sum_insert //
   scase: [s.Nonempty] => [/== -> /==|/ih->]
@@ -896,7 +894,7 @@ lemma hadd_single (v v' : Bool) :
   apply hadd_single_gen=> //
 
 lemma sum_single (v : β -> Bool) (fs : Finset β) :
-  (p ~~> false) + ∑ i in fs, (p ~~> v i) =
+  (p ~~> false) + ∑ i ∈ fs, (p ~~> v i) =
   p ~~> val.val_bool (∃ i ∈ fs, v i) := by
   induction fs using Finset.induction_on=> //==
   rename_i ih; srw ?Finset.sum_insert // add_left_comm ih hadd_single //
@@ -941,7 +939,7 @@ lemma hadd_single (v v' : ℝ) :
   apply hadd_single_gen=> //
 
 lemma sum_single (v : β -> ℝ) (fs : Finset β) :
-  (p ~~> val.val_real 0) + ∑ i in fs, (p ~~> val.val_real (v i)) = p ~~> val.val_real (∑ i in fs, v i) := by
+  (p ~~> val.val_real 0) + ∑ i ∈ fs, (p ~~> val.val_real (v i)) = p ~~> val.val_real (∑ i ∈ fs, v i) := by
   induction fs using Finset.induction_on=> //==
   rename_i ih; srw ?Finset.sum_insert // add_left_comm ih hadd_single //
 
@@ -984,7 +982,7 @@ lemma hProp.disjoint_sum (H : hProp) (fs : Finset β) :
 open EmptyPCM in
 lemma sum_disjoint_hstar (H : β -> hProp) (fs : Finset β) [inst : PartialCommMonoid val] :
   (∀ᵉ (i ∈ fs) (j ∈ fs), i ≠ j -> (H i).Disjoint (H j)) ->
-  (∑ b in fs, H b) =
+  (∑ b ∈ fs, H b) =
   (@Finset.sum β hProp (@instAddCommMonoidHPropOfPartialCommMonoidVal (PartialCommMonoidWRT.toPartialCommMonoid add valid)) fs H) := by
   induction fs using Finset.induction_on=> //==
   rename_i ih

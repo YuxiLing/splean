@@ -71,14 +71,7 @@ by
 
 lemma finite_state (s : state) :
   ∃ p, p ∉ s := by
-  scase: [s.keys.Nonempty]
-  { srw Finset.nonempty_iff_ne_empty=> /== ?
-    exists 0 ; unfold Not
-    sby srw -Finmap.mem_keys }
-  move=> /Finset.max_of_nonempty [>]
-  have eqn:(w < w + 1) := by sdone
-  move: eqn=> /Finset.not_mem_of_max_lt /[apply] ?
-  exists (w + 1)
+  srw -Finmap.mem_keys ; apply Finset.exists_not_mem
 
 lemma conseq_ind (n : ℕ) (v : val) (p : loc) :
   x ∈ conseq (make_list n v) p → x ≥ p := by
@@ -94,12 +87,12 @@ lemma finite_state' n (s : state) :
   { srw Finset.nonempty_iff_ne_empty=> /== ?
     exists 1 ; unfold null Finmap.Disjoint=> /== >
     sby srw -Finmap.mem_keys }
-  move=> /Finset.max_of_nonempty [>] hmax
+  move=> /Finset.exists_maximal [>] [] hin hmax
   exists (w + 1)=> ⟨|⟩
   { sby unfold null }
   unfold Finmap.Disjoint=> >
-  move: hmax=> /[swap]
-  srw -Finmap.mem_keys=> /Finset.le_max_of_eq /[apply] ?
+  move: hmax
+  srw -Finmap.mem_keys=> /[apply] ?
   unfold Not=> /conseq_ind /==
   sby srw Nat.lt_succ_iff
 

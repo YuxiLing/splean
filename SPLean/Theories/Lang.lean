@@ -249,7 +249,7 @@ inductive step : state → trm → state → trm → Prop where
       step s (trm_app val_free (val_loc p)) (Finmap.erase p s) val_unit
 
 /- Multi-step relation -/
-inductive steps : state → trm → state → trm → Prop :=
+inductive steps : state → trm → state → trm → Prop where
   | steps_refl : forall s t,
       steps s t s t
   | steps_step : forall s1 s2 s3 t1 t2 t3,

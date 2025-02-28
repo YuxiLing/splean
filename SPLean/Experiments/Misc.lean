@@ -122,7 +122,7 @@ lemma findIdx_spec (arr : loc) (f : ℤ -> ℝ) (target : ℝ)
     xval; xsimp=> //
     scase: b condE=> //==; omega }
   { move=> i;
-    xapp=> /== ?? fE ?; srw cond /== => fInvE
+    xapp=> /== ?? fE; srw cond /== => ? fInvE
     xsimp [(decide (cond (i + 1))), i+1]=> //
     { move=> ⟨|⟨|⟩⟩ <;> try omega
       move=> j *; scase: [j = i]=> [?|->]
