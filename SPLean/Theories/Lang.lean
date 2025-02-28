@@ -1257,6 +1257,17 @@ instance : Coe ℝ val := ⟨val_real⟩
     `([lang| fix $f $xs* => $t])
   | _ => throw ( )
 
+-- taken from https://github.com/leanprover/vstte2024/blob/main/Imp/Expr/Syntax.lean
+open Lean PrettyPrinter Parenthesizer in
+@[category_parenthesizer lang]
+def lang.parenthesizer : CategoryParenthesizer | prec => do
+  maybeParenthesize `lang true wrapParens prec $
+    parenthesizeCategoryCore `lang prec
+where
+  wrapParens (stx : Syntax) : Syntax := Unhygienic.run do
+    let pstx ← `(($(⟨stx⟩)))
+    return pstx.raw.setInfo (SourceInfo.fromRef stx)
+
 -- set_option pp.notation false
 -- #check [lang| x[3] ]
 -- #check [lang| x[7](0)]
