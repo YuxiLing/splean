@@ -31,6 +31,19 @@ lang_def incr :=
     let x := x + 1 in
     p := x
 
+
+
+
+
+
+-- Define field as a type synonym for nat
+/-
+structure x y z p = p.0 -> x /\ p.1 -> y /\ p.2 ->z
+
+fun p => !p...
+
+-/
+
 -- set_option pp.all true in #print incr
 
 /- We can extend the syntax of our languge on the fly with a new Theories operation [incr] -/
@@ -50,6 +63,9 @@ lemma incr_spec (p : loc) (n : Int) :
                    -- You can pass a specific triple lemma to guide the symbolic execution
   xstep            -- Or you can let the tactic choose the lemma for a current pgrogram from [xapp] hint database
   xstep
+
+
+
 
 lang_def add_pointer :=
   fun p q =>
@@ -91,6 +107,7 @@ lang_def findIdx :=
 
 attribute [simp] is_true
 
+
 set_option maxHeartbeats 1600000
 lemma findIdx_spec (arr : loc) (f : ℤ -> ℝ) (target : ℝ)
   (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
@@ -107,8 +124,13 @@ lemma findIdx_spec (arr : loc) (f : ℤ -> ℝ) (target : ℝ)
     p ~~> i ∗
     ⌜cond i = b⌝ ∗
     arr(arr, x in N => f x)) N
-  { xsimp [(decide (cond z))]=> //; }
-  { move=> b i
+  { xsimp [(decide (cond z))]
+    simp
+    aesop
+    simp
+  }
+  { --move=> b i
+    intro b i
     xstep=> ?; srw cond /== => condE
     xstep
     xif=> //== iL
@@ -121,7 +143,9 @@ lemma findIdx_spec (arr : loc) (f : ℤ -> ℝ) (target : ℝ)
       srw Function.invFunOn_app_eq // }
     xval; xsimp=> //
     scase: b condE=> //==; omega }
-  { move=> i;
+
+
+  /-{ move=> i;
     xapp=> /== ?? fE ?; srw cond /== => fInvE
     xsimp [(decide (cond (i + 1))), i+1]=> //
     { move=> ⟨|⟨|⟩⟩ <;> try omega
@@ -144,3 +168,5 @@ lemma findIdx_spec' (arr : loc) (f : Int -> ℝ)
   move=> inj iin
   xapp findIdx_spec; xsimp=> /=
   rw [Function.invFunOn_app_eq f inj iin]
+-/
+-/

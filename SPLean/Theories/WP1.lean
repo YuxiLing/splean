@@ -1022,9 +1022,9 @@ set_option linter.unusedTactic false in
 
 elab "xapp_pick" e:term ? : tactic => do
   let thm <- (match e with
-    | .none => pickTripleLemma
-    | .some thm => return thm.raw.getId : TacticM Name)
-  {| eapply $(mkIdent thm) |}
+    | .none => return mkIdent $ <- pickTripleLemma
+    | .some thm => return ⟨thm⟩)
+  {| eapply $thm |}
 
 set_option linter.unreachableTactic false in
 set_option linter.unusedTactic false in
@@ -1079,20 +1079,55 @@ abbrev var_funs (xs:List var) (n:Nat) : Prop :=
   /\ xs != []
 
 @[simp]
-def trms_vals (vs : List var) : List trm :=
-  vs.map trm_var
+def trms_vals (vs : List val) : List trm :=
+  vs.map trm_val
 
-instance : Coe (List var) (List trm) where
+instance : Coe (List val) (List trm) where
   coe := trms_vals
 
 -- lemma trms_vals_nil :
 --   trms_vals .nil = .nil := by rfl
 @[simp]
+def trms_to_vals (ts:List trm) : Option (List val) :=
+  match ts with
+  | [] => some []
+  | (trm_val v)::ts' =>
+      match trms_to_vals ts' with
+      | none => none
+      | some vs' => some (v::vs')
+  | _ => none
+/-
 def trms_to_vals (ts:List trm) : Option (List val) := do
   match ts with
   | [] => return []
   | (trm_val v) :: ts' => v :: (<- trms_to_vals ts')
   | _ => failure
+-/
+
+
+lemma trms_to_vals_spec : forall ts vs,
+  trms_to_vals ts = some vs ->
+  ts = trms_vals vs :=
+by
+  intro ts
+  induction ts with --as [|t ts']; simpl; introv E.
+  | nil => simp
+  | cons t ts' ih =>
+    simp; intro vs E; unfold trms_to_vals at E
+    split at E
+    case h_1 ts heq => simp at E; simp[heq, ←E]
+    case h_2 ts v ts'' heq =>
+      simp at heq
+      split at E
+      case h_1 x _ => simp at E
+      case h_2 x vs' heq' =>
+        simp at E
+        simp[←E]
+        apply And.intro
+        { apply (And.left heq) }
+        { simp[←(And.right heq)] at heq'; apply ih vs' heq' }
+    case h_3 => simp at E
+
 
 lemma trms_to_vals_some_equiv ts vs : trms_to_vals ts = some vs → ts = vs.map trm_val := by
   elim: ts vs <;> try (simp [trms_to_vals])
@@ -1258,6 +1293,61 @@ lemma isubst_insert (al : ctx) x v t :
     on_goal 2=> apply AList.erase_insert_swap ; aesop
     apply AList.perm_erase
     apply AList.erase_insert_swap ; aesop }
+
+lemma erase_empty (x:var) : erase x (∅:ctx) = ∅ :=
+by
+  simp[erase]
+  apply ext
+  simp
+
+
+lemma subst_eq_isubst_one  x v t :
+  subst x v t = isubst ((∅ : ctx).insert x v) t :=
+by
+  rw[isubst_insert]
+  simp[erase_empty,isubst_empty]
+
+
+
+
+
+/-
+lemma isubst_insert' (al : ctx) x v t :
+  isubst (al.insert x v) t = subst x v (isubst (al) t) := by
+  move: al
+  induction t using (subst.induct x v)=> >
+  all_goals (simp [isubst, subst]=> //)
+  all_goals (split_ands=> //)
+  all_goals ((try split_ifs=> //) <;> (try subst_eqs))
+  all_goals (try srw (fun t => isubst_perm t (AList.erase_twice x al)))
+  all_goals (try srw (fun v t => isubst_perm t (AList.erase_insert_cancel x v al)))
+  all_goals (try solve
+    | srw (fun x' hneq v t => isubst_perm t (AList.erase_insert_swap x x' v al hneq)) <;>
+      (try solve | aesop) ; -- `aesop` does autorewrite here
+      (try simp [*])
+      apply congrArg ; srw AList.erase_erase)
+  all_goals (try apply isubst_perm)
+  { rename_i x' ; by_cases h : x' = x
+    { subst x' ; simp [subst] }
+    { srw AList.lookup_insert_ne // AList.lookup_erase_ne //
+      scase: (lookup x' al)=> //=
+      simp [subst, h] } }
+  { apply AList.perm_erase
+    trans ; apply AList.erase_insert_cancel ; symm ; apply AList.erase_twice }
+  { srw [2]AList.erase_erase [1]AList.erase_erase
+    apply AList.perm_erase
+    trans ; apply AList.erase_insert_cancel ; symm ; apply AList.erase_twice }
+  { rename_i ih ha hb
+    srw [3]AList.erase_erase [2]AList.erase_erase -ih
+    apply isubst_perm
+    trans
+    on_goal 2=> apply AList.erase_insert_swap ; aesop
+    apply AList.perm_erase
+    apply AList.erase_insert_swap ; aesop }
+-/
+
+
+
 
 lemma isubst_single x v t : isubst (List.mkAlist [x] [v]) t = subst x v t := by
   have h := (isubst_insert ∅ x v t)
@@ -1436,11 +1526,417 @@ variable (f : var) (hf : f ∉ xs)
 
 include f hf
 
--- lemma eval_like_trm_apps_fixs_pre (heqv0 : v0 = trm_fixs f xs t1) :
---   eval_like t (trm_apps (val_fixs f xs t1) ts) ∧
---   eval_like (isubst (xs.mkAlist vs) t1) t := by
+/-lemma eval_like_trm_apps_fixs_pre (heqv0 : v0 = trm_fixs f xs t1) :
+eval_like t (trm_apps (val_fixs f xs t1) ts) ∧ eval_like (isubst (xs.mkAlist vs) t1) t := by sorry
+-/
+
+/-
+lemma eval_like_trm_apps_fixs (heqv0 : v0 = trm_fixs f xs t1) :
+  eval_like (isubst (xs.mkAlist vs) t1) (trm_apps (val_fixs f xs t1) ts) := by
+  have ⟨h1, h2⟩ := eval_like_trm_apps_fixs_pre xs vs t v0 heqt hconv hform f hf heqv0
+  trans
+  apply h2
+  assumption
+-/
 
 end funs_fixs_eval_like
+
+
+def combine (xs : List var) (vs : List val) := xs.mkAlist vs
+
+lemma combine_spec (x:var) (v : val) (xs : List var) (vs : List val) :
+ combine (x::xs) (v::vs) =  (combine (xs) (vs)).insert x v
+:=
+by
+  unfold combine
+  unfold List.mkAlist
+  unfold List.toAList
+  rw[List.zip_cons_cons, List.map]
+  simp
+  exact rfl
+
+lemma combine_spec1 : ∀ vs,
+ combine [] vs =  ∅
+:=
+by
+  intro vs
+  exact rfl
+
+/-
+lemma isubst_insert (al : ctx) x v t :
+  isubst (al.insert x v) t = subst x v (isubst (al.erase x) t)
+-/
+
+lemma isubst_erase_insert : ∀ x v (xvs:ctx),
+  erase x (AList.insert x v xvs) = erase x xvs :=
+by
+  intro x v xvs
+  simp[AList.insert, erase]
+
+lemma isubst_erase_insert1 : ∀  x x' v (xvs:ctx),
+¬x' = x → erase x' (AList.insert x v xvs) =  AList.insert x v (erase x' xvs) :=
+by
+  intro x x' v xvs H
+  simp[AList.insert, erase]
+  rw[List.kerase_cons_ne, List.kerase_kerase]
+  simp[H]
+
+
+-- isubst (AList.insert x v xvs) t1 = isubst xvs (subst x v t1)
+lemma isubst_cons : forall x v (xvs:ctx) t,
+  isubst (xvs.insert x v) t = isubst xvs (subst x v t) :=
+by
+  intro x v xvs t
+  revert xvs
+  induction t using (subst.induct x v) with
+  | case1 v' =>
+    intro al; simp[isubst]
+  | case2 x' =>
+    intro al
+    simp[isubst, subst]
+    cases Classical.em (x' = x) with
+    | inl h =>
+      rw [h]
+      simp[isubst]
+    | inr h =>
+      rw [if_neg h]
+      simp[lookup_insert_ne h, isubst]
+  | case3 x' t1 ih1 =>
+    intros xvs
+    simp[isubst]
+    cases Classical.em (x' = x) with
+    | inl h =>
+      rw [h]
+      simp[isubst_erase_insert]
+    | inr h =>
+      rw [if_neg h]
+      rw[←ih1]
+      simp[isubst_erase_insert1 _ _ _ _ h]
+  | case4 f x' t1 ih1 =>
+    intros xvs
+    simp[isubst]
+    cases Classical.em (x' = f) with
+    | inl h =>
+      rw [h]
+      cases Classical.em (f = x) with
+      | inl h' =>
+        rw [h']
+        simp[isubst_erase_insert]
+      | inr h' =>
+        rw [if_neg h']
+        rw [if_neg h']
+        rw[isubst_erase_insert1]
+        rw[isubst_erase_insert1]
+        simp[ih1]
+        apply h'; apply h'
+    | inr h =>
+      cases Classical.em (f = x) with
+      | inl h' =>
+        rw [h']
+        simp[isubst_erase_insert]
+      | inr h' =>
+        rw [if_neg h']
+        rw[isubst_erase_insert1]
+
+        { cases Classical.em (x' = x) with
+        | inl h'' =>
+            simp[h'', isubst_erase_insert]
+        | inr h'' =>
+          rw [if_neg h'']
+          rw[isubst_erase_insert1]
+          simp[ih1]; apply h'' }
+        { exact h' }
+  | case5 t1 t2 ih2 ih1 =>
+    intro xvs
+    simp[isubst]
+    apply And.intro
+    { apply ih2 }
+    { apply ih1 }
+  | case6 t1 t2 ih2 ih1 =>
+    intro xvs
+    simp[isubst]
+    apply And.intro
+    { apply ih2 }
+    { apply ih1 }
+  | case7 x' t1 t2 ih2 ih1 =>
+    intro xvs
+    simp[isubst]
+    apply And.intro
+    { apply ih2 }
+    { cases Classical.em (x' = x) with
+    | inl h =>
+      rw [h]
+      simp[isubst_erase_insert]
+    | inr h =>
+      rw [if_neg h]
+      rw[←ih1]
+      simp[isubst_erase_insert1 _ _ _ _ h] }
+  | case8 t0 t1 t2 ih3 ih2 ih1 =>
+    intro xvs
+    simp[isubst]
+    apply And.intro
+    { apply ih3}
+    { apply And.intro; apply ih2; apply ih1 }
+  | case9 x' t1 t2 t3 ih3 ih2 ih1 =>
+    intro xvs
+    simp[isubst]
+    apply And.intro
+    { apply ih3 }
+    { apply And.intro; apply ih2
+      cases Classical.em (x' = x) with
+      | inl h =>
+      rw [h]
+      simp[isubst_erase_insert]
+      | inr h =>
+      rw [if_neg h]
+      rw[←ih1]
+      simp[isubst_erase_insert1 _ _ _ _ h]
+     }
+  | case10 t1 t2 ih2 ih1 =>
+    intro xvs
+    simp[isubst]
+    apply And.intro
+    { apply ih2}
+    { apply ih1 }
+  | case11 x' t1 t2 ih2 ih1 =>
+    intro xvs
+    simp[isubst]
+    apply And.intro
+    { apply ih2 }
+    {
+      cases Classical.em (x' = x) with
+      | inl h =>
+      rw [h]
+      simp[isubst_erase_insert]
+      | inr h =>
+      rw [if_neg h]
+      rw[←ih1]
+      simp[isubst_erase_insert1 _ _ _ _ h]
+     }
+  | case12 x' t1 t2 ih2 ih1 =>
+    intro xvs
+    simp[isubst]
+    apply And.intro
+    { apply ih2 }
+    { cases Classical.em (x' = x) with
+      | inl h =>
+        rw [h]
+        simp[isubst_erase_insert]
+      | inr h =>
+        rw [if_neg h]
+        rw[←ih1]
+        simp[isubst_erase_insert1 _ _ _ _ h] }
+
+
+
+
+
+
+
+
+  /-
+  => >
+  all_goals (simp [isubst, subst]=> //)
+  all_goals (split_ands=> //)
+  all_goals ((try split_ifs=> //) <;> (try subst_eqs))
+  all_goals (try srw (fun t => isubst_perm t (AList.erase_twice x al)))
+  all_goals (try srw (fun v t => isubst_perm t (AList.erase_insert_cancel x v al)))
+  all_goals (try solve
+    | srw (fun x' hneq v t => isubst_perm t (AList.erase_insert_swap x x' v al hneq)) <;>
+      (try solve | aesop) ; -- `aesop` does autorewrite here
+      (try simp [*])
+      apply congrArg ; srw AList.erase_erase)
+  all_goals (try apply isubst_perm)
+
+  { simp[AList.lookup_insert]; simp[isubst]  }
+  { simp[erase] }
+  { sorry }
+  { simp[erase] }
+  { simp[erase]; rw[List.kerase_cons_ne]; rw[List.kerase_cons_eq]; sorry }
+  { sorry }
+  {sorry  }
+  { sorry }
+  { sorry }
+  { sorry }
+  { sorry }
+  { sorry }
+  { sorry }
+  { sorry } -/
+  /-
+  { rename_i x' ; by_cases h : x' = x
+    { subst x' ; simp [subst] }
+    { srw AList.lookup_insert_ne // AList.lookup_erase_ne //
+      scase: (lookup x' al)=> //=
+      simp [subst, h] } }
+  { apply AList.perm_erase
+    trans ; apply AList.erase_insert_cancel ; symm ; apply AList.erase_twice }
+  { srw [2]AList.erase_erase [1]AList.erase_erase
+    apply AList.perm_erase
+    trans ; apply AList.erase_insert_cancel ; symm ; apply AList.erase_twice }
+  { rename_i ih ha hb
+    srw [3]AList.erase_erase [2]AList.erase_erase -ih
+    apply isubst_perm
+    trans
+    on_goal 2=> apply AList.erase_insert_swap ; aesop
+    apply AList.perm_erase
+    apply AList.erase_insert_swap ; aesop } -/
+
+lemma isubst_nil (t:trm) :
+   isubst ∅ t = t := isubst_empty t
+
+
+open eval
+
+lemma subst_trm_funs : forall xs x v t1,
+  x ∉ xs ->
+  subst x v (trm_funs xs t1) = trm_funs xs (subst x v t1) :=
+by
+  intros xs
+  induction xs with
+  | nil =>  aesop
+  | cons xx xxs' ih =>
+    intro x v t1 N
+    simp at N
+    simp[trm_funs, subst]
+    have N1 := And.left N
+    have N2 := And.right N
+    simp[←ih x v t1 N2]
+    intro contra; symm at contra
+    apply N1 at contra
+    aesop
+
+
+lemma eval_like_app_val_funs_one : forall x t1 t0 v,
+  eval_like ((val_funs (x::[]) t1)) t0 ->
+  eval_like (subst x v t1) (trm_app t0 v) :=
+by
+  intro x t1 t0 v
+  intro R s Q N
+  apply eval_app_arg1'
+  { apply R; apply eval_val_minimal }
+  {intro v1 s2 h; simp[h]; apply eval_app_fun; aesop; simp[trm_funs]; apply N }
+
+lemma eval_like_trm_funs : forall xs t1,
+  ¬(xs = []) ->
+  eval_like (val_funs xs t1) (trm_funs xs t1) :=
+by
+  intro xs t1 N
+  intro s Q M
+  cases xs with
+  | nil => simp at N
+  | cons x xs' =>
+    simp[val_funs,  trm_funs] at *
+    cases M
+    apply eval_fun
+    aesop
+
+lemma eval_like_app_val_funs_cons : forall x xs t1 t0 v,
+  eval_like (val_funs (x :: xs) t1) t0 ->
+  x ∉ xs ->
+  ¬(xs = []) ->
+  eval_like (val_funs xs (subst x v t1)) (t0 v) := by
+  intro x xs t1 t0 v
+  intro R Nx Hx s Q M
+  unfold eval_like at *
+  apply eval_app_arg1'
+  { apply R; apply eval_val_minimal }
+  { intro v1 s2 h; simp[h]; apply eval_app_fun; aesop;
+    rw[subst_trm_funs]; apply eval_like_trm_funs; aesop; apply M; aesop }
+
+lemma eval_like_trm_apps_funs'' : forall xs t0 vs t1,
+  eval_like (val_funs xs t1) t0 ->
+  var_funs xs (vs.length) ->
+  eval_like (isubst (combine xs vs) t1) (trm_apps t0 (trms_vals vs)) :=
+by
+  intro xs t0 vs t1 E R1R2R3
+  have R1 := And.left R1R2R3
+  have R2 := And.left (And.right R1R2R3)
+  have R3 := And.right (And.right R1R2R3)
+  revert t1 t0 vs
+  induction xs with
+  | nil => simp at R3
+  | cons a xs ih =>
+    simp at R1
+    intro t0 vs t1 E Hv R2
+    cases vs with
+    | nil => simp at *
+    | cons v vs =>
+       simp[combine_spec, isubst_cons, trm_apps]
+       cases Classical.em (xs = []) with
+       | inl Hxs' =>
+        cases vs; simp at *;
+        { simp[Hxs', combine_spec] at *
+          rw[combine_spec1, isubst_nil];
+          intro s Q M;
+          apply eval_like_app_val_funs_one; aesop; apply M }
+        { simp [Hxs'] at R2 }
+        | inr _ =>
+          apply ih
+          aesop
+          aesop
+          apply eval_like_app_val_funs_cons
+          repeat' aesop
+
+
+
+
+lemma eval_like_trm_apps_fixs : forall f xs vs t1 v0,
+  v0 = val_fixs f xs t1 ->
+  var_funs xs (vs.length) ->
+  f ∉ xs ->
+  ¬(xs = []) ->
+  eval_like (isubst (combine (f::xs) (v0::vs)) t1) (trm_apps v0 (trms_vals vs)) :=
+by
+  intro f xs vs t1 v0 E F N1 N2
+  simp[combine_spec, isubst_cons]
+  unfold var_funs at F
+  have F1 := And.left F
+  have F2 := And.left (And.right F)
+  have F3 := And.right (And.right F)
+  cases xs with
+  | nil => simp at *
+  | cons x xs' =>
+    cases vs with
+    | nil => simp at *
+    | cons v vs' =>
+      cases Classical.em (xs' = []) with
+      | inl Hxs' =>
+        cases vs'; simp at *;
+        { simp[Hxs', combine_spec] at *
+          rw[combine_spec1, isubst_cons, isubst_nil];
+          intro s Q M;
+          apply eval_app_fix;
+          apply E;
+          apply M }
+        { simp [Hxs'] at F2 }
+      | inr Hxs' =>
+        simp[combine_spec, isubst_cons, trm_apps]
+        simp at N1
+        have Nf := And.left N1
+        have N1 := And.right N1
+        simp at F1
+        have Fx := And.left F1
+        have F1 := And.right F1
+        unfold combine
+        apply eval_like_trm_apps_funs''
+        { intro s Q M
+          apply eval_app_fix
+          apply E
+          cases M
+          rw[subst_trm_funs _ _ _ _ N1]
+          rw[subst_trm_funs _ _ _ _ Fx]
+          apply eval_like_trm_funs
+          apply Hxs'
+          apply eval_val
+          aesop }
+        { simp at F2; simp[F2]; aesop }
+
+
+
+--(⟨f, v0⟩ :: List.map (fun x ↦ ⟨x.1, x.2⟩) (xs.zip vs)).toAList
+
+
+
 
 lemma xwp_lemma_funs (xs : List _) (vs : List val) :
   t = trm_apps v0 ts ->
@@ -1454,19 +1950,52 @@ lemma xwp_lemma_funs (xs : List _) (vs : List val) :
   apply wp_eval_like
   apply eval_like_trm_apps_funs=> //
 
--- lemma xwp_lemma_fixs (xs : List _) (v0 : val) (vs : List val) :
---   t = trm_apps v0 ts ->
---   v0 = val_fixs f xs t1 ->
---   trms_to_vals ts = vs ->
---   var_funs xs vs.length ->
---   f ∉ xs ->
---   H ==> wpgen (isubst ((f :: xs).mkAlist (v0 :: vs)) t1) Q ->
---   triple t H Q := by
---   move=> -> -> ??? h
---   srw -wp_equiv ; apply himpl_trans ; apply (wp_of_wpgen h)
---   apply wp_eval_like
---   admit
-  -- apply eval_like_trm_apps_funs=> //
+
+--lemma wpgen_sound' : forall E t,
+ -- formula_sound (isubst E t) (wpgen E t)
+  -- := by sorry
+/-
+Proof using.
+  intros. gen E. induction t; intros; simpl;
+   try applys mkstruct_sound.
+  { applys wpgen_val_sound. }
+  { rename v into x. unfold wpgen_var. case_eq (lookup x E).
+    { intros v EQ. applys wpgen_val_sound. }
+    { intros N. applys wpgen_fail_sound. } }
+  { applys wpgen_fun_sound.
+    { intros vx. rewrite* <- isubst_rem. } }
+  { applys* wpgen_fix_sound.
+    { fold isubst. intros vf vx. rewrite* <- isubst_rem_2. } }
+  { applys wpgen_app_sound. }
+  { applys* wpgen_seq_sound. }
+  { rename v into x. applys* wpgen_let_sound.
+    { intros v. rewrite* <- isubst_rem. } }
+  { applys* wpgen_if_sound. }
+Qed.
+-/
+
+lemma xwp_lemma_fixs (xs : List _) (v0 : val) (vs : List val) :
+t = trm_apps v0 ts ->
+v0 = val_fixs f xs t1 ->
+trms_to_vals ts = vs ->
+var_funs xs vs.length ->
+f ∉ xs ->
+H ==> wpgen (isubst (combine (f :: xs) (v0 :: vs)) t1) Q ->
+triple t H Q :=
+by
+  intro P E M1 F N1 M2
+  rw[P]
+  have HL := And.left (And.right F)
+  have Nxs := And.right (And.right F)
+  have temp := trms_to_vals_spec _ _ M1
+  rw[temp]
+  rw[←wp_equiv]
+  apply himpl_trans ; apply (wp_of_wpgen M2)
+  apply wp_eval_like
+  apply eval_like_trm_apps_fixs
+  repeat' aesop
+
+
 
 macro "xwp" : tactic =>
   `(tactic|
@@ -1474,7 +2003,7 @@ macro "xwp" : tactic =>
      try srw trm_apps1
      srw ?trm_apps2
      first
-           -- | (apply xwp_lemma_fixs; rfl; rfl; sdone; sdone; sdone)=> //
+           | (apply xwp_lemma_fixs; rfl; rfl; sdone; sdone; sdone)=> //
            | (apply xwp_lemma_funs; rfl; rfl; rfl; sdone)=> //
            | apply wp_of_wpgen
      all_goals try simp [wpgen, subst, isubst, subst, trm_apps, AList.lookup, List.dlookup]))
@@ -1816,4 +2345,5 @@ macro "xref" : tactic => `(tactic| (xwp; xref))
 --      skip,
 --      skip⟩
 --     ))
-set_option linter.style.longFile 2000
+
+set_option linter.style.longFile 2500

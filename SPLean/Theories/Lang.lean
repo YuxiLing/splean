@@ -928,6 +928,8 @@ elab_rules : term
       (<- withoutErrToSorry <| elabTermAndSynthesize x none).ensureHasNoMVars
       elabTerm (<- `(trm_val $x)) none
     catch _ => do
+      --let x := x.getId
+
       let x <- `(trm_var $(%x))
       elabTerm x none
 
@@ -1007,6 +1009,8 @@ macro_rules
   -- | `([lang| $arr[$i]($d)])           => `(trm_val default_get [lang| $arr] [lang| $i] [lang| $d])
   | `([lang| $arr[$i] := $v])        => `(trm_app val_array_set [lang| $arr] [lang| $i] [lang| $v])
   | `([lang| mkarr $n:lang $v:lang]) => `(trm_val val_array_make [lang| $n] [lang| $v])
+
+
 
 
 @[app_unexpander val_unit] def unexpandUnitL : Lean.PrettyPrinter.Unexpander
