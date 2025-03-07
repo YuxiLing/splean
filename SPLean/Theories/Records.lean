@@ -11,12 +11,7 @@ open Classical
 
 open trm val Theories
 
-
 abbrev field : Type := ℕ
-
-
-
-
 
 def hfield (p : loc) (k : field) (v : val) : hProp  :=
   (p + 1 + k) ~~> v
@@ -102,14 +97,14 @@ def tail : field := 1
 
 open trm prim
 
-
+/-
 def val_get_field  (k: field): val :=
  [lang|
  fun p =>
     let p1 := p ++ 1 in
     let q := p1 ++ ⟨Int.ofNat k⟩ in
     !q]
-
+-/
 
 notation t1 "!." k:1525 => (val_get_field k) t1
 
@@ -157,7 +152,7 @@ macro_rules
     `(trm_val (val_get_field $f) [lang| $rcrd])
   | `([lang| $rcrd.$f := $v ])        => `(trm_val (val_set_field $f) [lang| $rcrd] [lang| $v])
 
-example (t : val) (f : field) : trm := [lang| t.f]
+example (t : loc) (f : field) : trm := [lang| t.f]
 
 
 def hfields_lookup (k : field) (kvs : hrecord_fields) : Option val :=
@@ -242,7 +237,7 @@ by
 
 lemma triple_get_field_hrecord : ∀ kvs (p:loc) k v,
   hfields_lookup k kvs = some v →
-  triple [lang| (⟨val_get_field k⟩ p) ]
+  triple [lang| p.k /-(⟨val_get_field k⟩ p)-/ ]
     (hrecord kvs p)
     (fun r => ⌜r = v⌝  ∗ hrecord kvs p) :=
 by

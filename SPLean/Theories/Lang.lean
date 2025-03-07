@@ -921,18 +921,10 @@ macro_rules
   | `([lang| while $c:lang { $t:lang } ]) =>
      `(trm_while [lang| $c] [lang| $t] )
 
+/-
+
+-/
 open Lean Elab Term
-elab_rules : term
-  | `([lang| $x:ident]) => do
-    try do
-      (<- withoutErrToSorry <| elabTermAndSynthesize x none).ensureHasNoMVars
-      elabTerm (<- `(trm_val $x)) none
-    catch _ => do
-      --let x := x.getId
-
-      let x <- `(trm_var $(%x))
-      elabTerm x none
-
 elab_rules : term
   | `([lang| ⟨$t⟩]) => do
     let te <- elabTerm t none
@@ -940,7 +932,47 @@ elab_rules : term
     let tp <- delabPpAll tp
     elabTerm (<- `(trm_val ($t : $tp))) none
 
+elab_rules : term
+  | `([lang| $x:ident]) => do
+    try do
+      (<- withoutErrToSorry <| elabTermAndSynthesize x none).ensureHasNoMVars
+      elabTerm (<- `(trm_val $x)) none
+    catch _ => do
+      let x <- `(trm_var $(%x))
+      elabTerm x none
 
+def val_get_field  (k: ℕ): val :=
+ [lang|
+ fun p =>
+    let p1 := p ++ 1 in
+    let q := p1 ++ ⟨Int.ofNat k⟩ in
+    !q]
+
+
+elab_rules : term
+  | `([lang| $x:ident]) => do
+    let xName := x.getId
+    let parts := xName.components
+    if parts.length = 1 then
+      try do
+        (<- withoutErrToSorry <| elabTermAndSynthesize x none).ensureHasNoMVars
+        elabTerm (<- `(trm_val $x)) none
+      catch _ => do
+          let x <- `(trm_var $(%x))
+          elabTerm x none
+    else if parts.length > 2 then
+      throwErrorAt x "Nested field access is not supported"
+    else
+      let record := mkIdent parts[0]!
+      let field  := mkIdent parts[1]!
+      let f <-
+        `(trm.trm_app
+          (trm_val (val_get_field $field:ident))
+          (trm.trm_val (val.val_loc $record:ident)))
+      elabTerm f none
+
+
+-- #print foo
 def val_abs : val := [lang|
   fun i =>
     let c := i < 0 in

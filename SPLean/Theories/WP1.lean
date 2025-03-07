@@ -1587,7 +1587,7 @@ lemma isubst_cons : forall x v (xvs:ctx) t,
   isubst (xvs.insert x v) t = isubst xvs (subst x v t) :=
 by
   intro x v xvs t
-  revert xvs
+  revert xvs -- generalizing
   induction t using (subst.induct x v) with
   | case1 v' =>
     intro al; simp[isubst]
@@ -1609,8 +1609,7 @@ by
       rw [h]
       simp[isubst_erase_insert]
     | inr h =>
-      rw [if_neg h]
-      rw[←ih1]
+      rw [if_neg h, ←ih1]
       simp[isubst_erase_insert1 _ _ _ _ h]
   | case4 f x' t1 ih1 =>
     intros xvs
@@ -1623,7 +1622,8 @@ by
         rw [h']
         simp[isubst_erase_insert]
       | inr h' =>
-        rw [if_neg h']
+        -- simp [if_neg h']
+        rw [if_neg h'] -- repeat'
         rw [if_neg h']
         rw[isubst_erase_insert1]
         rw[isubst_erase_insert1]
@@ -1638,7 +1638,8 @@ by
         rw [if_neg h']
         rw[isubst_erase_insert1]
 
-        { cases Classical.em (x' = x) with
+        { -- by_cases h'' : (x' = x)
+          cases Classical.em (x' = x) with
         | inl h'' =>
             simp[h'', isubst_erase_insert]
         | inr h'' =>
@@ -1648,8 +1649,9 @@ by
         { exact h' }
   | case5 t1 t2 ih2 ih1 =>
     intro xvs
+    -- add @[simp] to isubst
     simp[isubst]
-    apply And.intro
+    apply And.intro -- constructor <;> solve_by_elim
     { apply ih2 }
     { apply ih1 }
   | case6 t1 t2 ih2 ih1 =>
@@ -1709,8 +1711,7 @@ by
       rw [h]
       simp[isubst_erase_insert]
       | inr h =>
-      rw [if_neg h]
-      rw[←ih1]
+      rw [if_neg h, ←ih1]
       simp[isubst_erase_insert1 _ _ _ _ h]
      }
   | case12 x' t1 t2 ih2 ih1 =>
