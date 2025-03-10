@@ -7,7 +7,7 @@ import SPLean.Theories.ArraysFun
 import SPLean.Theories.Records
 
 
-section find_index
+--section find_index
 
 open Theories prim val trm
 
@@ -26,6 +26,8 @@ def snd : field := 1
 #hint_xapp triple_neq
 #hint_xapp triple_arrayFun_length
 #hint_xapp triple_harrayFun_get
+
+#hint_xapp triple_gt
 
 
 namespace Lang
@@ -68,9 +70,7 @@ inductive list_sub : (List val) -> (List val) -> Prop where
 | exact (x : val) (L' : List val) : list_sub L' (x::L')
 
 
-def list_sub_Wf : WellFoundedRelation (List val) where
-  rel := list_sub
-  wf  := by
+def list_sub_Wf : WellFounded list_sub := by
     constructor
     intro a
     induction a with
@@ -90,9 +90,7 @@ def measure {α : Type} (f:α->ℕ) : α->α->Prop :=
 
 
 
-def measure_Wf (f:α->ℕ) : WellFoundedRelation α where
-  rel := measure f
-  wf  :=
+def measure_Wf (f:α->ℕ) : WellFounded (measure f) :=
   by
     constructor
     intro a
@@ -108,6 +106,24 @@ def measure_Wf (f:α->ℕ) : WellFoundedRelation α where
 
 
 -- 0 ≤ m < n.
+/-
+def downto0 (m:ℤ) (n:ℤ) : Prop := 0 ≤ m /\ m < n
+
+
+def downto_Wf : WellFounded downto0 := by
+    constructor
+    intro a
+    induction a using WellFounded.induction (r:= measure (fun n =>  Int.natAbs (n))) with
+    | hwf => apply (measure_Wf (fun n =>  Int.natAbs n))
+    | h x' h =>
+      constructor
+      intro y' H
+      apply h
+      simp[measure]
+      unfold downto0 at H
+      omega
+-/
+/-
 def downto0 (m:ℤ) (n:ℤ) : Prop := 0 ≤ m /\ m < n
 
 
@@ -126,38 +142,18 @@ def downto_Wf : WellFoundedRelation ℤ where
       unfold downto0 at H
       omega
 
-
-def downto0 (m:ℤ) (n:ℤ) : Prop := 0 ≤ m /\ m < n
-
-
-def downto_Wf : WellFoundedRelation ℤ where
-  rel := (downto0)
-  wf  := by
-    constructor
-    intro a
-    induction a using WellFounded.induction (r:= measure (fun n =>  Int.natAbs (n))) with
-    | hwf => apply (measure_Wf (fun n =>  Int.natAbs n)).wf
-    | h x' h =>
-      constructor
-      intro y' H
-      apply h
-      simp[measure]
-      unfold downto0 at H
-      omega
-
-
+-/
 def upto (b:ℤ ) :=
   fun (n m:ℤ ) => (n <= b) /\ (m < n)
 
 
 
-def upto_Wf (b : ℤ): WellFoundedRelation ℤ where
-  rel := upto b
-  wf  := by
+def upto_Wf (b : ℤ): WellFounded (upto b) :=
+by
     constructor
     intro a
     induction a using WellFounded.induction (r:= measure (fun n =>  Int.natAbs (b-n))) with
-    | hwf => apply (measure_Wf (fun n =>  Int.natAbs (b-n))).wf
+    | hwf => apply (measure_Wf (fun n =>  Int.natAbs (b-n)))
     | h x' h =>
       constructor
       intro y' H
@@ -169,11 +165,7 @@ def upto_Wf (b : ℤ): WellFoundedRelation ℤ where
 
 
 
-
-
-#check tail
-
-
+/-
 lang_def append := fix f p1 p2 =>
        let q1 := ⟨val_get_field tail⟩ p1 in
        let b := (q1 = null) in
@@ -189,7 +181,7 @@ lemma triple_append (p₁ p₂ : loc) (l₁ l₂ : List val) :
   {_, MList (l₁ ++ l₂) p₁ } := by
   intros
   induction l₁ using WellFounded.induction (r:= list_sub) generalizing p₁ with
-  | hwf => apply list_sub_Wf.wf
+  | hwf => apply list_sub_Wf
   | h l' ih =>
       xwp
       xchange (MList_if p₁)
@@ -213,13 +205,9 @@ lang_def repeat' := fix g f n =>
          let n2 := n - 1 in
          g f n2 end
 
-#hint_xapp triple_get
-#hint_xapp triple_gt
-#hint_xapp triple_lt
-#hint_xapp triple_sub
-#hint_xapp triple_neq
 
-
+-/
+/-
 set_option maxHeartbeats 300000
 lemma triple_repeat_aux : ∀ (I:Int → hProp) (f:val) (n:Int),
   n ≥ 0 →
@@ -264,3 +252,89 @@ lemma triple_repeat_aux : ∀ (I:Int → hProp) (f:val) (n:Int),
       xval
       xsimp
     }
+-/
+set_option maxHeartbeats 900000
+lang_def while_upto :=
+fix F start finish f =>
+  let cond := start = finish in
+  if cond
+  then true
+  else (
+    let tmp_inner_cond := f start in
+      let inner_cond := not(tmp_inner_cond) in
+          if inner_cond
+          then false
+          else let start_plus_1 := start + 1 in F start_plus_1 finish f
+    )
+
+
+lemma while_upto_spec:
+  forall (start finish) (f)
+         (I: Int -> Bool -> hProp),
+         (forall (i: Int),
+             start <= i /\ i < finish ->
+             { I i true }
+             [ (f i) ]
+             { b, ∃ʰ (b':Bool), ⌜b'=b⌝ ∗ I (i + 1) b' }
+         ) -> start <= finish ->
+   { I start true }
+   [ while_upto start finish f ]
+   { b,  ∃ʰi, ∃ʰ (b':Bool), ⌜i <= finish /\ b'= b /\ (b' → (i = finish))⌝  ∗  I i b' }
+:=
+by
+  intro start finish f I
+  induction start using WellFounded.induction (r:= upto finish) with
+  | hwf => apply (upto_Wf finish)
+  | h s' ih =>
+    intro HI Hlen
+    xwp
+    xlet
+    xstep triple_eq
+    xif
+    {
+      intro C
+      simp[is_true] at C
+      xsimp
+      xval
+      xsimp
+      aesop
+    }
+    {
+      intro C
+      simp[is_true] at C
+      xsimp
+      xwp
+      xlet
+      xwp
+      xapp HI
+      { intro b'
+        xwp
+        xlet
+        xapp triple_neg
+        xif
+        {
+          intro C'
+          simp at C'
+          xsimp
+          xval
+          xsimp
+          apply And.intro; omega; apply And.intro; simp; simp
+        }
+        {
+          intro C'
+          simp at C'
+          xsimp
+          xwp
+          xapp triple_add
+          xapp ih; intro i b'' H; xsimp
+          simp[upto]; omega
+          intro i h; apply HI; omega; omega; apply H
+
+        }
+      }
+      {
+        omega
+      }
+    }
+    --xwp
+    --xseq_xlet_if_needed; xstruct_if_needed; apply xif_lemma

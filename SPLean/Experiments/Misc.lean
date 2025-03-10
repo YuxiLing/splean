@@ -24,6 +24,9 @@ open Theories prim val trm
 
 namespace Lang
 
+
+
+
 /- This is DSL term declaration. For now we only support reasoning about terms in SSA-normal form -/
 lang_def incr :=
   fun p =>

@@ -897,7 +897,7 @@ macro_rules
       `(val_fixs $(%f) [ $xs,* ] [lang| $t])
   -- | `([lang| ref $t])                   => `(trm_val (val_prim val_ref) [lang| $t])
   | `([lang| free $t])                  => `(trm_val (val_prim val_free) [lang| $t])
-  | `([lang| not $t])                   => `(trm_val (val_prim val_not) [lang| $t])
+  | `([lang| not $t])                   => `(trm_val (val_prim val_neg) [lang| $t])
   -- | `([lang| alloc $n])                => `(trm_val (val_alloc) [lang| $n])
   | `([lang| !$t])                      => `(trm_val val_get [lang| $t])
   | `([lang| $t1 := $t2])               => `(trm_val val_set [lang| $t1] [lang| $t2])
@@ -1074,7 +1074,7 @@ macro_rules
 @[app_unexpander val_prim] def unexpandPrim : Lean.PrettyPrinter.Unexpander
   -- | `($(_) val_ref) => `([uop| ref])
   | `($(_) val_free) => `([uop| free])
-  | `($(_) val_not) => `([uop| not])
+  | `($(_) val_neg) => `([uop| not])
   | `($(_) val_opp) => `([uop| -])
   | `($(_) val_get) => `([uop| !])
   | `($(_) val_add) => `([bop| +])
