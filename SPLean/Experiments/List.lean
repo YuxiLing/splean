@@ -44,6 +44,13 @@ lemma MList_nil : ∀ p,
 lemma MList_cons : ∀ p x L',
   MList (x::L') p = ∃ʰ (q:loc), (p ~~~> `{ head := x; tail := q}) ∗ (MList L' q) := by aesop
 
+/-
+we need to add condition (p ≠ null) to hheader definition, but now it's just axiom
+-/
+axiom hrecord_not_null : forall p kvs,
+  hrecord kvs p ==> hrecord kvs p ∗ ⌜p ≠ null⌝
+
+
 lemma MList_if : ∀ (p:loc) (L:List val),
       (MList L p)
   ==> (if p = null
@@ -51,8 +58,21 @@ lemma MList_if : ∀ (p:loc) (L:List val),
         else ∃ʰ x, ∃ʰ (q:loc), ∃ʰ L',
         ⌜L = x::L'⌝ ∗ (p ~~~> `{ head := x; tail := q}) ∗ (MList L' q)) :=
 by
-  intros
-  sorry
+  intros p L
+  cases L with
+  | nil =>
+    simp[MList_nil]
+    xpull
+    xsimp
+  | cons x xs =>
+    simp[MList_cons]
+    xpull
+    intros q
+    xchange hrecord_not_null
+    intros N
+    scase_if
+    { intro contra; aesop }
+    { intro _; xsimp; aesop }
 
 
 lang_def mnil:= fun u => null
@@ -97,3 +117,5 @@ lemma triple_append (p₁ p₂ : loc) (l₁ l₂ : List val) :
         xchange MList_if (L := l'')
         xsimp; xsimp }
       intros; xapp H; xsimp
+
+#check ∀ a, (null ~~> a) ==> ⌜False⌝
