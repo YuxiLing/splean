@@ -253,36 +253,36 @@ lemma triple_repeat_aux : ∀ (I:Int → hProp) (f:val) (n:Int),
       xsimp
     }
 -/
-set_option maxHeartbeats 900000
+set_option maxHeartbeats 1200000
 lang_def while_upto :=
-fix F start finish f =>
+fix F start finish f  /-mem1 mem2 val1-/ =>
   let cond := start = finish in
   if cond
   then true
   else (
-    let tmp_inner_cond := f start in
+    let tmp_inner_cond := f start /-mem1 mem2 val1-/ in
       let inner_cond := not(tmp_inner_cond) in
           if inner_cond
           then false
-          else let start_plus_1 := start + 1 in F start_plus_1 finish f
+          else let start_plus_1 := start + 1 in F start_plus_1 finish f /-mem1 mem2 val1-/
     )
 
 
 lemma while_upto_spec:
-  forall (start finish) (f)
+  forall (start finish) (f) /-(mem1 mem2 :loc) (val1 : val)-/
          (I: Int -> Bool -> hProp),
          (forall (i: Int),
              start <= i /\ i < finish ->
              { I i true }
-             [ (f i) ]
+             [ (f i /-mem1 mem2 val1-/) ]
              { b, ∃ʰ (b':Bool), ⌜b'=b⌝ ∗ I (i + 1) b' }
          ) -> start <= finish ->
    { I start true }
-   [ while_upto start finish f ]
+   [ while_upto start finish f /-mem1 mem2 val1-/]
    { b,  ∃ʰi, ∃ʰ (b':Bool), ⌜i <= finish /\ b'= b /\ (b' → (i = finish))⌝  ∗  I i b' }
 :=
 by
-  intro start finish f I
+  intro start finish f /-mem1 mem2 val1-/ I
   induction start using WellFounded.induction (r:= upto finish) with
   | hwf => apply (upto_Wf finish)
   | h s' ih =>

@@ -27,8 +27,7 @@ namespace Lang
 
 
 
-/- This is DSL term declaration. For now we only support reasoning about terms in SSA-normal form -/
-lang_def incr :=
+/-This is DSL teesult
   fun p =>
     let x := !p in
     let x := x + 1 in
@@ -39,13 +38,6 @@ lang_def incr :=
 
 
 
--- Define field as a type synonym for nat
-/-
-structure x y z p = p.0 -> x /\ p.1 -> y /\ p.2 ->z
-
-fun p => !p...
-
--/
 
 -- set_option pp.all true in #print incr
 
@@ -59,7 +51,7 @@ macro_rules
 
 @[xapp] -- Another way to add a triple lemma to a hint database
 lemma incr_spec (p : loc) (n : Int) :
-  { p ~~> n }
+  { p ~~> n }esult
   [ ++p ]
   { p ~~> val_int (n + 1) } := by
   xstep triple_get -- Tactic for a one step of symbolic execution;
