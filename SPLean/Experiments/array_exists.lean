@@ -6,7 +6,7 @@ import SPLean.Theories.Lang
 import SPLean.Theories.ArraysFun
 import SPLean.Theories.Records
 
-import SPLean.Experiments.List
+import SPLean.Experiments.while_upto
 
 --section find_index
 
