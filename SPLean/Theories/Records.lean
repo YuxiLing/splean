@@ -354,7 +354,91 @@ by
     { apply qwand_cancel }
 
 
+lemma hrecord_not_null : forall p kvs,
+  hrecord kvs p ==> hrecord kvs p ∗ ⌜p ≠ null⌝ :=
+by
+  intro p kvs
+  simp[hrecord]
+  simp[hheader]
+  xsimp
+  { assumption }
+  { assumption }
+  { intros; assumption }
 
+
+
+
+
+
+/-
+
+def val_alloc_hrecord  (ks:List field) : val :=[lang|
+fun v =>
+       let m := ⟨Int.ofNat ks.length⟩ + 1 in
+       alloc m as p in
+        val_set p ⟨Int.ofNat ks.length⟩;
+        p]
+
+
+lemma hfields_eq_hrange : ∀ z L p kvs,
+  maps_all_fields z kvs →
+  z = L.length  →
+  L = List.map snd kvs →
+  hrange L (p+1)=hfields kvs p := by sorry
+
+
+
+lemma triple_alloc_hrecord : ∀ ks,
+  ks = List.range' 0 (ks.length) →
+  triple [lang| ⟨val_alloc_hrecord ks⟩ ()]
+    (emp)
+    (funloc p ↦ hrecord (List.map (fun k => (k,val_uninit)) ks) p) :=
+by
+  intro ks Hks
+  xwp
+  xapp triple_add
+  eapply triple_alloc
+  { omega }
+  { intro p
+    simp[subst, hrange]
+    xwp
+    xseq
+    xapp
+    intro Hp
+    xval
+    unfold hrecord
+    unfold hheader
+    have R: maps_all_fields (ks.length) (List.map (fun k => (k, val_uninit)) ks) := by sorry
+    have RR :(p ~~> val_int ks.length ∗ hrange (make_list ks.length val_uninit) (p + 1)) ==> (hfields (List.map (fun k ↦ (k, val_uninit)) ks) p) := by sorry
+    xchange RR
+
+
+
+    --rw[hfields_eq_hrange _ _ p _]
+
+
+
+
+
+
+   }
+
+
+
+
+
+  /-xapp
+  intro p Hp
+  unfold field
+  /-rw List.length in *. set (n := length ks) in *.
+  math_rewrite (abs (n + 1) = S n). rew_listx. simpl.
+  xapp. xval. xsimpl*. unfold hrecord. autorewrite with rew_list_exec.
+  asserts R: (maps_all_fields n (LibList.map (fun k ⇒ (k, val_uninit)) ks)).
+  { unfolds. rewrite Hks. clears ks p. generalize 0%nat as o.
+    induction n as [|n']; intros; simpl; rew_listx; fequals*. }
+  xsimpl* n. xchange* <- (@hfields_eq_hrange n). { rew_listx*. }
+  { unfold n. clears n p. induction ks as [|ks']; rew_listx; fequals*. }
+Qed.-/
 
 
 /-

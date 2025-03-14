@@ -44,11 +44,7 @@ lemma MList_nil : ∀ p,
 lemma MList_cons : ∀ p x L',
   MList (x::L') p = ∃ʰ (q:loc), (p ~~~> `{ head := x; tail := q}) ∗ (MList L' q) := by aesop
 
-/-
-we need to add condition (p ≠ null) to hheader definition, but now it's just axiom
--/
-axiom hrecord_not_null : forall p kvs,
-  hrecord kvs p ==> hrecord kvs p ∗ ⌜p ≠ null⌝
+
 
 
 lemma MList_if : ∀ (p:loc) (L:List val),
@@ -119,3 +115,199 @@ lemma triple_append (p₁ p₂ : loc) (l₁ l₂ : List val) :
       intros; xapp H; xsimp
 
 #check ∀ a, (null ~~> a) ==> ⌜False⌝
+
+
+
+lang_def mlength  :=
+fix f p =>
+       let b := (p = null) in
+       if b
+         then 0
+         else (let q := ⟨val_get_field tail⟩ p in
+               let n := f q in
+               n + 1)
+
+
+lemma triple_mlength : forall l (p:loc),
+  { MList l p }
+  [ mlength p ]
+  {r, ⌜r = val_int (l.length)⌝  ∗ (MList l p) } :=
+by
+intro l
+induction l using WellFounded.induction (r:= list_sub) with
+| hwf => apply list_sub_Wf
+| h l' ih =>
+  intros p
+  xwp
+  xapp triple_eq
+  xif
+  { simp[is_true]
+    intro H
+    simp[H]
+    xchange MList_if
+    xpull
+    xval
+    xsimp }
+  simp[is_true]
+  intro H
+  xchange MList_if
+  simp[H]
+  xpull
+  intro x' q L' IH
+  xstep triple_get_field_hrecord
+  xstep IH
+  xapp
+  xsimp
+
+
+
+def my_get (l : List val) (n:ℕ):=
+match l with
+| [] => 0
+| x::xs => match n with
+       | 0 => x
+       | n+1 => my_get xs n
+
+lang_def mget  :=
+fix f p i =>
+       let is_empty := p = null in
+       if is_empty
+       then 0
+       else (
+        let b := (i = 0) in
+        if b
+          then ⟨val_get_field head⟩ p
+          else (let q := ⟨val_get_field tail⟩ p in
+                let i' := i - 1 in
+                  f q i'
+                ) )
+
+
+lemma triple_mrev_aux : forall l  (p:loc) (i : ℤ), (i >= 0)→
+  { MList l p}
+  [ mget p i ]
+  { r, MList l p ∗ ⌜r=my_get l (Int.natAbs i)⌝ } :=
+by
+intro l
+induction l using WellFounded.induction (r:= list_sub) with
+| hwf => apply list_sub_Wf
+| h l' ih =>
+  intros p i Hi
+  xwp
+  xapp triple_eq
+  xif
+  { simp[is_true]
+    intro H
+    simp[H]
+    xchange MList_if
+    xpull
+    xval
+    xsimp <;> simp[my_get]; rfl }
+  simp[is_true]
+  intro H
+  xchange MList_if
+  simp[H]
+  xpull
+  intro x q L' ih
+  xstep triple_eq
+  xif
+  {
+    simp[is_true]
+    intro HH
+    simp[HH]
+    xapp triple_get_field_hrecord
+    xsimp
+    simp[my_get]
+   }
+  simp[is_true]
+  intro HH
+  xwp
+  xapp triple_get_field_hrecord
+  xwp
+  xapp triple_sub
+  xapp ih
+  xsimp
+  { omega }
+  have tmp : (i-1).natAbs = (i).natAbs-1 := by omega
+  have tmp1 : ¬((i).natAbs = 0) := by omega
+  rw[my_get]
+  generalize ht :  (i).natAbs = y
+  cases y
+  { aesop }
+  { simp; simp[tmp, ht] }
+
+
+
+
+
+
+
+
+
+
+lang_def mrev_aux :=
+fix f p1 p2 =>
+       let b := (p2 = null) in
+       if b
+         then p1
+         else (
+           let p3 := ⟨val_get_field tail⟩ p2 in
+           ⟨val_set_field tail⟩ p2 p1;
+           f p2 p3)
+
+lang_def mrev :=
+fun p => mrev_aux null p
+
+
+
+lemma triple_mrev_aux : forall L' L  (p q :loc),
+  { MList L p ∗ MList L' q }
+  [ mrev_aux p q]
+  { r, ∃ʰ (r':loc), ⌜r' = r⌝ ∗ MList (L'.reverse ++L) r' } :=
+by
+intro l'
+induction l' using WellFounded.induction (r:= list_sub) with
+| hwf => apply list_sub_Wf
+| h l' ih =>
+intros l p q
+xwp
+xapp triple_eq
+xif
+{ simp[is_true]
+  intro H
+  simp[H]
+  xchange MList_if
+  xpull
+  xval
+  xsimp }
+simp[is_true]
+intro H
+xchange MList_if; simp[H]
+xpull
+intro x t M HL'0
+xstep triple_get_field_hrecord
+xstep triple_set_field_hrecord
+
+have R : { MList (x::l) q ∗ MList M t } [mrev_aux q t] { r, ∃ʰ (r':loc), ⌜r' = r⌝ ∗ MList (M.reverse ++ x::l) r' }
+:= by
+  apply HL'0
+  constructor
+simp[MList] at R
+xapp R
+intro r'
+xsimp
+
+
+
+
+lemma triple_mrev : forall L (p:loc),
+  { MList L p }
+  [mrev p]
+  {q, ∃ʰ (q':loc), ⌜q'=q⌝ ∗ MList (L.reverse) q' } :=
+by
+  intro L p
+  xwp
+  xapp (triple_mrev_aux L [])
+  intro r'
+  simp
+  xsimp

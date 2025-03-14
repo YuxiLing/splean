@@ -1030,10 +1030,10 @@ by
 /- ============== Definitions for Arrays ============== -/
 
 def hheader (n : Int) (p : loc) : hProp :=
-  p ~~> (val_int n)
+  p ~~> (val_int n) ∗ ⌜p ≠ null⌝
 
 lemma hheader_eq p n :
-  (hheader n p) = (p ~~> (val_int n)) := by
+  (hheader n p) = (p ~~> (val_int n)) ∗ ⌜p ≠ null⌝  := by
   sdone
 
 def hcell (v : val) (p : loc) (i : Int) : hProp :=

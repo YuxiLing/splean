@@ -203,6 +203,8 @@ lemma triple_array_length_hheader (n : Int) (p : loc) :
     xwp
     srw hheader
     xapp
+    intro H
+    xsimp; exact True.intro; exact H
 
 -- set_option pp.all true
 
