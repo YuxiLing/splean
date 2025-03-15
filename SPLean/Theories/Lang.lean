@@ -11,10 +11,11 @@ open Classical
 /- =========================== Language Syntax =========================== -/
 
 inductive prim where
-  -- | val_ref : prim
+  | val_ref : prim
+  | val_alloc : prim
   | val_get : prim
   | val_set : prim
-  -- | val_free : prim
+  | val_free : prim
   | val_neg : prim
   | val_opp : prim
   | val_eq : prim
@@ -484,6 +485,10 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       evalbinop op v1 v2 P ->
       purepostin s P Q ->
       eval s (trm_app (trm_app op v1) v2) Q
+  | eval_ref_prim : forall s v Q,
+      v = trm_val v' →
+      (∀ p ∉ s, Q (val_loc p) (s.insert p v')) →
+      eval s (trm_app val_ref v) Q
   | eval_ref : forall s x t1 t2 (Q Q₁ : val → state → Prop),
     eval s t1 Q₁ →
     (∀ v1 s1, Q₁ v1 s1 → ∀ p ∉ s1,
@@ -498,6 +503,18 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       p ∈ s ->
       Q val_unit (Finmap.insert p v' s) ->
       eval s (trm_app (trm_app val_set (val_loc p)) v) Q
+  | eval_free : forall s p Q,
+      p ∈ s →
+      Q val_unit (Finmap.erase p s) →
+      eval s (trm_app val_free (val_loc p)) Q
+  | eval_alloc_prim : forall (n : ℤ) (sa : state) Q,
+      n ≥ 0 →
+      (∀ (p : loc) (sb : state),
+          sb = conseq (make_list n.natAbs val_uninit) p →
+          p ≠ null →
+          Finmap.Disjoint sa sb →
+          Q (val_loc p) (sb ∪ sa) ) →
+      eval sa (trm_app val_alloc n) Q
   | eval_alloc_arg : forall s Q₁ Q,
     ¬ trm_is_val t1 →
     eval s t1 Q₁ →
@@ -511,14 +528,6 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       Finmap.Disjoint sa sb →
       eval (sb ∪ sa) (subst x p t2) fun v s ↦ Q v (s \ sb)) →
     eval sa (trm_alloc x n t2) Q
-  -- | eval_alloc : forall (n : Int) (sa : state) Q,
-  --     n ≥ 0 →
-  --     ( forall (p : loc) (sb : state),
-  --         sb = conseq (make_list n.natAbs val_uninit) p →
-  --         p ≠ null →
-  --         Finmap.Disjoint sa sb →
-  --         Q (val_loc p) (sb ∪ sa) ) →
-  --     eval sa (trm_app val_alloc n) Q
   | eval_for (n₁ n₂ : Int) (Q : val -> state -> Prop) :
     eval s (if (n₁ < n₂) then
                (trm_seq (subst x n₁ t₁) (trm_for x (val_int (n₁ + 1)) n₂ t₁))
@@ -723,9 +732,10 @@ syntax " ++ " : bop
 
 syntax "!" : uop
 syntax "-" : uop
--- syntax "ref" : uop
+syntax "ref" : uop
 syntax "free" : uop
 syntax "not" : uop
+syntax "alloc" : uop
 syntax "mkarr" : uop
 
 syntax "len" : uop
@@ -765,10 +775,10 @@ macro_rules
   | `([lang| fix $f $xs* => $t])    => do
       let xs <- xs.mapM fun x => `(term| $(%x))
       `(val_fixs $(%f) [ $xs,* ] [lang| $t])
-  -- | `([lang| ref $t])                   => `(trm_val (val_prim val_ref) [lang| $t])
+  | `([lang| ref $t])                   => `(trm_val (val_prim val_ref) [lang| $t])
   | `([lang| free $t])                  => `(trm_val (val_prim val_free) [lang| $t])
   | `([lang| not $t])                   => `(trm_val (val_prim val_not) [lang| $t])
-  -- | `([lang| alloc $n])                => `(trm_val (val_alloc) [lang| $n])
+  | `([lang| alloc $n])                 => `(trm_val (val_prim val_alloc) [lang| $n])
   | `([lang| !$t])                      => `(trm_val val_get [lang| $t])
   | `([lang| $t1 := $t2])               => `(trm_val val_set [lang| $t1] [lang| $t2])
   | `([lang| $t1 + $t2])                => `(trm_val val_add [lang| $t1] [lang| $t2])
@@ -864,7 +874,7 @@ def val_array_fill : val := [lang|
 def val_array_make : val := [lang|
   fun n v =>
     let m := n + 1 in
-    alloc m as p in
+    let p := alloc m in
     (val_set p) n ;
     (((val_array_fill p) 0) n) v ;
     p ]

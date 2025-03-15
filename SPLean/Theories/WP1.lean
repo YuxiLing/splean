@@ -1329,6 +1329,10 @@ lemma eval_like_trm_app_left t1 t1' t2 (hsat : ∃ s Q, eval s t1 Q) : eval_like
     -- unsat
     cases hsat=> //
     cases hbiop=> // }
+  { move=> ?? h ; subst_eqs
+    apply eval_app_arg1'
+    on_goal 2=> move=> ?? h ; apply h
+    apply hh ; apply eval.eval_val ; apply eval.eval_ref_prim=> // }
   { move=> p hp hread
     apply eval_app_arg1'
     on_goal 2=> move=> ?? h ; apply h
@@ -1336,6 +1340,14 @@ lemma eval_like_trm_app_left t1 t1' t2 (hsat : ∃ s Q, eval s t1 Q) : eval_like
   { move=> ?? [s [Q hsat]] *
     -- unsat
     cases hsat=> // }
+  { move=> ?? h
+    apply eval_app_arg1'
+    on_goal 2=> move=> ?? h ; apply h
+    apply hh ; apply eval.eval_val ; apply eval.eval_free=> // }
+  { move=> ?? h
+    apply eval_app_arg1'
+    on_goal 2=> move=> ?? h ; apply h
+    apply hh ; apply eval.eval_val ; apply eval.eval_alloc_prim=> // }
 
 lemma eval_like_trm_fun_val_fun_app_left (x : var) (t1 t2 : trm) :
   eval_like (trm_app (trm_fun x t1) t2) (trm_app (val_fun x t1) t2) := by
