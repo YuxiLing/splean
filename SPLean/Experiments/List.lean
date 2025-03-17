@@ -183,7 +183,7 @@ fix f p i =>
                 ) )
 
 
-lemma triple_mrev_aux : forall l  (p:loc) (i : ℤ), (i >= 0)→
+lemma triple_mget : forall l  (p:loc) (i : ℤ), (i >= 0)→
   { MList l p}
   [ mget p i ]
   { r, MList l p ∗ ⌜r=my_get l (Int.natAbs i)⌝ } :=
