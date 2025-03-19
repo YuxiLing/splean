@@ -504,7 +504,7 @@ def wpgen_for (v₁ v₂ : trm) (F1 : val -> formula) : formula :=
   mkstruct fun Q =>
     ∃ʰ n₁ n₂ : Int, ⌜v₁ = n₁⌝ ∗ ⌜v₂ = n₂⌝ ∗
       h∀ (S : Int -> formula),
-        (let F i :=
+        (letI F i :=
           if i < n₂ then
             wpgen_seq (F1 (val_int i)) (S (i + 1))
           else wpgen_val val_unit
@@ -725,7 +725,7 @@ lemma wpgen_sound t :
 by
   -- elim: t
   scase: t
-  any_goals move=> > * ; srw wpgen ; try apply mkstruct_sound=> /=
+  any_goals move=> > * ; srw wpgen=> // ; try apply mkstruct_sound=> /=
   { apply wpgen_val_sound }
   { srw formula_sound=> // }
   -- { srw wpgen_var
@@ -1246,13 +1246,13 @@ lemma AList.erase_empty {α : Type u} {β : α → Type v} [DecidableEq α] (a :
 
 -- `isubst` theory
 lemma isubst_empty t : isubst ∅ t = t := by
-  induction t using (subst.induct default default)  -- `isubst.induct` is not easily usable? same below
+  induction t using (subst.induct default)  -- `isubst.induct` is not easily usable? same below
   all_goals (simp [isubst, AList.erase]=> //)
 
 lemma isubst_perm {al al'} t (hp : al.entries.Perm al'.entries) :
   isubst al t = isubst al' t := by
   move: al al' hp
-  induction t using (subst.induct default default)=> > hp
+  induction t using (subst.induct default)=> > hp
   all_goals (simp [isubst])
   all_goals (have hh := fun a => AList.perm_erase (a := a) hp)
   all_goals (split_ands <;> (try solve
@@ -1264,7 +1264,7 @@ lemma isubst_perm {al al'} t (hp : al.entries.Perm al'.entries) :
 lemma isubst_insert (al : ctx) x v t :
   isubst (al.insert x v) t = subst x v (isubst (al.erase x) t) := by
   move: al
-  induction t using (subst.induct x v)=> >
+  induction t using (subst.induct x)=> >
   all_goals (simp [isubst, subst]=> //)
   all_goals (split_ands=> //)
   all_goals ((try split_ifs=> //) <;> (try subst_eqs))
@@ -1419,6 +1419,10 @@ lemma eval_like_trm_app_left t1 t1' t2 (hsat : ∃ s Q, eval s t1 Q) : eval_like
     -- unsat
     cases hsat=> //
     cases hbiop=> // }
+  { move=> ?? h ; subst_eqs
+    apply eval_app_arg1'
+    on_goal 2=> move=> ?? h ; apply h
+    apply hh ; apply eval.eval_val ; apply eval.eval_ref_prim=> // }
   { move=> p hp hread
     apply eval_app_arg1'
     on_goal 2=> move=> ?? h ; apply h
@@ -1426,6 +1430,14 @@ lemma eval_like_trm_app_left t1 t1' t2 (hsat : ∃ s Q, eval s t1 Q) : eval_like
   { move=> ?? [s [Q hsat]] *
     -- unsat
     cases hsat=> // }
+  { move=> ?? h
+    apply eval_app_arg1'
+    on_goal 2=> move=> ?? h ; apply h
+    apply hh ; apply eval.eval_val ; apply eval.eval_free=> // }
+  { move=> ?? h
+    apply eval_app_arg1'
+    on_goal 2=> move=> ?? h ; apply h
+    apply hh ; apply eval.eval_val ; apply eval.eval_alloc_prim=> // }
 
 lemma eval_like_trm_fun_val_fun_app_left (x : var) (t1 t2 : trm) :
   eval_like (trm_app (trm_fun x t1) t2) (trm_app (val_fun x t1) t2) := by
@@ -1472,9 +1484,9 @@ lemma eval_like_trm_apps_funs_pre (heqv0 : v0 = trm_funs xs t1) :
   apply trms_to_vals_some_equiv at hconv ; subst_eqs
   move: hform=> /== hnodup hlen hnotempty
   move: hnodup vs hlen t1
-  induction xs using List.list_reverse_induction with
-  | base => sdone
-  | ind xs x ih =>
+  induction xs using List.reverseRecOn with
+  | nil => sdone
+  | append_singleton xs x ih =>
     move=> { hnotempty } /(List.nodup_middle (l₂ := [])) /== hnotin hnodup vs hlen t1
     by_cases hvs : vs = []
     { subst vs ; simp [trm_apps]=> ⟨|//⟩ ; apply eval_like_trm_funs_val_funs=> // }
@@ -2007,7 +2019,7 @@ macro "xwp" : tactic =>
            | (apply xwp_lemma_fixs; rfl; rfl; sdone; sdone; sdone)=> //
            | (apply xwp_lemma_funs; rfl; rfl; rfl; sdone)=> //
            | apply wp_of_wpgen
-     all_goals try simp [wpgen, subst, isubst, subst, trm_apps, AList.lookup, List.dlookup]))
+     all_goals try simp [wpgen, subst, isubst, subst, trm_apps, AList.lookup, List.dlookup, List.mkAlist, List.dedupKeys, List.toAList, AList.erase, List.kerase, List.eraseP]))
 
 end Theories
 
@@ -2063,7 +2075,6 @@ lemma xfor_inv_lemma (I : Int -> hProp) (a b : Int)
   move=> sF L ![H' Ma Mb Mc]
   unfold wpgen_for
   apply himpl_trans; rotate_left; apply mkstruct_erase
-  unfold_let
   xsimp[a,b]=> //== ls
   srw OfNat.ofNat instOfNat instOfNatNat /== => hs
   -- shave-> ls hs: i + (OfNat.ofNat 1) = i + 1; sdone

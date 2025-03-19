@@ -303,7 +303,7 @@ lemma make_list_len (n : Int) (v : val) :
   (make_list n.natAbs v).length = n.natAbs := by
   elim: n=> >
   { elim: a=> > //
-    move=> ?
+    move=> ? /=
     sby srw make_list }
   elim: a=> > //
   move=> ? /=

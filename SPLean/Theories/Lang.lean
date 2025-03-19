@@ -11,10 +11,11 @@ open Classical
 /- =========================== Language Syntax =========================== -/
 
 inductive prim where
-  -- | val_ref : prim
+  | val_ref : prim
+  | val_alloc : prim
   | val_get : prim
   | val_set : prim
-  -- | val_free : prim
+  | val_free : prim
   | val_neg : prim
   | val_opp : prim
   | val_eq : prim
@@ -249,7 +250,7 @@ inductive step : state → trm → state → trm → Prop where
       step s (trm_app val_free (val_loc p)) (Finmap.erase p s) val_unit
 
 /- Multi-step relation -/
-inductive steps : state → trm → state → trm → Prop :=
+inductive steps : state → trm → state → trm → Prop where
   | steps_refl : forall s t,
       steps s t s t
   | steps_step : forall s1 s2 s3 t1 t2 t3,
@@ -484,6 +485,10 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       evalbinop op v1 v2 P ->
       purepostin s P Q ->
       eval s (trm_app (trm_app op v1) v2) Q
+  | eval_ref_prim : forall s v Q,
+      v = trm_val v' →
+      (∀ p ∉ s, Q (val_loc p) (s.insert p v')) →
+      eval s (trm_app val_ref v) Q
   | eval_ref : forall s x t1 t2 (Q Q₁ : val → state → Prop),
     eval s t1 Q₁ →
     (∀ v1 s1, Q₁ v1 s1 → ∀ p ∉ s1,
@@ -498,6 +503,18 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       p ∈ s ->
       Q val_unit (Finmap.insert p v' s) ->
       eval s (trm_app (trm_app val_set (val_loc p)) v) Q
+  | eval_free : forall s p Q,
+      p ∈ s →
+      Q val_unit (Finmap.erase p s) →
+      eval s (trm_app val_free (val_loc p)) Q
+  | eval_alloc_prim : forall (n : ℤ) (sa : state) Q,
+      n ≥ 0 →
+      (∀ (p : loc) (sb : state),
+          sb = conseq (make_list n.natAbs val_uninit) p →
+          p ≠ null →
+          Finmap.Disjoint sa sb →
+          Q (val_loc p) (sb ∪ sa) ) →
+      eval sa (trm_app val_alloc n) Q
   | eval_alloc_arg : forall s Q₁ Q,
     ¬ trm_is_val t1 →
     eval s t1 Q₁ →
@@ -511,14 +528,6 @@ inductive eval : state → trm → (val → state → Prop) -> Prop where
       Finmap.Disjoint sa sb →
       eval (sb ∪ sa) (subst x p t2) fun v s ↦ Q v (s \ sb)) →
     eval sa (trm_alloc x n t2) Q
-  -- | eval_alloc : forall (n : Int) (sa : state) Q,
-  --     n ≥ 0 →
-  --     ( forall (p : loc) (sb : state),
-  --         sb = conseq (make_list n.natAbs val_uninit) p →
-  --         p ≠ null →
-  --         Finmap.Disjoint sa sb →
-  --         Q (val_loc p) (sb ∪ sa) ) →
-  --     eval sa (trm_app val_alloc n) Q
   | eval_for (n₁ n₂ : Int) (Q : val -> state -> Prop) :
     eval s (if (n₁ < n₂) then
                (trm_seq (subst x n₁ t₁) (trm_for x (val_int (n₁ + 1)) n₂ t₁))
@@ -634,139 +643,9 @@ def eval_like (t1 t2:trm) : Prop :=
 --     scase=> //==
 --     { move=> Q1 *; exists Q1 }
 
-
-inductive evalExact : state → trm → (val → state → Prop) -> Prop where
-  | val : forall s v,
-      evalExact s (trm_val v) (fun v' s' ↦ v' = v ∧ s' = s)
-  | fun : forall s x t1,
-      evalExact s (trm_fun x t1) (fun v' s' ↦ v' = val_fun x t1 ∧ s' = s)
-  | fix : forall s f x t1,
-      evalExact s (trm_fix f x t1) (fun v' s' ↦ v' = val_fix f x t1 ∧ s' = s)
-  | app_arg1 : forall s1 t1 t2 Q1 Q,
-      ¬ trm_is_val t1 ->
-      evalExact s1 t1 Q1 ->
-      (forall v1 s2, Q1 v1 s2 -> evalExact s2 (trm_app v1 t2) Q) ->
-      evalExact s1 (trm_app t1 t2) Q
-  | app_arg2 : forall s1 (v1 : val) t2 Q1 Q,
-      ¬ trm_is_val t2 ->
-      evalExact s1 t2 Q1 ->
-      (forall v2 s2, Q1 v2 s2 -> evalExact s2 (trm_app v1 v2) Q) ->
-      evalExact s1 (trm_app v1 t2) Q
-  | app_fun : forall s1 v1 (v2 :val) x t1 Q,
-      v1 = val_fun x t1 ->
-      evalExact s1 (subst x v2 t1) Q ->
-      evalExact s1 (trm_app v1 v2) Q
-  | app_fix : forall s (v1 v2 : val) f x t1 Q,
-      v1 = val_fix f x t1 ->
-      evalExact s (subst x v2 (subst f v1 t1)) Q ->
-      evalExact s (trm_app v1 v2) Q
-  | seq : forall Q1 s t1 t2 Q,
-      evalExact s t1 Q1 ->
-      (forall v1 s2, Q1 v1 s2 -> evalExact s2 t2 Q) ->
-      evalExact s (trm_seq t1 t2) Q
-  | let : forall Q1 s x t1 t2 Q,
-      evalExact s t1 Q1 ->
-      (forall v1 s2, Q1 v1 s2 -> evalExact s2 (subst x v1 t2) Q) ->
-      evalExact s (trm_let x t1 t2) Q
-  | if : forall s (b : Bool) t1 t2 Q,
-      evalExact s (if b then t1 else t2) Q ->
-      evalExact s (trm_if (val_bool b) t1 t2) Q
-  | unop : forall op s v1 P,
-      evalunop op v1 P ->
-      evalExact s (trm_app op v1) (purepost s P)
-  | binop : forall op s (v1 v2 : val) P,
-      evalbinop op v1 v2 P ->
-      evalExact s (trm_app (trm_app op v1) v2) (purepost s P)
-  | ref : forall s x t1 t2 Q Q₁,
-    evalExact s t1 Q₁ →
-    (∀ v1 s1, Q₁ v1 s1 → ∀ p ∉ s1,
-     evalExact (s1.insert p v1) (subst x p t2) fun v s ↦ Q v (s.erase p)) →
-      evalExact s (trm_ref x t1 t2) Q
-  | get : forall s p,
-      p ∈ s ->
-      evalExact s (trm_app val_get (val_loc p))
-        (fun v' s' ↦ v' = read_state p s ∧ s' = s)
-  | set : forall s p v,
-      v = trm_val v' ->
-      p ∈ s ->
-      evalExact s (trm_app (trm_app val_set (val_loc p)) v)
-        (fun v'' s' ↦ v'' = val_unit ∧ s' = s.insert p v')
-  | alloc_arg : forall s Q₁ Q,
-    ¬ trm_is_val t1 →
-    evalExact s t1 Q₁ →
-    (∀ v' s', Q₁ v' s' → evalExact s' (trm_alloc x v' t2) Q) →
-    evalExact s (trm_alloc x t1 t2) Q
-  | alloc : forall (sa : state) (n : ℤ) Q,
-    n ≥ 0 →
-    (∀ (p : loc) (sb : state),
-      sb = conseq (make_list n.natAbs val_uninit) p →
-      p ≠ null →
-      Finmap.Disjoint sa sb →
-      evalExact (sb ∪ sa) (subst x p t2) fun v s ↦ Q v (s \ sb)) →
-    evalExact sa (trm_alloc x n t2) Q
-  -- | alloc : forall (n : Int) (sa : state),
-  --     n ≥ 0 →
-  --     evalExact sa (trm_app val_alloc n)
-  --       (fun v s ↦ ∃ p, p ≠ null ∧ v = p ∧
-  --                     sa.Disjoint (conseq (make_list n.natAbs val_uninit) p) ∧
-  --                     s = conseq (make_list n.natAbs val_uninit) p ∪ sa )
-  | for (n₁ n₂ : Int) (Q : val -> state -> Prop) :
-    evalExact s (if (n₁ < n₂) then
-               (trm_seq (subst x n₁ t₁) (trm_for x (val_int (n₁ + 1)) n₂ t₁))
-            else val_unit) Q ->
-    evalExact s (trm_for x n₁ n₂ t₁) Q
-  | while (t₁ t₂ : trm) (Q Q₁ : val -> state -> Prop) :
-    evalExact s t₁ Q₁ ->
-    (∀ s v, Q₁ v s -> evalExact s (trm_if v (trm_seq t₂ (trm_while t₁ t₂)) val_unit) Q) ->
-    evalExact s (trm_while t₁ t₂) Q
-
-
-def evalExact_ref_nonpositive s x t1 t2 (Q : val → state → Prop) :=
-  ∃ Q₁, evalExact s t1 Q₁ ∧
-  (∀ v1 s1, Q₁ v1 s1 → ∀ p ∉ s1,
-    (evalExact (s1.insert p v1) (subst x p t2) (fun v s ↦ Q v (s.erase p))))
-
 def val.is_loc : val -> Prop
   | val_loc _ => True
   | _ => False
-
--- example :
---   evalExact_ref_nonpositive ∅ "x" (trm_val (val_int 0)) (trm_var "x") fun v h => v.is_loc ∧ h = ∅ := by
---   unfold evalExact_ref_nonpositive
---   exists (fun v s ↦ v = 0 ∧ s = ∅)=> ⟨//| ⟩
---   move=> > /= [->->] > ? ; simp [subst]
---   admit
-
-lemma evalExact_post_eq :
-  Q = Q' →
-  evalExact s t Q →
-  evalExact s t Q' := by sdone
-
-lemma exact_imp_eval :
-  evalExact s t Q → eval s t Q := by
-  elim=> >
-  { sby constructor }
-  { sby constructor }
-  { sby constructor }
-  { move=> * ; sby constructor }
-  { move=> * ; sby apply eval.eval_app_arg2 }
-  { move=> * ; sby apply eval.eval_app_fun }
-  { move=> * ; sby apply eval.eval_app_fix }
-  { move=> ??? h ; apply (eval.eval_seq Q1)=>// ; exact h }
-  { move=> * ; sby constructor }
-  { move=> * ; sby constructor }
-  { move=> * ; apply eval.eval_unop=> //
-    sby unfold purepostin purepost }
-  { move=> * ; apply eval.eval_binop=> //
-    sby unfold purepostin purepost }
-  { move=> * ; sby apply eval.eval_ref }
-  { move=> * ; sby apply eval.eval_get }
-  { move=> * ; sby apply eval.eval_set }
-  { move=> * ; sby apply eval.eval_alloc_arg }
-  { move=> * ; sby apply eval.eval_alloc }
-  { move=> ?ih ; sby constructor }
-  move=> * ; sby constructor
-
 
 end eval
 
@@ -853,9 +732,10 @@ syntax " ++ " : bop
 
 syntax "!" : uop
 syntax "-" : uop
--- syntax "ref" : uop
+syntax "ref" : uop
 syntax "free" : uop
 syntax "not" : uop
+syntax "alloc" : uop
 syntax "mkarr" : uop
 
 syntax "len" : uop
@@ -895,10 +775,10 @@ macro_rules
   | `([lang| fix $f $xs* => $t])    => do
       let xs <- xs.mapM fun x => `(term| $(%x))
       `(val_fixs $(%f) [ $xs,* ] [lang| $t])
-  -- | `([lang| ref $t])                   => `(trm_val (val_prim val_ref) [lang| $t])
+  | `([lang| ref $t])                   => `(trm_val (val_prim val_ref) [lang| $t])
   | `([lang| free $t])                  => `(trm_val (val_prim val_free) [lang| $t])
-  | `([lang| not $t])                   => `(trm_val (val_prim val_neg) [lang| $t])
-  -- | `([lang| alloc $n])                => `(trm_val (val_alloc) [lang| $n])
+  | `([lang| not $t])                   => `(trm_val (val_prim val_not) [lang| $t])
+  | `([lang| alloc $n])                 => `(trm_val (val_prim val_alloc) [lang| $n])
   | `([lang| !$t])                      => `(trm_val val_get [lang| $t])
   | `([lang| $t1 := $t2])               => `(trm_val val_set [lang| $t1] [lang| $t2])
   | `([lang| $t1 + $t2])                => `(trm_val val_add [lang| $t1] [lang| $t2])
@@ -921,9 +801,6 @@ macro_rules
   | `([lang| while $c:lang { $t:lang } ]) =>
      `(trm_while [lang| $c] [lang| $t] )
 
-/-
-
--/
 open Lean Elab Term
 elab_rules : term
   | `([lang| ⟨$t⟩]) => do
@@ -972,7 +849,6 @@ elab_rules : term
       elabTerm f none
 
 
--- #print foo
 def val_abs : val := [lang|
   fun i =>
     let c := i < 0 in
@@ -1028,7 +904,7 @@ def val_array_fill : val := [lang|
 def val_array_make : val := [lang|
   fun n v =>
     let m := n + 1 in
-    alloc m as p in
+    let p := alloc m in
     (val_set p) n ;
     (((val_array_fill p) 0) n) v ;
     p ]
@@ -1292,6 +1168,17 @@ instance : Coe ℝ val := ⟨val_real⟩
     let f := Lean.mkIdent $ Lean.Name.mkSimple f.getString
     `([lang| fix $f $xs* => $t])
   | _ => throw ( )
+
+-- taken from https://github.com/leanprover/vstte2024/blob/main/Imp/Expr/Syntax.lean
+open Lean PrettyPrinter Parenthesizer in
+@[category_parenthesizer lang]
+def lang.parenthesizer : CategoryParenthesizer | prec => do
+  maybeParenthesize `lang true wrapParens prec $
+    parenthesizeCategoryCore `lang prec
+where
+  wrapParens (stx : Syntax) : Syntax := Unhygienic.run do
+    let pstx ← `(($(⟨stx⟩)))
+    return pstx.raw.setInfo (SourceInfo.fromRef stx)
 
 -- set_option pp.notation false
 -- #check [lang| x[3] ]

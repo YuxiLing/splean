@@ -2,7 +2,6 @@ import Lean
 
 import Mathlib.Data.Finmap
 import Mathlib.Algebra.Group.Basic
-import Mathlib.Algebra.BigOperators.Group.Finset
 import Mathlib.Algebra.BigOperators.Intervals
 import Mathlib.Data.Int.Interval
 import Mathlib.Order.Interval.Finset.Basic
@@ -12,6 +11,7 @@ import Batteries.Data.List.Perm
 import Ssreflect.Lang
 
 open Classical
+open Std (Commutative Associative)
 
 abbrev loc := Nat
 abbrev var := String
@@ -37,13 +37,13 @@ lemma Option.merge_none_l (a : Option α) : Option.merge f none a = a := by case
 
 lemma Option.merge_none_r (a : Option α) : Option.merge f a none = a := by cases a <;> rfl
 
-lemma Option.merge_comm (h : Commutative f) (a b : Option α) :
+lemma Option.merge_comm [h : Commutative f] (a b : Option α) :
   Option.merge f a b = Option.merge f b a := by
-  cases a <;> cases b <;> simp [Option.merge] ; apply h
+  cases a <;> cases b <;> simp [Option.merge] ; apply h.comm
 
-lemma Option.merge_assoc (h : Associative f) (a b c : Option α) :
+lemma Option.merge_assoc [Associative f] (a b c : Option α) :
   Option.merge f (Option.merge f a b) c = Option.merge f a (Option.merge f b c) := by
-  cases a <;> cases b <;> cases c <;> simp [Option.merge] ; apply h
+  cases a <;> cases b <;> cases c <;> simp [Option.merge] ; ac_rfl
 
 end Option.merge
 
@@ -163,14 +163,14 @@ lemma kmerge_comm_perm (l₁ l₂ : List (Sigma (fun _ : loc => val))) (nd₁ : 
   apply List.lookup_ext <;> try (apply kmerge_NodupKeys=> //)
   move=> l v
   srw !kmerge_dlookup=> //
-  srw Option.merge_comm=> // ; apply add_comm
+  srw Option.merge_comm=> //
 
 lemma kmerge_assoc_perm (l₁ l₂ l₃ : List (Sigma (fun _ : loc => val))) (nd₁ : l₁.NodupKeys) (nd₂ : l₂.NodupKeys) (nd₃ : l₃.NodupKeys) :
   (kmerge (kmerge l₁ l₂) l₃).Perm $ (kmerge l₁ (kmerge l₂ l₃)) := by
   apply List.lookup_ext <;> try (repeat'(apply kmerge_NodupKeys=> //))
   move=> l v
   (srw !kmerge_dlookup=> //) <;> try (repeat'(apply kmerge_NodupKeys=> //))
-  rw [Option.merge_assoc]=> // ; apply add_assoc
+  rw [Option.merge_assoc]=> //
 
 noncomputable def AList.merge (h₁ h₂ : AList (fun _ : loc => val)) :  AList (fun _ : loc => val) :=
   ⟨kmerge h₁.entries h₂.entries, by
@@ -266,7 +266,7 @@ lemma Heap.addE_of_disjoint (h₁ h₂ : heap) :
 infixr:55 " ⊥ʰ " => validInter
 
 lemma validInter_comm (h₁ h₂ : heap) :
-  h₁ ⊥ʰ h₂ = h₂ ⊥ʰ h₁ := by simp [validInter]; apply Iff.intro=> ???? <;> srw [1](Option.merge_comm _ add_comm)=> //
+  h₁ ⊥ʰ h₂ = h₂ ⊥ʰ h₁ := by simp [validInter]; apply Iff.intro=> ???? <;> srw [1](Option.merge_comm)=> //
 
 lemma validInter_empty_r (h : heap) : h ⊥ʰ ∅ := by simp [validInter, Finmap.not_mem_empty]
 
@@ -286,21 +286,17 @@ lemma validInter_assoc_l (h₁ h₂ h₃ : heap) :
   move=> h1 h2 l hin1 /[tac (specialize h1 _ hin1 ; specialize h2 _ (Or.intro_left _ hin1))] [ hin2 | hin3 ]
   { rcases h : Finmap.lookup l h₃
     { rw [Option.merge_none_r] ; aesop }
-    { srw h at h2 ; rw [← Option.merge_assoc, h2] ; apply Finmap.mem_of_lookup_eq_some at h=> //
-      apply add_assoc } }
-  { rw [← Option.merge_assoc, h2]=> //
-    apply add_assoc }
+    { srw h at h2 ; rw [← Option.merge_assoc, h2] ; apply Finmap.mem_of_lookup_eq_some at h=> // } }
+  { rw [← Option.merge_assoc, h2]=> // }
 
 lemma validInter_assoc_r (h₁ h₂ h₃ : heap) :
   h₂ ⊥ʰ h₃ -> h₁ ⊥ʰ (h₂ +ʰ h₃) -> (h₁ +ʰ h₂) ⊥ʰ h₃ := by
   simp [validInter]
   move=> h1' h2' l /[swap] hin3 /[tac (have h1 := (fun H => h1' _ H hin3) ; have h2 := (fun H => h2' _ H (Or.intro_right _ hin3)) ; clear h1' h2')] [ hin1 | hin2 ]
-  { rw [Option.merge_assoc, h2]=> //
-    apply add_assoc }
+  { rw [Option.merge_assoc, h2]=> // }
   { rcases h : Finmap.lookup l h₁
     { rw [Option.merge_none_l] ; aesop }
-    { srw h at h2 ; rw [Option.merge_assoc, h2] ; apply Finmap.mem_of_lookup_eq_some at h=> //
-      apply add_assoc } }
+    { srw h at h2 ; rw [Option.merge_assoc, h2] ; apply Finmap.mem_of_lookup_eq_some at h=> // } }
 
 lemma validInter_hop_distr_l (h₁ h₂ h₃ : heap) :
   (h₁ +ʰ h₂) ⊥ʰ h₃ -> (h₁ ⊥ʰ h₃ ∧ h₂ ⊥ʰ h₃) := by
@@ -366,8 +362,6 @@ lemma validInter_disjoint (h₁ h₂ : Heap.heap val) :
     move=> []//
   simp [Finmap.Disjoint, hh]=> ⟨|⟩ <;> (try solve
     | aesop)
-  move=> h x h1 h2 ; specialize h x h1 h2 ; move: h=> /==
-  srw -hh ; congr ; ext ; congr   -- ???
 
 @[simp]
 lemma Heap.add_union_validInter (h₁ h₂ : Heap.heap val) {h : h₁ ⊥ʰ h₂} :
@@ -397,18 +391,18 @@ lemma Int.Ico_succ_right_eq_insert_Ico (h : i ≤ j) : ⟦i, j+1⟧ = insert j �
 
 lemma sum_Ico_succl {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
   i < j ->
-  ∑ i in ⟦i, j⟧, f i = f i + ∑ i in ⟦i+1, j⟧, f i := by
+  ∑ i ∈ ⟦i, j⟧, f i = f i + ∑ i ∈ ⟦i+1, j⟧, f i := by
   move=> h
   have ha : i ∉ ⟦i+1, j⟧ := by simp
   rw [← Finset.sum_insert ha, Int.Ico_insert_succ_left h]
 
 lemma sum_Ico_succlr {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
-  ∑ i in ⟦i, j⟧, f (i+1) = ∑ i in ⟦i+1, j+1⟧, f i := by
+  ∑ i ∈ ⟦i, j⟧, f (i+1) = ∑ i ∈ ⟦i+1, j+1⟧, f i := by
   rw [← Finset.map_add_right_Ico, Finset.sum_map]=> //
 
 lemma sum_Ico_predr {_ : AddCommMonoid M} (f : Int -> M) (i j : Int) :
   i < j ->
-  ∑ i in ⟦i, j⟧, f i = (∑ i in ⟦i, j - 1⟧, f i) + f (j -1) := by
+  ∑ i ∈ ⟦i, j⟧, f i = (∑ i ∈ ⟦i, j - 1⟧, f i) + f (j -1) := by
   move=> h
   have ha : i ≤ j - 1 := by linarith
   have hb := Int.Ico_succ_right_eq_insert_Ico ha

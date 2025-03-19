@@ -38,7 +38,7 @@ lemma triple_harrayFun_set (f : ℤ -> val) (p : loc) (i : Int) (v : val) :
   xapp triple_array_set; xsimp
   shave->//: (@List.ofFn _ n fun x ↦ f x).set i.natAbs v =
           @List.ofFn _ n ((Function.update f i v) ·)
-  { apply List.ext_getElem=> //== ???
+  { apply List.ext_getElem=> //== ??
     srw List.getElem_set /== Function.update /==
     scase_if=> ?
     { srw if_pos; omega }

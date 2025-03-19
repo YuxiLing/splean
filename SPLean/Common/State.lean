@@ -289,7 +289,7 @@ lemma non_mem_diff_helper2 (h₁ : state) (l : @AList loc fun _ ↦ val) :
   p ∈ List.foldl (fun d s ↦ Finmap.erase s.fst d) h₁ l.entries := by
   elim: l h₁=> //
   move=> > ? ih >
-  srw AList.insert_entries List.foldl_cons=> /=
+  srw AList.entries_insert List.foldl_cons=> /=
   srw List.kerase_of_not_mem_keys=> // ?
   apply ih
   sby srw Finmap.erase_erase
@@ -302,7 +302,7 @@ theorem mem_diff_r (h₁ h₂ : state) :
   elim: a
   { sdone }
   move=> > ih1 ih2
-  srw AList.insert_entries List.foldl_cons=> /=
+  srw AList.entries_insert List.foldl_cons=> /=
   srw List.kerase_of_not_mem_keys=> //== ? ⟨|⟩
   { sby apply non_mem_diff_helper1 }
   apply ih2
@@ -329,7 +329,7 @@ lemma mem_diff_helper (h₁ : state) (l : @AList loc fun _ ↦ val) :
   move=> ? ih > /== ?
   srw List.kerase_of_not_mem_keys=> //
   srw Finmap.erase_erase=> ???
-  apply (@mem_erase_right p a_1 h₁)
+  apply (@mem_erase_right a_1 p h₁)
   sby apply ih=> // /list_foldl_erase_mem
 
 theorem mem_diff_l (h₁ h₂ : state) :
@@ -339,7 +339,7 @@ theorem mem_diff_l (h₁ h₂ : state) :
   unfold Finmap.instSDiff Finmap.sdiff Finmap.foldl=> /=
   elim: a=> > //
   move=> ? ih
-  srw AList.insert_entries List.foldl_cons=> /=
+  srw AList.entries_insert List.foldl_cons=> /=
   srw List.kerase_of_not_mem_keys=> //
   sby apply mem_diff_helper
 

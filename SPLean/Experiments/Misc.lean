@@ -1,5 +1,5 @@
 import Mathlib.Data.Int.Interval
-import Mathlib.Tactic
+import Mathlib.Tactic.Common
 
 import SPLean.Theories.WP1
 import SPLean.Theories.Lang
@@ -24,20 +24,12 @@ open Theories prim val trm
 
 namespace Lang
 
-
-
-
-/-This is DSL teesult
+/- This is DSL term declaration. For now we only support reasoning about terms in SSA-normal form -/
+lang_def incr :=
   fun p =>
     let x := !p in
     let x := x + 1 in
     p := x
-
-
-
-
-
-
 
 -- set_option pp.all true in #print incr
 
@@ -51,7 +43,7 @@ macro_rules
 
 @[xapp] -- Another way to add a triple lemma to a hint database
 lemma incr_spec (p : loc) (n : Int) :
-  { p ~~> n }esult
+  { p ~~> n }
   [ ++p ]
   { p ~~> val_int (n + 1) } := by
   xstep triple_get -- Tactic for a one step of symbolic execution;
@@ -102,7 +94,6 @@ lang_def findIdx :=
 
 attribute [simp] is_true
 
-
 set_option maxHeartbeats 1600000
 lemma findIdx_spec (arr : loc) (f : ℤ -> ℝ) (target : ℝ)
   (z n : ℤ) (_ : z <= n) (_ : 0 <= z) (N : ℕ) (_ : n <= N) :
@@ -119,13 +110,8 @@ lemma findIdx_spec (arr : loc) (f : ℤ -> ℝ) (target : ℝ)
     p ~~> i ∗
     ⌜cond i = b⌝ ∗
     arr(arr, x in N => f x)) N
-  { xsimp [(decide (cond z))]
-    simp
-    aesop
-    simp
-  }
-  { --move=> b i
-    intro b i
+  { xsimp [(decide (cond z))]=> //; }
+  { move=> b i
     xstep=> ?; srw cond /== => condE
     xstep
     xif=> //== iL
@@ -138,10 +124,8 @@ lemma findIdx_spec (arr : loc) (f : ℤ -> ℝ) (target : ℝ)
       srw Function.invFunOn_app_eq // }
     xval; xsimp=> //
     scase: b condE=> //==; omega }
-
-
-  /-{ move=> i;
-    xapp=> /== ?? fE ?; srw cond /== => fInvE
+  { move=> i;
+    xapp=> /== ?? fE; srw cond /== => ? fInvE
     xsimp [(decide (cond (i + 1))), i+1]=> //
     { move=> ⟨|⟨|⟩⟩ <;> try omega
       move=> j *; scase: [j = i]=> [?|->]
@@ -163,5 +147,3 @@ lemma findIdx_spec' (arr : loc) (f : Int -> ℝ)
   move=> inj iin
   xapp findIdx_spec; xsimp=> /=
   rw [Function.invFunOn_app_eq f inj iin]
--/
--/
