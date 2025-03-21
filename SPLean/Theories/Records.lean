@@ -62,7 +62,7 @@ by
     intro a b H
     simp at H
     symm at H
-    simp[List.range'_eq_nil] at H
+    --simp[List.range'_eq_nil] at H
     aesop
   | cons x xs Ih =>
     intro s n H
