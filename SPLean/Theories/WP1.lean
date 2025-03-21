@@ -1600,9 +1600,9 @@ lemma isubst_cons : forall x v (xvs:ctx) t,
 by
   intro x v xvs t
   revert xvs -- generalizing
-  induction t using (subst.induct x v) with
+  induction t using (subst.induct default/-x v-/) with
   | case1 v' =>
-    intro al; simp[isubst]
+    intro al; simp[isubst, subst]
   | case2 x' =>
     intro al
     simp[isubst, subst]
@@ -1615,7 +1615,7 @@ by
       simp[lookup_insert_ne h, isubst]
   | case3 x' t1 ih1 =>
     intros xvs
-    simp[isubst]
+    simp[isubst, subst]
     cases Classical.em (x' = x) with
     | inl h =>
       rw [h]
@@ -1625,7 +1625,7 @@ by
       simp[isubst_erase_insert1 _ _ _ _ h]
   | case4 f x' t1 ih1 =>
     intros xvs
-    simp[isubst]
+    simp[isubst, subst]
     cases Classical.em (x' = f) with
     | inl h =>
       rw [h]
@@ -1662,19 +1662,19 @@ by
   | case5 t1 t2 ih2 ih1 =>
     intro xvs
     -- add @[simp] to isubst
-    simp[isubst]
+    simp[isubst, subst]
     apply And.intro -- constructor <;> solve_by_elim
     { apply ih2 }
     { apply ih1 }
   | case6 t1 t2 ih2 ih1 =>
     intro xvs
-    simp[isubst]
+    simp[isubst, subst]
     apply And.intro
     { apply ih2 }
     { apply ih1 }
   | case7 x' t1 t2 ih2 ih1 =>
     intro xvs
-    simp[isubst]
+    simp[isubst, subst]
     apply And.intro
     { apply ih2 }
     { cases Classical.em (x' = x) with
@@ -1687,13 +1687,13 @@ by
       simp[isubst_erase_insert1 _ _ _ _ h] }
   | case8 t0 t1 t2 ih3 ih2 ih1 =>
     intro xvs
-    simp[isubst]
+    simp[isubst, subst]
     apply And.intro
     { apply ih3}
     { apply And.intro; apply ih2; apply ih1 }
   | case9 x' t1 t2 t3 ih3 ih2 ih1 =>
     intro xvs
-    simp[isubst]
+    simp[isubst, subst]
     apply And.intro
     { apply ih3 }
     { apply And.intro; apply ih2
@@ -1708,13 +1708,13 @@ by
      }
   | case10 t1 t2 ih2 ih1 =>
     intro xvs
-    simp[isubst]
+    simp[isubst, subst]
     apply And.intro
     { apply ih2}
     { apply ih1 }
   | case11 x' t1 t2 ih2 ih1 =>
     intro xvs
-    simp[isubst]
+    simp[isubst, subst]
     apply And.intro
     { apply ih2 }
     {
@@ -1728,7 +1728,7 @@ by
      }
   | case12 x' t1 t2 ih2 ih1 =>
     intro xvs
-    simp[isubst]
+    simp[isubst, subst]
     apply And.intro
     { apply ih2 }
     { cases Classical.em (x' = x) with
