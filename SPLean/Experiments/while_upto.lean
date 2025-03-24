@@ -65,11 +65,6 @@ by
   | hwf => apply (upto_Wf finish)
   | h s' ih =>
     intro HI Hlen
-    sorry
-
-
-
-    /-
     xwp
     xlet
     xstep triple_eq
@@ -119,4 +114,3 @@ by
         omega
       }
     }
--/

@@ -1,5 +1,4 @@
 
-/-
 import Mathlib.Data.Int.Interval
 import Mathlib.Tactic
 
@@ -39,18 +38,13 @@ namespace Lang
 lang_def array_exists  :=
 fun a f N =>
   ref result := false in
-    let my_fun := (fun_ i/-a result f-/=>
+    let my_fun := (fun_ i=>
       let tmp := a[i] in
         let tmp1 := f tmp in
           result := tmp1;
       let tmp_result := !result in
         not tmp_result) in
-    let r := (while_upto 0 N my_fun/-(fun_ i/-a result f-/=>
-      let tmp := a[i] in
-        let tmp1 := f tmp in
-          result := tmp1;
-      let tmp_result := !result in
-        not tmp_result)-/ /-a result f-/ ) in
+    let r := (while_upto 0 N my_fun ) in
       let res := !result in
         res
 
@@ -103,7 +97,9 @@ lemma array_exists_spec :
   { b, ⌜b = existsb l fp⌝  ∗  harray l a  } :=
 by
   intro a f l fp N H Hf
+  --dsimp [array_exists, trm_funs]
   xref
+
   xwp
   xlet
   xwp
@@ -159,4 +155,3 @@ by
       have tmp : (i + 1).natAbs = i.natAbs + 1 := by omega;
       simp[tmp]
       apply Bool.not_inj;  aesop; omega } }
--/
