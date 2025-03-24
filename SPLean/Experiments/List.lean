@@ -230,7 +230,7 @@ induction l using WellFounded.induction (r:= list_sub) with
   { omega }
   have tmp : (i-1).natAbs = (i).natAbs-1 := by omega
   have tmp1 : ¬((i).natAbs = 0) := by omega
-  rw[my_get]
+  simp[my_get]
   generalize ht :  (i).natAbs = y
   cases y
   { aesop }

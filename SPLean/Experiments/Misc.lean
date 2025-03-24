@@ -4,6 +4,7 @@ import Mathlib.Tactic.Common
 import SPLean.Theories.WP1
 import SPLean.Theories.Lang
 import SPLean.Theories.ArraysFun
+import SPLean.Theories.Records
 
 section find_index
 
@@ -51,7 +52,61 @@ lemma incr_spec (p : loc) (n : Int) :
   xstep            -- Or you can let the tactic choose the lemma for a current pgrogram from [xapp] hint database
   xstep
 
+lang_def decr :=
+  fun p =>
+    let x := !p in
+    let x := x - 1 in
+    p := x
 
+
+lemma decr_spec (p : loc) (n : Int) :
+  { p ~~> n }
+  [ decr p ]
+  { p ~~> val_int (n - 1) } := by
+  xstep triple_get
+  xstep
+  xstep
+
+lang_def mysucc :=
+  fun n =>
+    let r := ref n in
+    incr r;
+    let x := !r in
+    free r;
+    x
+
+lemma mysucc_spec (n : Int) :
+  { ⌜True⌝ }
+  [ mysucc n ]
+  { v, ⌜v = val_int (n + 1)⌝ } := by
+  xwp
+  xlet
+  xapp triple_ref_prim
+  intros r
+  xstep
+  xstep
+  xstep triple_free
+  xval
+  xsimp
+
+lang_def myfun :=
+  fun p  =>
+    let f := fun_ u => incr p in
+    f();
+    f()
+
+lemma myfun_spec (p : loc) (n : Int) :
+  { p ~~> n }
+  [ myfun p ]
+  { p ~~> val_int (n + 2) } := by
+  xwp
+  xlet
+  xapp triple_fun
+  {sorry}
+  {sorry}
+  {
+    sorry
+  }
 
 
 lang_def add_pointer :=
