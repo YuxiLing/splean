@@ -7,7 +7,7 @@ This project provides a Separation Logic framework for simple heap-manipulating 
 To build this project tun 
 
 ```
-lake exe cache get;
+lake exe cache get; lake build
 
 ```
 

@@ -2019,7 +2019,7 @@ macro "xwp" : tactic =>
            | (apply xwp_lemma_fixs; rfl; rfl; sdone; sdone; sdone)=> //
            | (apply xwp_lemma_funs; rfl; rfl; rfl; sdone)=> //
            | apply wp_of_wpgen
-     all_goals try simp [wpgen, subst, isubst, subst, trm_apps, AList.lookup, List.dlookup, List.mkAlist, List.dedupKeys, List.toAList, AList.erase, List.kerase, List.eraseP]))
+     all_goals try simp [wpgen, subst, isubst, subst, trm_apps, AList.lookup, List.dlookup , List.mkAlist, List.dedupKeys, List.toAList, AList.erase, List.kerase, List.eraseP]))
 
 end Theories
 

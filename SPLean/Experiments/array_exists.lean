@@ -1,3 +1,5 @@
+
+/-
 import Mathlib.Data.Int.Interval
 import Mathlib.Tactic
 
@@ -157,3 +159,4 @@ by
       have tmp : (i + 1).natAbs = i.natAbs + 1 := by omega;
       simp[tmp]
       apply Bool.not_inj;  aesop; omega } }
+-/
